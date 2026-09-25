@@ -927,21 +927,21 @@ class ParameterOptimization:
         """This function converts the arrays from the GP-BO trials into a DataFrame."""
 
         if self.try_num_leaves and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves'])
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'max_depth', 'num_leaves'])
         elif self.try_max_depth and not(self.try_num_iter):
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction'])
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'n_iter'])
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves', 'n_iter'])
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and self.try_num_iter:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'max_depth', 'num_leaves', 'n_iter'])
         # Convert the 'score' array into a column for the DataFrame
         df['val_score'] = func_vals
 
