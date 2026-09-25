@@ -421,6 +421,7 @@ class ParameterOptimization:
                     'learning_rate': trial.suggest_float('learning_rate', 0.001, 1),
                     'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 1000),
                     'lambda_l2': trial.suggest_float('lambda_l2', 0, 100),
+                    'lambda_l1': trial.suggest_float('lambda_l1', 0, 100),
                     'max_bin': trial.suggest_int('max_bin', 255, self.max_bin_val),
                     'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1),
                     'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1)
@@ -901,14 +902,14 @@ class ParameterOptimization:
     def _modify_df_for_tpe(self, df):
         """This function modifies the DataFrame for the TPE method."""
         # Drop unnecessary columns from the DataFrame with the trials
-        df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'duration', 'state'], inplace=True)
+        df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'duration', 'state', 'system_attrs_tpe:relative_params:0'], inplace=True)
         if self.try_num_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'num_leaves']
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin','max_depth', 'min_data_in_leaf', 'num_leaves']
         elif self.try_max_depth and not(self.try_num_iter):
-            df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
             df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf','n_iter','num_leaves']
