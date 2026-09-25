@@ -299,8 +299,7 @@ class ParameterOptimization:
             'learning_rate': [0.01, 0.1, 1],
             'min_data_in_leaf': [10, 100, 1000],
             'max_depth': [1, 2, 3, 5, 10],
-            'lambda_l2': [0, 1, 10],
-            'lambda_l1': [0, 1, 10]
+            'lambda_l2': [0, 1, 10]
         }
         if num_try_random is None:
             param_grid['bagging_fraction'] = [0.5, 1]
@@ -311,7 +310,7 @@ class ParameterOptimization:
             param_grid['learning_rate'].append(0.001)
             param_grid['min_data_in_leaf'].append(1)
             param_grid['lambda_l2'].append(100)
-            param_grid['lambda_l1'].append(100)
+            param_grid['lambda_l1'] = [0, 1, 10, 100]
 
             # Add new parameters to the grid
             param_grid['max_bin'] = [255, 500, 1000, self.max_bin_val]
