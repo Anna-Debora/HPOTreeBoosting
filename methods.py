@@ -302,6 +302,8 @@ class ParameterOptimization:
             'lambda_l2': [0, 1, 10],
             'lambda_l1': [0, 1, 10]
         }
+        if num_try_random is None:
+            param_grid['bagging_fraction'] = [0.5, 1]
 
         # Change the grid for random search
         if num_try_random is not None:
@@ -381,7 +383,7 @@ class ParameterOptimization:
         df_trials = self._convert_dict_to_df(opt_params['all_combinations'])
         if num_try_random is None:
             df_trials['max_bin'] = 255
-            df_trials['bagging_fraction'] = 1
+            # df_trials['bagging_fraction'] = 1
             df_trials['feature_fraction'] = 1
             df_trials['val_score'] = df_trials.pop('val_score')
 
@@ -609,6 +611,7 @@ class ParameterOptimization:
                         'learning_rate': trial.suggest_float(f'learning_rate_{trial.number}_{i}', 0.001, 1),
                         'min_data_in_leaf': trial.suggest_int(f'min_data_in_leaf_{trial.number}_{i}', 1, 1000),
                         'lambda_l2': trial.suggest_float(f'lambda_l2_{trial.number}_{i}', 0, 100),
+                        'lambda_l1': trial.suggest_float(f'lambda_l1_{trial.number}_{i}', 0, 100),
                         'max_bin': trial.suggest_int(f'max_bin_{trial.number}_{i}', 255, self.max_bin_val),
                         'bagging_fraction': trial.suggest_float(f'bagging_fraction_{trial.number}_{i}', 0.5, 1),
                         'feature_fraction': trial.suggest_float(f'feature_fraction_{trial.number}_{i}', 0.5, 1)
@@ -676,7 +679,7 @@ class ParameterOptimization:
         df_trials['try_num_iter'] = self.try_num_iter
         #reorder the columns
         #print('Here are the columns:',df_trials.columns)
-        df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
+        df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
         return df_trials 
 
 
