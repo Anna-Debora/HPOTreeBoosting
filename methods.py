@@ -499,6 +499,7 @@ class ParameterOptimization:
             Integer(1, 1000, name='min_data_in_leaf'),
             Integer(1, 10, name='max_depth'),
             Real(0, 100, name='lambda_l2'),
+            Real(0, 100, name='lambda_l1'),
             Integer(255, self.max_bin_val, name='max_bin'),
             Real(0.5, 1, name='bagging_fraction'),
             Real(0.5, 1, name='feature_fraction')
@@ -931,7 +932,7 @@ class ParameterOptimization:
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves'])
         elif self.try_max_depth and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction'])
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','n_iter'])
