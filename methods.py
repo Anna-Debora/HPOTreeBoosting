@@ -107,7 +107,7 @@ class ParameterOptimization:
                 trials_random_search = self.grid_search_method(
                     X_train_full=X_train_full, y_train_full=y_train_full, 
                     X_test=X_test, y_test=y_test, 
-                    num_try_random=135 
+                    num_try_random=270 
                 )
                 trials_tpe = self.tpe_method(
                     X_train_full=X_train_full, y_train_full=y_train_full,
@@ -121,7 +121,7 @@ class ParameterOptimization:
                 trials_random_search = self.grid_search_method(
                     X_train_full=X_train_full, y_train_full=y_train_full, 
                     X_test=X_test, y_test=y_test, 
-                    num_try_random=135 
+                    num_try_random=270 
                 )
                 trials_tpe = self.tpe_method(
                     X_train_full=X_train_full, y_train_full=y_train_full,
@@ -161,7 +161,7 @@ class ParameterOptimization:
             trials_random_search = self.grid_search_method(
                 X_train_full=X_train_full, y_train_full=y_train_full, 
                 X_test=X_test, y_test=y_test, 
-                num_try_random=135
+                num_try_random=270
             )
             trials = eval('trials_random_search')
             trials['fold'] = fold
@@ -452,7 +452,7 @@ class ParameterOptimization:
             return score
 
         study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler(seed=self.seed))
-        study.optimize(objective_opt, n_trials=135) 
+        study.optimize(objective_opt, n_trials=270) 
         
         df = study.trials_dataframe()
         #print('Column names of the dataframe returned by TPE:', df.columns)
@@ -544,7 +544,7 @@ class ParameterOptimization:
 
             return score
 
-        result = gp_minimize(objective_gp_bo, space, n_calls=135, random_state=self.seed)  
+        result = gp_minimize(objective_gp_bo, space, n_calls=270, random_state=self.seed)  
 
         # Restore the 'numpy' module to its original state
         delattr(np, 'int')
