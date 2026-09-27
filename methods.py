@@ -33,7 +33,7 @@ class ParameterOptimization:
     """This class is used to perform hyperparameter tuning using the proposed methods and to evaluate the model obtained using the best hyperparameters."""
 
     def __init__(self, X, y, categorical_indicator, suite_id, test_size=0.2, val_size=0.2, try_num_leaves=False, seed=42,joint_tuning_depth_leaves = False,try_num_iter = False, 
-                hyperband = False, try_max_depth = True):
+                hyperband = False, try_max_depth = True, library="gpboost"):
         if  (try_max_depth and try_num_leaves) or (try_num_leaves and joint_tuning_depth_leaves) or (try_max_depth and joint_tuning_depth_leaves):
             raise ValueError("You can only perform num_leaves, max_depth or joint_tuning at the same time.")
         self.seed = seed
@@ -57,6 +57,7 @@ class ParameterOptimization:
         self.test_size = test_size
         self.val_size = val_size
         self.suite_id = suite_id
+        self.library = library
         #All options for tuning
         self.try_num_leaves = try_num_leaves
         self.joint_tuning_depth_leaves = joint_tuning_depth_leaves
@@ -312,7 +313,7 @@ class ParameterOptimization:
         
         params = {}
         y_pred, _ = self._train_and_predict(
-            library="gpboost",
+            library=self.library,
             X_train=X_train_full,
             y_train=y_train_full,
             X_predict=X_test,
@@ -831,7 +832,7 @@ class ParameterOptimization:
 
     def _train_model_default(self,X_train, y_train, X_val, y_val):
         y_pred, best_iter = self._train_and_predict(
-            library="gpboost",
+            library=self.library,
             X_train=X_train,
             y_train=y_train,
             X_predict=X_val,
@@ -865,7 +866,7 @@ class ParameterOptimization:
                 "verbose_eval": False,
             }
         y_pred, best_iter = self._train_and_predict(
-            library="gpboost",
+            library=self.library,
             X_train=X_train,
             y_train=y_train,
             X_predict=X_val,
@@ -907,7 +908,7 @@ class ParameterOptimization:
                     "verbose_eval": False,
                 }
             y_pred, _ = self._train_and_predict(
-                library="gpboost",
+                library=self.library,
                 X_train=X_train_full,
                 y_train=y_train_full,
                 X_predict=X_test,
