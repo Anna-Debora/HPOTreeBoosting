@@ -14,6 +14,7 @@ import random
 import re
 import copy
 import gpboost as gpb
+import xgboost as xgb
 import numpy as np
 import optuna
 import pandas as pd
@@ -229,17 +230,74 @@ class ParameterOptimization:
     def _train_and_predict(self, library, X_train, y_train, X_predict, train_options,
                            X_valid=None, y_valid=None):
         """Train with the selected library and return predictions and best iteration."""
-        if library != "gpboost":
+        if library == "gpboost":
+            train_kwargs = dict(train_options)
+            train_kwargs["train_set"] = gpb.Dataset(X_train, label=y_train)
+            if X_valid is not None:
+                train_kwargs["valid_sets"] = [gpb.Dataset(X_valid, label=y_valid)]
+
+            bst = gpb.train(**train_kwargs)
+            y_pred = bst.predict(data=X_predict, pred_latent=False)
+            return y_pred, bst.best_iteration
+
+        if library == "xgboost":
+            xgb_train = xgb.DMatrix(X_train, label=y_train)
+            xgb_valid = None
+            if X_valid is not None:
+                xgb_valid = xgb.DMatrix(X_valid, label=y_valid)
+
+            xgb_options = dict(train_options)
+            params = xgb_options.pop("params", {}).copy()
+            num_boost_round = xgb_options.pop("num_boost_round", None)
+            early_stopping_rounds = xgb_options.pop("early_stopping_rounds", None)
+            verbose_eval = xgb_options.pop("verbose_eval", False)
+
+            param_translation = {
+                "lambda_l1": "reg_alpha",
+                "lambda_l2": "reg_lambda",
+                "min_data_in_leaf": "min_child_weight",
+                "bagging_fraction": "subsample",
+                "feature_fraction": "colsample_bytree",
+            }
+            translated_params = {}
+            for name, value in params.items():
+                if name == "num_leaves" or name == "n_iter" or name in {
+                    "verbose", "metric", "objective"
+                }:
+                    continue
+                translated_params[param_translation.get(name, name)] = value
+
+            translated_params["objective"] = (
+                "binary:logistic" if self.suite_id in [334, 337]
+                else "reg:squarederror"
+            )
+            translated_params["tree_method"] = "hist"
+            if "metric" in params:
+                metric = params["metric"]
+                translated_params["eval_metric"] = (
+                    "error" if metric == "binary_error" else metric
+                )
+
+            if num_boost_round is None:
+                num_boost_round = params.get("n_iter", 10)
+            xgb_train_options = {
+                "params": translated_params,
+                "dtrain": xgb_train,
+                "num_boost_round": int(num_boost_round),
+                "verbose_eval": verbose_eval,
+            }
+            if xgb_valid is not None:
+                xgb_train_options["evals"] = [(xgb_valid, "validation")]
+            if early_stopping_rounds is not None:
+                xgb_train_options["early_stopping_rounds"] = early_stopping_rounds
+
+            bst = xgb.train(**xgb_train_options)
+            y_pred = bst.predict(xgb.DMatrix(X_predict))
+            best_iter = getattr(bst, "best_iteration", bst.num_boosted_rounds() - 1)
+            return y_pred, best_iter
+
+        else:
             raise ValueError(f"Unsupported library: {library}")
-
-        train_kwargs = dict(train_options)
-        train_kwargs["train_set"] = gpb.Dataset(X_train, label=y_train)
-        if X_valid is not None:
-            train_kwargs["valid_sets"] = [gpb.Dataset(X_valid, label=y_valid)]
-
-        bst = gpb.train(**train_kwargs)
-        y_pred = bst.predict(data=X_predict, pred_latent=False)
-        return y_pred, bst.best_iteration
 
     def default_method(self, X_train_full, y_train_full, X_test, y_test):
         # Perform hyperparameter tuning
