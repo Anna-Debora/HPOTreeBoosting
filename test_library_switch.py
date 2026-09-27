@@ -40,6 +40,7 @@ def run_one(library):
 
 res_gpb = run_one("gpboost")
 res_xgb = run_one("xgboost")
+res_cat = run_one("catboost")
 
 print("\n--- FERTIG ---")
 print("Beide Suchen sollten ohne Fehler durchlaufen und einen plausiblen")

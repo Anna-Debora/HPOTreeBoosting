@@ -15,6 +15,7 @@ import re
 import copy
 import gpboost as gpb
 import xgboost as xgb
+import catboost
 import numpy as np
 import optuna
 import pandas as pd
@@ -296,6 +297,59 @@ class ParameterOptimization:
             bst = xgb.train(**xgb_train_options)
             y_pred = bst.predict(xgb.DMatrix(X_predict))
             best_iter = getattr(bst, "best_iteration", bst.num_boosted_rounds() - 1)
+            return y_pred, best_iter
+
+        if library == "catboost":
+            catboost_train = catboost.Pool(X_train, label=y_train)
+            catboost_valid = None
+            if X_valid is not None:
+                catboost_valid = catboost.Pool(X_valid, label=y_valid)
+
+            catboost_options = dict(train_options)
+            params = catboost_options.pop("params", {}).copy()
+            num_boost_round = catboost_options.pop("num_boost_round", None)
+            early_stopping_rounds = catboost_options.pop("early_stopping_rounds", None)
+            if num_boost_round is None:
+                num_boost_round = params.get("n_iter", 10)
+
+            param_translation = {
+                "lambda_l2": "l2_leaf_reg",
+                "max_depth": "depth",
+                "bagging_fraction": "subsample",
+                "feature_fraction": "rsm",
+                "max_bin": "border_count",
+            }
+            catboost_params = {
+                "iterations": int(num_boost_round),
+                "loss_function": (
+                    "Logloss" if self.suite_id in [334, 337] else "RMSE"
+                ),
+                "verbose": False,
+                "allow_writing_files": False,
+            }
+            for name, value in params.items():
+                if name in {
+                    "num_leaves", "n_iter", "lambda_l1", "verbose",
+                    "metric", "objective",
+                }:
+                    continue
+                translated_name = param_translation.get(name, name)
+                if translated_name == "depth" and value <= 0:
+                    continue
+                catboost_params[translated_name] = value
+
+            model = catboost.CatBoost(params=catboost_params)
+            fit_options = {"verbose": False}
+            if catboost_valid is not None:
+                fit_options["eval_set"] = catboost_valid
+                if early_stopping_rounds is not None:
+                    fit_options["early_stopping_rounds"] = early_stopping_rounds
+            model.fit(catboost_train, **fit_options)
+
+            y_pred = model.predict(catboost.Pool(X_predict))
+            best_iter = model.get_best_iteration()
+            if best_iter is None or best_iter < 0:
+                best_iter = model.tree_count_ - 1
             return y_pred, best_iter
 
         else:
