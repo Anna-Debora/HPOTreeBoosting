@@ -16,11 +16,12 @@ from methods import ParameterOptimization
 
 
 
-def main(args):
+def main(args):                                  
     os.makedirs(args.result_folder, exist_ok=True)
     seed_folder = f"seed_{args.seed}"
-    os.makedirs(os.path.join(args.result_folder, seed_folder), exist_ok=True)
-    file_path = f"seed_{args.seed}/{args.suite_id}_{args.task_id}.csv"
+    library_folder = os.path.join(seed_folder, args.library)
+    os.makedirs(os.path.join(args.result_folder, library_folder), exist_ok=True)
+    file_path = os.path.join(library_folder, f"{args.suite_id}_{args.task_id}.csv")
     path = f"data/{args.suite_id}_{args.task_id}"
 
     # Read the data from local files
@@ -45,7 +46,7 @@ def main(args):
                                 try_num_leaves=False,
                                 joint_tuning_depth_leaves=False,
                                 try_num_iter= False,
-                                suite_id=suite_id, seed=seed)
+                                suite_id=suite_id, seed=seed, library=args.library)
     final_results_md = obj.run_methods()
 
     obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
@@ -53,7 +54,7 @@ def main(args):
                                 try_num_leaves=True,
                                 joint_tuning_depth_leaves=False,
                                 try_num_iter= False,
-                                suite_id=suite_id, seed=seed)
+                                suite_id=suite_id, seed=seed, library=args.library)
     final_results_nl = obj.run_methods()
     
     obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
@@ -61,18 +62,19 @@ def main(args):
                                 try_num_leaves=False,
                                 joint_tuning_depth_leaves=True,
                                 try_num_iter= False,
-                                suite_id=suite_id, seed=seed)
+                                suite_id=suite_id, seed=seed, library=args.library)
     final_results_joint = obj.run_methods()
     obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
                                 try_max_depth=False,
                                 try_num_leaves=False,
                                 joint_tuning_depth_leaves=False,
                                 try_num_iter= True,
-                                suite_id=suite_id, seed=seed)
+                                suite_id=suite_id, seed=seed, library=args.library)
     final_results_iter = obj.run_methods()
     # Format the DataFrame
     final_results = pd.concat([final_results_md, final_results_nl,final_results_joint,final_results_iter], ignore_index=True)
     final_results["task_id"] = task_id
+    final_results["library"] = args.library
     final_results["classification"] = 1 if suite_id in [334, 337] else 0
 
     # Save the results
@@ -85,5 +87,6 @@ if __name__ == '__main__':
     parser.add_argument('--task_id')
     parser.add_argument('--seed')
     parser.add_argument('--result_folder')
+    parser.add_argument('--library', default='gpboost')
     args = parser.parse_args()
     main(args)

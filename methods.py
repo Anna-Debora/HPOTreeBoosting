@@ -97,6 +97,7 @@ class ParameterOptimization:
     def run_methods(self, ):
         """This function runs all hyperparameter tuning methods on the 5 folds and returns the results in a DataFrame."""
         # Iterate through the 5 folds
+        final_results = None
         for fold, (full_train_index, test_index) in enumerate(self.splits):
             X_train_full, X_test = self.X.iloc[full_train_index], self.X.iloc[test_index]
             y_train_full, y_test = self.y.iloc[full_train_index], self.y.iloc[test_index]
@@ -139,7 +140,7 @@ class ParameterOptimization:
                         trials['fold'] = fold
                         trials['method'] = method
 
-                        if fold == 0 and method == 'random_search':
+                        if final_results is None:
                             final_results = trials
                         else:
                             final_results = pd.concat([final_results, trials])
@@ -149,7 +150,7 @@ class ParameterOptimization:
                         trials['fold'] = fold
                         trials['method'] = method
 
-                        if fold == 0 and method == 'random_search':
+                        if final_results is None:
                             final_results = trials
                         else:
                             final_results = pd.concat([final_results, trials])
