@@ -226,10 +226,23 @@ class ParameterOptimization:
         final_results.rename(columns={"index": "iter"}, inplace=True)
         return final_results
 
+    def _train_and_predict(self, library, X_train, y_train, X_predict, train_options,
+                           X_valid=None, y_valid=None):
+        """Train with the selected library and return predictions and best iteration."""
+        if library != "gpboost":
+            raise ValueError(f"Unsupported library: {library}")
+
+        train_kwargs = dict(train_options)
+        train_kwargs["train_set"] = gpb.Dataset(X_train, label=y_train)
+        if X_valid is not None:
+            train_kwargs["valid_sets"] = [gpb.Dataset(X_valid, label=y_valid)]
+
+        bst = gpb.train(**train_kwargs)
+        y_pred = bst.predict(data=X_predict, pred_latent=False)
+        return y_pred, bst.best_iteration
+
     def default_method(self, X_train_full, y_train_full, X_test, y_test):
         # Perform hyperparameter tuning
-        train_set = gpb.Dataset(X_train_full, label=y_train_full)
-
         X_train_full = X_train_full.reset_index(drop=True)
         y_train_full = y_train_full.reset_index(drop=True)
 
@@ -239,15 +252,14 @@ class ParameterOptimization:
         test_rmse = 0
         
         
-        train_set_full = gpb.Dataset(X_train_full, label=y_train_full)
-    
-        # Train the model
         params = {}
-        bst = gpb.train(params=params,
-            train_set=train_set_full,
-            verbose_eval=False
+        y_pred, _ = self._train_and_predict(
+            library="gpboost",
+            X_train=X_train_full,
+            y_train=y_train_full,
+            X_predict=X_test,
+            train_options={"params": params, "verbose_eval": False},
         )
-        y_pred = bst.predict(data=X_test, pred_latent=False)
         default_params = {
             'learning_rate': [0.1],
             'min_data_in_leaf': [20],
@@ -760,16 +772,15 @@ class ParameterOptimization:
 
 
     def _train_model_default(self,X_train, y_train, X_val, y_val):
-        train_set = gpb.Dataset(X_train, label=y_train) 
-        valid_set = gpb.Dataset(X_val, label=y_val)
-        bst = gpb.train(
-            train_set=train_set, valid_sets=[valid_set],
-            verbose_eval=False 
+        y_pred, best_iter = self._train_and_predict(
+            library="gpboost",
+            X_train=X_train,
+            y_train=y_train,
+            X_predict=X_val,
+            X_valid=X_val,
+            y_valid=y_val,
+            train_options={"verbose_eval": False},
         )
-        y_pred = bst.predict(data=X_val, pred_latent=False) #pred_latent = FALSE => response variable is predicted
-
-        # Get the best number of iterations
-        best_iter = bst.best_iteration
 
         # Evaluate the model based on the respective task
         if self.suite_id in [334, 337]:
@@ -786,24 +797,24 @@ class ParameterOptimization:
         params_copy = params.copy()
         #print('Params Copy TMFV\n',params_copy)
         params_copy.update(self.other_params)
-        train_set = gpb.Dataset(X_train, label=y_train) 
-        valid_set = gpb.Dataset(X_val, label=y_val)
-        # Train the model
         if self.try_num_iter:
-            bst = gpb.train(
-                params=params_copy, train_set=train_set, valid_sets=[valid_set],
-                verbose_eval=False 
-            )
+            train_options = {"params": params_copy, "verbose_eval": False}
         else:
-            bst = gpb.train(
-                params=params_copy, train_set=train_set, num_boost_round=num_boost_round,
-                valid_sets=[valid_set], early_stopping_rounds=20,
-                verbose_eval=False
-            )
-        y_pred = bst.predict(data=X_val, pred_latent=False) #pred_latent = FALSE => response variable is predicted
-
-        # Get the best number of iterations
-        best_iter = bst.best_iteration
+            train_options = {
+                "params": params_copy,
+                "num_boost_round": num_boost_round,
+                "early_stopping_rounds": 20,
+                "verbose_eval": False,
+            }
+        y_pred, best_iter = self._train_and_predict(
+            library="gpboost",
+            X_train=X_train,
+            y_train=y_train,
+            X_predict=X_val,
+            X_valid=X_val,
+            y_valid=y_val,
+            train_options=train_options,
+        )
 
         # Evaluate the model based on the respective task
         if self.suite_id in [334, 337]:
@@ -829,20 +840,21 @@ class ParameterOptimization:
             params_copy = {key: int(value) if key in ['min_data_in_leaf', 'max_depth', 'num_leaves', 'max_bin','n_iter'] else value for key, value in params_copy.items()} 
             #print("----------This is a row", row)
             #print("----------Here are the params_copy",params_copy)
-            train_set_full = gpb.Dataset(X_train_full, label=y_train_full)
-    
-            # Train the model
             if self.try_num_iter:
-                bst = gpb.train(
-                    params=params_copy, train_set=train_set_full,
-                    verbose_eval=False
-                )
+                train_options = {"params": params_copy, "verbose_eval": False}
             else:
-                bst = gpb.train(
-                    params=params_copy, train_set=train_set_full, num_boost_round=best_iter,
-                    verbose_eval=False
-                )
-            y_pred = bst.predict(data=X_test, pred_latent=False)
+                train_options = {
+                    "params": params_copy,
+                    "num_boost_round": best_iter,
+                    "verbose_eval": False,
+                }
+            y_pred, _ = self._train_and_predict(
+                library="gpboost",
+                X_train=X_train_full,
+                y_train=y_train_full,
+                X_predict=X_test,
+                train_options=train_options,
+            )
 
             # Evaluate the model based on the respective task
             if self.suite_id in [334, 337]:
@@ -912,7 +924,7 @@ class ParameterOptimization:
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf', 'num_leaves']
         elif self.try_max_depth and not(self.try_num_iter):
-            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf', 'n_iter', 'num_leaves']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
             df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter', 'num_leaves']

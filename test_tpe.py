@@ -13,7 +13,7 @@ import pandas as pd
 from methods import ParameterOptimization
 
 suite_id = 335
-task_id = 361102
+task_id = 361288
 
 path = f"data/{suite_id}_{task_id}"
 X = pd.read_csv(os.path.join(path, f"{suite_id}_{task_id}_X.csv"))
