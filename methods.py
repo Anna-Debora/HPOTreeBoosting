@@ -256,6 +256,7 @@ class ParameterOptimization:
             verbose_eval = xgb_options.pop("verbose_eval", False)
 
             param_translation = {
+                "num_leaves": "max_leaves",
                 "lambda_l1": "reg_alpha",
                 "lambda_l2": "reg_lambda",
                 "min_data_in_leaf": "min_child_weight",
@@ -264,11 +265,14 @@ class ParameterOptimization:
             }
             translated_params = {}
             for name, value in params.items():
-                if name == "num_leaves" or name == "n_iter" or name in {
+                if name == "n_iter" or name in {
                     "verbose", "metric", "objective"
                 }:
                     continue
-                translated_params[param_translation.get(name, name)] = value
+                translated_name = param_translation.get(name, name)
+                translated_params[translated_name] = (
+                    int(value) if translated_name == "max_leaves" else value
+                )
 
             translated_params["objective"] = (
                 "binary:logistic" if self.suite_id in [334, 337]
