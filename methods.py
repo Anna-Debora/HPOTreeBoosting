@@ -346,7 +346,13 @@ class ParameterOptimization:
                     fit_options["early_stopping_rounds"] = early_stopping_rounds
             model.fit(catboost_train, **fit_options)
 
-            y_pred = model.predict(catboost.Pool(X_predict))
+            catboost_predict = catboost.Pool(X_predict)
+            if self.suite_id in [334, 337]:
+                y_pred = model.predict(
+                    catboost_predict, prediction_type="Probability"
+                )[:, 1]
+            else:
+                y_pred = model.predict(catboost_predict)
             best_iter = model.get_best_iteration()
             if best_iter is None or best_iter < 0:
                 best_iter = model.tree_count_ - 1
