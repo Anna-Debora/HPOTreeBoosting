@@ -959,7 +959,7 @@ class ParameterOptimization:
         test_rmse = []
         #df.to_csv('Results/dataframe.csv', index=False)
         for _, row in df.iterrows():
-            params_copy = row.drop(['val_score']).to_dict()
+            params_copy = row.drop(['val_score', 'runtime'], errors='ignore').to_dict()
             # Ensure the correct types for specific parameters
             params_copy = {key: int(value) if key in ['min_data_in_leaf', 'max_depth', 'num_leaves', 'max_bin','n_iter'] else value for key, value in params_copy.items()} 
             #print("----------This is a row", row)
