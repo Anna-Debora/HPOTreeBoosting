@@ -138,7 +138,7 @@ class ParameterOptimizationSMAC:
             
             return score
         
-        scenario = Scenario(param,deterministic=True, n_trials=135, seed = self.seed)
+        scenario = Scenario(param,deterministic=True, n_trials=270, seed = self.seed)
         smac = HPOFacade(scenario,objective_opt,overwrite=True)
         #incumbent = smac.optimize()
         _ = smac.optimize()

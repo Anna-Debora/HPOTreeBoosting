@@ -93,7 +93,7 @@ class ParameterOptimization:
                 final_results = pd.concat([final_results, trials])
         final_results.reset_index(inplace=True)
         final_results.rename(columns={"index": "iter"}, inplace=True)
-        df_repeated = final_results.loc[final_results.index.repeat(135)]
+        df_repeated = final_results.loc[final_results.index.repeat(270)]
         return df_repeated
     def run_methods(self, ):
         """This function runs all hyperparameter tuning methods on the 5 folds and returns the results in a DataFrame."""
