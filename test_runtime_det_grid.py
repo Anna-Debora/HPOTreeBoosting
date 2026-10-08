@@ -26,3 +26,4 @@ for name, kw in [("max_depth", dict(try_max_depth=True))]:
     print("n_iter vorhanden:", "n_iter" in res.columns)
     print("val_score:", res["val_score"].describe()[["min", "mean", "max"]].round(4).to_dict())
     print(res["runtime"].describe()[["min", "mean", "max"]])
+res.to_csv("mini_grid.csv", index=False)
