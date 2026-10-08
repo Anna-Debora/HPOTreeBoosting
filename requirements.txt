@@ -5,7 +5,7 @@ scipy>=1.7
 scikit-learn>=1.0
 
 # GPBoost and optimization
-gpboost>=0.2.9
+gpboost==1.7.4
 optuna>=3.0
 scikit-optimize>=0.9
 smac-py>=0.14.1
