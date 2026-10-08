@@ -656,6 +656,7 @@ class ParameterOptimization:
             Real(0.5, 1, name='feature_fraction')
         ]
         self.min_score = float('inf')
+        self._gp_runtimes = []
 
         # Adjust the space for the case where we tune the 'num_leaves' parameter
         if self.try_num_leaves:
@@ -682,10 +683,12 @@ class ParameterOptimization:
         def objective_gp_bo(**params):
             """Objective function for the GP-BO optimization."""
 
+            runtime_start = time.perf_counter()
             score, best_iter = self._train_model_for_validation(
                 X_train, y_train, X_val, y_val, 
                 params
             )
+            self._gp_runtimes.append(time.perf_counter() - runtime_start)
 
             # Get the best number of iterations
             if score < self.min_score:
@@ -722,7 +725,7 @@ class ParameterOptimization:
         # else:
         #     score = root_mean_squared_error(self.y_test, y_pred)
 
-        df_trials = self._convert_array_to_df(result.x_iters, result.func_vals) #x_iters are the parameter values where the objective function was evaluated
+        df_trials = self._convert_array_to_df(result.x_iters, result.func_vals, runtimes=self._gp_runtimes) #x_iters are the parameter values where the objective function was evaluated
 
         # Compute the test scores
         df_trials = self._compute_test_scores(
@@ -1076,7 +1079,7 @@ class ParameterOptimization:
         return df
     
 
-    def _convert_array_to_df(self, x_iters, func_vals):
+    def _convert_array_to_df(self, x_iters, func_vals, runtimes=None):
         """This function converts the arrays from the GP-BO trials into a DataFrame."""
 
         if self.try_num_leaves and not(self.try_num_iter):
@@ -1097,6 +1100,8 @@ class ParameterOptimization:
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'max_depth', 'num_leaves', 'n_iter'])
         # Convert the 'score' array into a column for the DataFrame
         df['val_score'] = func_vals
+        if runtimes is not None:
+            df.insert(df.columns.get_loc('val_score') + 1, 'runtime', runtimes)
 
         return df
     def _generate_random_grid_seach_combinations(self,param_grid,num_try_random=None):
