@@ -499,6 +499,42 @@ class ParameterOptimization:
                 if score < self.min_score:
                     self.min_score = score
                     self.best_iter = best_iter
+        elif self.library in ("xgboost", "catboost"):
+            grid_size, param_grid = modify(param_grid)
+            if num_try_random is None:
+                combination_indices = range(grid_size)
+            else:
+                if num_try_random > grid_size:
+                    raise ValueError(
+                        "num_try_random is larger than the number of all possible combinations of parameters in param_grid "
+                    )
+                combination_indices = np.random.RandomState(self.seed).choice(
+                    a=grid_size, size=num_try_random, replace=False
+                )
+
+            all_combinations = {}
+            best_score = float('inf')
+            best_iter = None
+            for combination_index in combination_indices:
+                combination = _get_param_combination(
+                    int(combination_index), param_grid
+                )
+                runtime_start = time.perf_counter()
+                score, combination_best_iter = self._train_model_for_validation(
+                    X_train, y_train, X_val, y_val, combination
+                )
+                runtimes.append(time.perf_counter() - runtime_start)
+                all_combinations[combination_index] = {
+                    'params': combination,
+                    'score': score,
+                }
+                if score < best_score:
+                    best_score = score
+                    best_iter = combination_best_iter
+            opt_params = {
+                'all_combinations': all_combinations,
+                'best_iter': best_iter,
+            }
         else:
             opt_params = modified_grid_search_tune_parameters(
                 param_grid=param_grid, params=self.other_params, num_try_random=num_try_random, folds=folds, seed=self.seed, 
