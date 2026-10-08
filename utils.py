@@ -6,6 +6,7 @@ implementation.
 """
 
 import copy
+import time
 import numpy as np
 import pandas as pd
 from pandas import Series as pd_Series
@@ -146,7 +147,8 @@ def modified_grid_search_tune_parameters(param_grid, train_set, params=None, num
                                 metric=None, fobj=None, feval=None, init_model=None,
                                 feature_name='auto', categorical_feature='auto',
                                 early_stopping_rounds=None, fpreproc=None,
-                                verbose_eval=1, seed=0, callbacks=None, metrics=None):
+                                verbose_eval=1, seed=0, callbacks=None, metrics=None,
+                                measure_runtime=False):
     """Function that allows for choosing tuning parameters from a grid in a determinstic or random way using cross validation or validation data sets.
 
     Parameters
@@ -386,18 +388,23 @@ def modified_grid_search_tune_parameters(param_grid, train_set, params=None, num
             train_set = copy.deepcopy(train_set_not_constructed)
 
         current_score_is_better = False
+        current_runtime = None
 
         try:
-            cvbst = cv(params=params, train_set=train_set, num_boost_round=num_boost_round, gp_model=gp_model,
-                       line_search_step_length=line_search_step_length,
-                       use_gp_model_for_validation=use_gp_model_for_validation,
-                       train_gp_model_cov_pars=train_gp_model_cov_pars,
-                       folds=folds, nfold=nfold, stratified=stratified, shuffle=shuffle,
-                       metric=metric, fobj=fobj, feval=feval, init_model=init_model,
-                       feature_name=feature_name, categorical_feature=categorical_feature,
-                       early_stopping_rounds=early_stopping_rounds, fpreproc=fpreproc,
-                       verbose_eval=verbose_eval_cv, seed=seed, callbacks=callbacks,
-                       eval_train_metric=False, return_cvbooster=False)
+            runtime_start = time.perf_counter() if measure_runtime else None
+            try:
+                cvbst = cv(params=params, train_set=train_set, num_boost_round=num_boost_round, gp_model=gp_model,
+                           use_gp_model_for_validation=use_gp_model_for_validation,
+                           train_gp_model_cov_pars=train_gp_model_cov_pars,
+                           folds=folds, nfold=nfold, stratified=stratified, shuffle=shuffle,
+                           metric=metric, fobj=fobj, feval=feval, init_model=init_model,
+                           feature_name=feature_name, categorical_feature=categorical_feature,
+                           early_stopping_rounds=early_stopping_rounds, fpreproc=fpreproc,
+                           verbose_eval=verbose_eval_cv, seed=seed, callbacks=callbacks,
+                           eval_train_metric=False, return_cvbooster=False)
+            finally:
+                if measure_runtime:
+                    current_runtime = time.perf_counter() - runtime_start
             
             if higher_better:
                 current_score = np.max(cvbst[next(iter(cvbst))])
@@ -415,6 +422,8 @@ def modified_grid_search_tune_parameters(param_grid, train_set, params=None, num
                       " of " + str(len(try_param_combs)) + ": " + str(param_comb))
                 
         all_combinations[param_comb_number] = {'params': param_comb, 'score': current_score}
+        if measure_runtime:
+            all_combinations[param_comb_number]['runtime'] = current_runtime
 
         if current_score_is_better:
             best_score = current_score

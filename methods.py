@@ -13,6 +13,7 @@ import os
 import random
 import re
 import copy
+import time
 import gpboost as gpb
 import xgboost as xgb
 import catboost
@@ -478,17 +479,29 @@ class ParameterOptimization:
         val_set_idx = X_val.index.values
         folds = [(train_set_idx, val_set_idx)]
 
+        runtimes = []
         if self.try_num_iter:
             opt_params = {'all_combinations':self._generate_random_grid_seach_combinations(
                 param_grid=param_grid,
                 num_try_random=num_try_random
             )}
+            for combination in opt_params['all_combinations'].values():
+                runtime_start = time.perf_counter()
+                score, best_iter = self._train_model_for_validation(
+                    X_train, y_train, X_val, y_val, combination['params']
+                )
+                runtimes.append(time.perf_counter() - runtime_start)
+                combination['score'] = score
+                if score < self.min_score:
+                    self.min_score = score
+                    self.best_iter = best_iter
         else:
             opt_params = modified_grid_search_tune_parameters(
                 param_grid=param_grid, params=self.other_params, num_try_random=num_try_random, folds=folds, seed=self.seed, 
                 train_set=train_set, use_gp_model_for_validation=False, verbose_eval=3,
-                num_boost_round=1000, early_stopping_rounds=20
+                num_boost_round=1000, early_stopping_rounds=20, measure_runtime=True
             )
+            runtimes = [combination['runtime'] for combination in opt_params['all_combinations'].values()]
         # Uncomment to evaluate the model on the test set using the best hyperparameters chosen by the algorithm:
 
         # train_set_full = gpb.Dataset(self.X_train_full, label=self.y_train_full)
@@ -521,6 +534,7 @@ class ParameterOptimization:
             # df_trials['bagging_fraction'] = 1
             df_trials['feature_fraction'] = 1
             df_trials['val_score'] = df_trials.pop('val_score')
+        df_trials.insert(df_trials.columns.get_loc('val_score') + 1, 'runtime', runtimes)
 
         # Compute the test scores
         if self.try_num_iter:
