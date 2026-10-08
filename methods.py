@@ -271,6 +271,8 @@ class ParameterOptimization:
                 }:
                     continue
                 translated_name = param_translation.get(name, name)
+                if translated_name == "max_depth" and value <= 0:
+                    value = 0
                 translated_params[translated_name] = (
                     int(value) if translated_name == "max_leaves" else value
                 )
@@ -280,6 +282,8 @@ class ParameterOptimization:
                 else "reg:squarederror"
             )
             translated_params["tree_method"] = "hist"
+            if self.try_num_leaves or self.joint_tuning_depth_leaves:
+                translated_params["grow_policy"] = "lossguide"
             if "metric" in params:
                 metric = params["metric"]
                 translated_params["eval_metric"] = (
