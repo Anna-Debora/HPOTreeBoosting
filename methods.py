@@ -1041,7 +1041,7 @@ class ParameterOptimization:
     def _modify_df_for_tpe(self, df):
         """This function modifies the DataFrame for the TPE method."""
         # Drop unnecessary columns from the DataFrame with the trials
-        df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'state', 'system_attrs_tpe:relative_params:0'], inplace=True)
+        df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'state', 'system_attrs_tpe:relative_params:0'], inplace=True, errors='ignore')
         df['duration'] = df['duration'].dt.total_seconds()
         if self.try_num_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'num_leaves']
