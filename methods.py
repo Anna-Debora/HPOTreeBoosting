@@ -1109,7 +1109,7 @@ class ParameterOptimization:
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
-            df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter', 'num_leaves']
+            df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf', 'n_iter']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter', 'num_leaves']

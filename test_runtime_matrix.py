@@ -24,7 +24,12 @@ STRATEGIES = {
     "max_depth": {"try_max_depth": True},
     "num_leaves": {"try_num_leaves": True, "try_max_depth": False},
     "joint": {"joint_tuning_depth_leaves": True, "try_max_depth": False},
-    "num_iter": {"try_num_iter": True, "try_max_depth": False},
+    "num_iter": {
+        "try_num_iter": True,
+        "try_max_depth": True,
+        "try_num_leaves": False,
+        "joint_tuning_depth_leaves": False,
+    },
 }
 
 
@@ -112,12 +117,10 @@ def main():
     )
 
     cases = [
-        (library, strategy, method_name)
+        (library, "num_iter", method_name)
         for library in LIBRARIES
-        for strategy in STRATEGIES
         for method_name in ("Random", "TPE", "GP-BO")
     ]
-    cases.append(("gpboost", "max_depth", "Grid (det.)"))
 
     rows = []
     anomalies = []
@@ -130,6 +133,8 @@ def main():
             )
             row_count = len(result)
             columns = list(result.columns)
+            has_n_iter = "n_iter" in columns
+            has_max_depth = "max_depth" in columns
             runtime_after_score = (
                 "ja"
                 if "val_score" in columns
@@ -154,6 +159,10 @@ def main():
                 case_warnings.append(f"Zeilen {row_count}, erwartet {expected}")
             if runtime_after_score == "nein":
                 case_warnings.append("runtime nicht direkt nach val_score")
+            if not has_n_iter:
+                case_warnings.append("Spalte n_iter fehlt")
+            if not has_max_depth:
+                case_warnings.append("Spalte max_depth fehlt")
 
             if case_warnings:
                 anomalies.append(
@@ -166,6 +175,8 @@ def main():
                     "methode": method_name,
                     "Zeilen": row_count,
                     "runtime direkt nach val_score?": runtime_after_score,
+                    "n_iter vorhanden?": "ja" if has_n_iter else "nein",
+                    "max_depth vorhanden?": "ja" if has_max_depth else "nein",
                     "val_score min/max": f"{_format_number(score_min)} / {_format_number(score_max)}",
                     "runtime mean": _format_number(runtime_mean),
                     "Auffälligkeit": "; ".join(case_warnings) or "-",
@@ -182,6 +193,8 @@ def main():
                     "methode": method_name,
                     "Zeilen": "FEHLER",
                     "runtime direkt nach val_score?": "nein",
+                    "n_iter vorhanden?": "nein",
+                    "max_depth vorhanden?": "nein",
                     "val_score min/max": "-",
                     "runtime mean": "-",
                     "Auffälligkeit": "Fehler; Traceback-Ende siehe Auffälligkeiten",
@@ -200,18 +213,12 @@ def main():
         "- Mehr als eine der Optionen try_max_depth, try_num_leaves und "
         "joint_tuning_depth_leaves zugleich: __init__ weist dies zurück."
     )
-    print("- Deterministisches Grid außer gpboost/max_depth: gemäß Vorgabe ausgelassen.")
+    print("- Nur num_iter-Fälle ausgeführt; andere Strategien und Grid ausgelassen.")
     print("\nAUFFÄLLIGKEITEN")
     if anomalies:
         for anomaly in anomalies:
             print(f"- {anomaly}")
     else:
         print("- Keine Warnungen aus den definierten Prüfungen.")
-    print(
-        "- Implementationshinweis: GP-BO enthält im num_iter-Fall weiterhin "
-        "max_depth im Suchraum, obwohl try_max_depth=False gesetzt ist."
-    )
-
-
 if __name__ == "__main__":
     main()

@@ -65,7 +65,7 @@ def main(args):
                                 suite_id=suite_id, seed=seed, library=args.library)
     final_results_joint = obj.run_methods()
     obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
-                                try_max_depth=False,
+                                try_max_depth=True,
                                 try_num_leaves=False,
                                 joint_tuning_depth_leaves=False,
                                 try_num_iter= True,
