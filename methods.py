@@ -122,7 +122,7 @@ class ParameterOptimization:
                     X_train_full=X_train_full, y_train_full=y_train_full,
                     X_test=X_test, y_test=y_test
                 )
-            if self.try_num_iter: #tune with number of boositng iterations
+            if self.try_num_iter or self.joint_tuning_depth_leaves: #tune with number of boositng iterations
                 trials_random_search = self.grid_search_method(
                     X_train_full=X_train_full, y_train_full=y_train_full, 
                     X_test=X_test, y_test=y_test, 
@@ -273,6 +273,9 @@ class ParameterOptimization:
                 translated_name = param_translation.get(name, name)
                 if translated_name == "max_depth" and value <= 0:
                     value = 0
+                if translated_name == "min_child_weight" and self.suite_id in [334, 337]:
+                    # Binary-logistic Hessian <= 0.25 per row; vorläufig, Fabio bestätigen.
+                    value = 0.25 * value
                 translated_params[translated_name] = (
                     int(value) if translated_name == "max_leaves" else value
                 )
