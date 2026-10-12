@@ -5,6 +5,7 @@ compute uncertainty bounds and save plots in the repository layout.
 """
 
 import json
+import os
 import copy
 import numpy as np
 import pandas as pd
@@ -61,7 +62,29 @@ RANDOMNESS = ['both','seeds','tasks']
 FOLDS = [0, 1, 2, 3, 4]
 NUM_FOLDS = len(FOLDS)
 MARKERS = ["o", "s", "^", "D", "*", "v", "P", "X"] 
-def create_scores_dict(filepath, classification=False, rmse=False, logloss = False):
+def _strategy_mask(data, strategy):
+    """Row mask for a tuning strategy; num_iter rows never count for the other strategies."""
+    nl = data['try_num_leaves'].astype(bool)
+    jt = data['joint_tuning_depth_leaves'].astype(bool)
+    it = data['try_num_iter'].astype(bool)
+    if strategy == 'num_iter':
+        return it
+    if strategy == 'num_leaves':
+        return nl & ~it
+    if strategy == 'joint':
+        return jt & ~it
+    return ~nl & ~jt & ~it
+
+
+def _cell_values(data, method, strategy, fold, metric):
+    """Metric values of one (method, strategy, fold) cell ordered by iteration."""
+    rows = data.loc[(data['method'] == method) & (data['fold'] == fold) & _strategy_mask(data, strategy)]
+    if 'iter' in rows.columns:
+        rows = rows.sort_values('iter', kind='stable')
+    return rows[metric].to_numpy(dtype=float)
+
+
+def create_scores_dict(filepath, classification=False, rmse=False, logloss = False, library="gpboost"):
     """
     Creates a dictionary containing scores/results for various hyperparameter optimization (HPO) methods
     across multiple tasks, seeds, folds, and tuning strategies. Supports regression and classification tasks,
@@ -76,6 +99,8 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
         If True, returns RMSE scores (only for regression tasks).
     logloss : bool, optional
         If True, returns log loss scores (only for classification tasks).
+    library : str, optional
+        Library subfolder below each seed folder (<folder>/seed_<seed>/<library>/).
     Returns
     -------
     res : dict
@@ -108,11 +133,24 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
     else:
         NUM_TASKS = NUM_REGR_TASKS
         suites = [335, 336] 
-    #get here the number of iterations for hyperband
-    data_H = pd.read_csv(f"{filepath}/Results_Hyperband_2007/seed_27225/334_361110.csv")    
-    NUM_ITERS_H = len(data_H.loc[(data_H['fold'] == 0) & (data_H['joint_tuning_depth_leaves'] == True)])
+    metric = 'current_best_test_rmse' if rmse else 'current_best_test_log_loss' if logloss else 'current_best_test_score'
+    names = []
+    task_list = []
+    for suite_id in suites:
+        with open(f"task_indices/{suite_id}_task_names.json", 'r') as f:
+            names.extend(json.load(f))
+        task_list.extend((suite_id, task_id) for task_id in np.load(f"task_indices/{suite_id}_task_indices.npy"))
+
+    def _path(folder, seed, suite_id, task_id):
+        return f"{filepath}/{folder}/seed_{seed}/{library}/{suite_id}_{task_id}.csv"
+
+    # Hyperband length comes from the first task's file (joint block, fold 0)
+    NUM_ITERS_H = 11
+    if task_list:
+        data_H = pd.read_csv(_path('Results_Hyperband_2007', seeds[0], *task_list[0]))
+        NUM_ITERS_H = len(data_H.loc[(data_H['fold'] == 0) & (data_H['joint_tuning_depth_leaves'] == True)])
     if NUM_ITERS_H > NUM_ITERS:
-                    ValueError('There are too much iterations in the Hyperband method.')
+        raise ValueError('There are too much iterations in the Hyperband method.')
     START_HYPERBAND = int(START / NUM_ITERS * NUM_ITERS_H)
     grid_search = np.zeros((NUM_TUNING_STRAT_GS,NUM_ITERS,NUM_TASKS,NUM_SEEDS,NUM_FOLDS))
     random_search = np.zeros((NUM_TUNING_STRAT,NUM_ITERS,NUM_TASKS,NUM_SEEDS,NUM_FOLDS))
@@ -134,167 +172,34 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
         'logloss': logloss,
         'normalized': False
     }
-    names = []
-    k=0
-    for suite_id in suites:
-        with open(f"task_indices/{suite_id}_task_names.json", 'r') as f:
-            _names = json.load(f)
-        names.extend(_names)
-
-        tasks = np.load(f"task_indices/{suite_id}_task_indices.npy")
-
-        for task_id in tasks:            
-            for l, seed in enumerate(seeds):
-                if l == 0:
-                    data_default = pd.read_csv(f"{filepath}/Results_Default_Run/{suite_id}_{task_id}.csv")
-                data = pd.read_csv(f"{filepath}/Results/seed_{seed}/{suite_id}_{task_id}.csv")
-                data_H = pd.read_csv(f"{filepath}/Results_Hyperband_2007/seed_{seed}/{suite_id}_{task_id}.csv")
-                data_H.drop(columns=['param_ind','try_num_iter'], inplace=True)
-                data_SMAC = pd.read_csv(f"{filepath}/Results_SMAC/seed_{seed}/{suite_id}_{task_id}.csv")
-                data_SMAC.drop(columns=['try_num_iter'], inplace=True)
-                data_NUM_ITER = pd.read_csv(f"{filepath}/Results_NUM_ITER/seed_{seed}/{suite_id}_{task_id}.csv") 
-                #get the len of the data of all folds for one TUNING_STRAT strategy
-                LEN_DATA = len(data.loc[(data['try_num_leaves'])])
-                LEN_DATA_SMAC = len(data_SMAC.loc[(data_SMAC['try_num_leaves'])])
-                LEN_DATA_H = len(data_H.loc[(data_H['try_num_leaves'])])
-                LEN_DATA_NUM_ITER = len(data_NUM_ITER.loc[data_NUM_ITER['try_num_iter']]) 
-                data = pd.concat([data, data_H, data_SMAC,data_NUM_ITER], ignore_index=True) 
-               
-                if rmse:
-                    if l==0:
-                        default = data_default['current_best_test_rmse'].reset_index(drop=True)
-                    try_max_depth = data.loc[(data['try_num_leaves'] == False) & (data['joint_tuning_depth_leaves'] == False), 'current_best_test_rmse'].reset_index(drop=True)
-                    try_num_leaves = data.loc[data['try_num_leaves'] == True, 'current_best_test_rmse'].reset_index(drop=True)
-                    try_joint = data.loc[data['joint_tuning_depth_leaves'] == True, 'current_best_test_rmse'].reset_index(drop=True)
-                    try_num_iter = data.loc[data['try_num_iter'] == True, 'current_best_test_rmse'].reset_index(drop=True) 
-                    df_default = pd.DataFrame({'default_rmse': default})
-                    df =pd.DataFrame({'try_max_depth_rmse': try_max_depth, 'try_num_leaves_rmse': try_num_leaves}) 
-                    df_joint =pd.DataFrame({'try_joint_rmse': try_joint,'try_num_iter_rmse': try_num_iter})
-                    df_iter = pd.DataFrame({'try_num_iter_rmse': try_num_iter})
-                    if l == 0:
-                        df_default['method'] = data_default['fold']
-                        df_default['fold'] = data_default['fold']
-                    df['method'] = pd.concat([data.loc[0:LEN_DATA-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method']], ignore_index = True)
-                    df['fold'] = pd.concat([data.loc[0:LEN_DATA-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold']], ignore_index = True)
-                    df_joint['method'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method']], ignore_index = True)
-                    df_joint['fold'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold']], ignore_index = True)
-                    df_iter['method'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'method']], ignore_index = True) 
-                    df_iter['fold'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'fold']], ignore_index = True)
-                    for i, method in enumerate(HPO_METHODS):
-                        skip = False
-                        for j,tuning in enumerate(TUNING_STRAT):
-                            if (method == 'grid_search' and j == 2) or (method == 'hyperband' and j==3):
-                                skip = True
-                            for m in FOLDS:
-                                if j == 0 and l == 0:
-                                    res['Default'][:,k,m] = df_default.loc[(df_default['fold'] == m),'default_rmse'].values
-                                if skip:
-                                    break
-                                if tuning != 'joint' and tuning != 'num_iter':
-                                    if df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_rmse'].isnull().any():
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_rmse'].values
-                                elif tuning == 'num_iter':
-                                    res[method][j,:,k,l,m] = df_iter.loc[(df_iter['method'] == method) & (df_iter['fold'] == m), f'try_{tuning}_rmse'].values
-                                else:
-                                    if df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_rmse'].isnull().any():
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_rmse'].values
-                            if skip:
-                                break
-                        if skip:
+    for k, (suite_id, task_id) in enumerate(task_list):
+        data_default = pd.read_csv(f"{filepath}/Results_Default_Run/{suite_id}_{task_id}.csv")
+        for m in FOLDS:
+            res['Default'][:,k,m] = data_default.loc[data_default['fold'] == m, metric].values
+        for l, seed in enumerate(seeds):
+            data_main = pd.read_csv(_path('Results', seed, suite_id, task_id))
+            frames = [data_main,
+                      pd.read_csv(_path('Results_Hyperband_2007', seed, suite_id, task_id)),
+                      pd.read_csv(_path('Results_SMAC', seed, suite_id, task_id))]
+            # Legacy separate num_iter run; skipped if the main file already has num_iter rows
+            path_iter = _path('Results_NUM_ITER', seed, suite_id, task_id)
+            if not data_main['try_num_iter'].astype(bool).any() and os.path.exists(path_iter):
+                frames.append(pd.read_csv(path_iter))
+            data = pd.concat(frames, ignore_index=True)
+            for method in HPO_METHODS:
+                for j, strategy in enumerate(TUNING_STRAT):
+                    if (method == 'grid_search' and j >= 2) or (method == 'hyperband' and j == 3):
+                        continue
+                    for m in FOLDS:
+                        values = _cell_values(data, method, strategy, m, metric)
+                        if len(values) == 0 and strategy == 'num_iter':
+                            res[method][j,:,k,l,m] = np.nan
                             continue
-                    
-                elif logloss:
-                    if l==0:
-                        default = data_default['current_best_test_log_loss'].reset_index(drop=True)
-                    try_max_depth = data.loc[(data['try_num_leaves'] == False) & (data['joint_tuning_depth_leaves'] == False), 'current_best_test_log_loss'].reset_index(drop=True)
-                    try_num_leaves = data.loc[data['try_num_leaves'] == True, 'current_best_test_log_loss'].reset_index(drop=True)
-                    try_joint = data.loc[data['joint_tuning_depth_leaves'] == True, 'current_best_test_log_loss'].reset_index(drop=True)
-                    try_num_iter = data.loc[data['try_num_iter'] == True, 'current_best_test_log_loss'].reset_index(drop=True) 
-                    df_default = pd.DataFrame({'default_logloss': default})
-                    df =pd.DataFrame({'try_max_depth_log_loss': try_max_depth, 'try_num_leaves_log_loss': try_num_leaves}) 
-                    df_joint =pd.DataFrame({'try_joint_log_loss': try_joint})
-                    df_iter = pd.DataFrame({'try_num_iter_log_loss': try_num_iter})
-                    if l == 0:
-                        df_default['method'] = data_default['fold']
-                        df_default['fold'] = data_default['fold']
-                    df['method'] = pd.concat([data.loc[0:LEN_DATA-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method']], ignore_index = True)
-                    df['fold'] = pd.concat([data.loc[0:LEN_DATA-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold']], ignore_index = True)
-                    df_joint['method'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method']], ignore_index = True) 
-                    df_joint['fold'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold']], ignore_index = True)
-                    df_iter['method'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'method']], ignore_index = True) 
-                    df_iter['fold'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'fold']], ignore_index = True)
-                    for i, method in enumerate(HPO_METHODS):
-                        skip = False
-                        for j,tuning in enumerate(TUNING_STRAT):
-                            if (method == 'grid_search' and j == 2) or (method == 'hyperband' and j==3):
-                                skip = True
-                            for m in FOLDS:
-                                if j == 0 and l ==0:
-                                    res['Default'][:,k,m] = df_default.loc[(df_default['fold'] == m),'default_logloss'].values
-                                if skip:
-                                    break
-                                if tuning != 'joint' and tuning != 'num_iter':
-                                    if df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_log_loss'].isnull().any():
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_log_loss'].values
-                                elif tuning == 'num_iter':
-                                    res[method][j,:,k,l,m] = df_iter.loc[(df_iter['method'] == method) & (df_iter['fold'] == m), f'try_{tuning}_log_loss'].values
-                                else:
-                                    if df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_log_loss'].isnull().any():
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_log_loss'].values
-                            if skip:
-                                break
-                        if skip:
-                            continue
-                else:
-                    if l == 0:
-                        default = data_default['current_best_test_score'].reset_index(drop=True)                   
-                    try_max_depth = data.loc[(data['try_num_leaves'] == False) & (data['joint_tuning_depth_leaves'] == False), 'current_best_test_score'].reset_index(drop=True)
-                    try_num_leaves = data.loc[data['try_num_leaves'] == True, 'current_best_test_score'].reset_index(drop=True)
-                    try_joint = data.loc[data['joint_tuning_depth_leaves'] == True, 'current_best_test_score'].reset_index(drop=True)
-                    try_num_iter = data.loc[data['try_num_iter'] == True, 'current_best_test_score'].reset_index(drop=True)
-                    df_default = pd.DataFrame({'default_score': default})
-                    df = pd.DataFrame({'try_max_depth_score': try_max_depth, 'try_num_leaves_score': try_num_leaves})
-                    df_joint =pd.DataFrame({'try_joint_score': try_joint})
-                    df_iter = pd.DataFrame({'try_num_iter_score': try_num_iter})#, 'try_num_iter_score': try_num_iter})
-                    if l == 0:
-                        df_default['method'] = data_default['fold']
-                        df_default['fold'] = data_default['fold']
-                    df['method'] = pd.concat([data.loc[0:LEN_DATA-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method']], ignore_index = True)
-                    df['fold'] = pd.concat([data.loc[0:LEN_DATA-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold']], ignore_index = True)
-                    df_joint['method'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'method'],data_H.loc[0:LEN_DATA_H-1, 'method'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'method'],data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'method']], ignore_index = True) 
-                    df_joint['fold'] = pd.concat([data.loc[2*LEN_DATA:2*LEN_DATA + (NUM_ITERS*(NUM_METHODS-3)*NUM_FOLDS)-1, 'fold'],data_H.loc[0:LEN_DATA_H-1, 'fold'],data_SMAC.loc[0:LEN_DATA_SMAC-1, 'fold'],data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'fold']], ignore_index = True)
-                    df_iter['method'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'method']], ignore_index = True) 
-                    df_iter['fold'] = pd.concat([data_NUM_ITER.loc[0:LEN_DATA_NUM_ITER-1,'fold']], ignore_index = True)
-                    for i, method in enumerate(HPO_METHODS):
-                        skip = False
-                        for j,tuning in enumerate(TUNING_STRAT):
-                            if (method == 'grid_search' and j == 2) or (method == 'hyperband' and j==3):
-                                skip = True
-                            for m in FOLDS:
-                                if j == 0 and l == 0:
-                                    res['Default'][:,k,m] = df_default.loc[(df_default['fold'] == m),'default_score'].values
-                                if skip:
-                                    break
-                                if tuning != 'joint' and tuning != 'num_iter':
-                                    if df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_score'].isnull().any():
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df.loc[(df['method'] == method) & (df['fold'] == m), f'try_{tuning}_score'].values
-                                elif tuning == 'num_iter':
-                                    res[method][j,:,k,l,m] = df_iter.loc[(df_iter['method'] == method) & (df_iter['fold'] == m), f'try_{tuning}_score'].values
-                                else:
-                                    if df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_score'].isnull().any():
-                                        print(method, m, tuning, df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_score'])
-                                        raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
-                                    res[method][j,:,k,l,m] = df_joint.loc[(df_joint['method'] == method) & (df_joint['fold'] == m), f'try_{tuning}_score'].values
-                            if skip:
-                                break
-                        if skip:
-                            continue
-            k += 1
+                        if len(values) != res[method].shape[1]:
+                            raise ValueError(f'{len(values)} rows instead of {res[method].shape[1]} for {method}/{strategy}/fold {m} in Suite {suite_id}, task {task_id} and seed {seed}')
+                        if np.isnan(values).any():
+                            raise ValueError(f'NaN in Suite {suite_id}, task {task_id} and seed {seed}')
+                        res[method][j,:,k,l,m] = values
     res['Default'] = np.mean(res['Default'],axis=-1)
     for i, method in enumerate(HPO_METHODS):
         res[method] = np.mean(res[method],axis=-1)
