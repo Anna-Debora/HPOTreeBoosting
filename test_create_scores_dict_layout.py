@@ -62,7 +62,10 @@ def check(res, k, main, hb, smac, metric, n_h):
     for method, df in [("grid_search", main), ("random_search", main), ("tpe", main), ("gp_bo", main),
                        ("hyperband", hb), ("SMAC", smac)]:
         for j, strategy in enumerate(upm.TUNING_STRAT):
-            if (method == "grid_search" and j >= 2) or (method == "hyperband" and j == 3):
+            if (method == "grid_search" and j >= 2):
+                continue
+            if method == "hyperband" and j == 3:
+                assert np.isnan(res[method][j, :, k, 0]).all(), "hyperband num_iter must be NaN"
                 continue
             got = res[method][j, :, k, 0]
             exp = expected(df, method, strategy, metric)
@@ -77,10 +80,10 @@ def check(res, k, main, hb, smac, metric, n_h):
 def make_tree(root, suite, tasks, mains, hbs, smacs, defaults, legacy=None):
     for t in tasks:
         name = f"{suite}_{t}.csv"
-        write(f"{root}/Results_Default_Run/{name}", defaults[t])
+        write(f"{root}/Results_Default_Run/gpboost/{name}", defaults[t])
         write(f"{root}/Results/seed_{SEED}/gpboost/{name}", shuffled(mains[t]))
         write(f"{root}/Results_Hyperband_2007/seed_{SEED}/gpboost/{name}", shuffled(hbs[t]))
-        write(f"{root}/Results_SMAC/seed_{SEED}/gpboost/{name}", shuffled(smacs[t]))
+        write(f"{root}/Results_SMAC/seed_{SEED}/{name}", shuffled(smacs[t]))
         if legacy is not None:
             write(f"{root}/Results_NUM_ITER/seed_{SEED}/gpboost/{name}", legacy[t])
 

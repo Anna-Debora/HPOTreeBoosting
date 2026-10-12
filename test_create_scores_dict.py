@@ -58,14 +58,14 @@ def build(root):
     for t in TASKS:
         name = f"{SUITE}_{t}.csv"
         d = block(["default"], N, (False, False, False))
-        write(f"{root}/Results_Default_Run/{name}", d)
+        write(f"{root}/Results_Default_Run/{LIBRARY}/{name}", d)
         for seed in SEEDS:
             write(f"{root}/Results/seed_{seed}/{LIBRARY}/{name}",
                   full(["grid_search", "random_search", "tpe", "gp_bo"], N))
             h = full(["hyperband"], N_H)
             h["param_ind"] = 0
             write(f"{root}/Results_Hyperband_2007/seed_{seed}/{LIBRARY}/{name}", h)
-            write(f"{root}/Results_SMAC/seed_{seed}/{LIBRARY}/{name}", full(["SMAC"], N).assign(try_num_iter=False))
+            write(f"{root}/Results_SMAC/seed_{seed}/{name}", full(["SMAC"], N).assign(try_num_iter=False))
             write(f"{root}/Results_NUM_ITER/seed_{seed}/{LIBRARY}/{name}",
                   # Legacy flags: create_scores_dict expects joint=True on the num_iter rows
                   block(["random_search", "tpe", "gp_bo", "SMAC"], N, (False, False, True)))

@@ -36,9 +36,9 @@ def main(args):
         tasks = np.loadtxt(f"suite_337_tasks.txt")
         task_id = int(tasks[task_id])
         suite_id = 337
-    os.makedirs(args.result_folder, exist_ok=True)
+    os.makedirs(os.path.join(args.result_folder, args.library), exist_ok=True)
     
-    file_path = f"{suite_id}_{task_id}.csv"
+    file_path = os.path.join(args.library, f"{suite_id}_{task_id}.csv")
     path = f"data/{suite_id}_{task_id}" 
 
     # Read the data from local files
@@ -49,7 +49,7 @@ def main(args):
     
 
     # Run the experiment for the current task
-    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id)
+    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id, library=args.library)
     final_results = obj.run_default()
     final_results["task_id"] = task_id
     final_results["classification"] = 1 if suite_id in [334, 337] else 0
@@ -62,5 +62,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--task_id')
     parser.add_argument('--result_folder')
+    parser.add_argument('--library', default='gpboost')
     args = parser.parse_args()
     main(args)

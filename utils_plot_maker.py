@@ -100,7 +100,8 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
     logloss : bool, optional
         If True, returns log loss scores (only for classification tasks).
     library : str, optional
-        Library subfolder below each seed folder (<folder>/seed_<seed>/<library>/).
+        Library subfolder: <folder>/seed_<seed>/<library>/ for Results, Hyperband and NUM_ITER,
+        Results_Default_Run/<library>/; Results_SMAC (GPBoost only) is read without library folder.
     Returns
     -------
     res : dict
@@ -141,8 +142,9 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
             names.extend(json.load(f))
         task_list.extend((suite_id, task_id) for task_id in np.load(f"task_indices/{suite_id}_task_indices.npy"))
 
-    def _path(folder, seed, suite_id, task_id):
-        return f"{filepath}/{folder}/seed_{seed}/{library}/{suite_id}_{task_id}.csv"
+    def _path(folder, seed, suite_id, task_id, with_library=True):
+        subfolder = f"/{library}" if with_library else ""
+        return f"{filepath}/{folder}/seed_{seed}{subfolder}/{suite_id}_{task_id}.csv"
 
     # Hyperband length comes from the first task's file (joint block, fold 0)
     NUM_ITERS_H = 11
@@ -173,14 +175,14 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
         'normalized': False
     }
     for k, (suite_id, task_id) in enumerate(task_list):
-        data_default = pd.read_csv(f"{filepath}/Results_Default_Run/{suite_id}_{task_id}.csv")
+        data_default = pd.read_csv(f"{filepath}/Results_Default_Run/{library}/{suite_id}_{task_id}.csv")
         for m in FOLDS:
             res['Default'][:,k,m] = data_default.loc[data_default['fold'] == m, metric].values
         for l, seed in enumerate(seeds):
             data_main = pd.read_csv(_path('Results', seed, suite_id, task_id))
             frames = [data_main,
                       pd.read_csv(_path('Results_Hyperband_2007', seed, suite_id, task_id)),
-                      pd.read_csv(_path('Results_SMAC', seed, suite_id, task_id))]
+                      pd.read_csv(_path('Results_SMAC', seed, suite_id, task_id, with_library=False))]
             # Legacy separate num_iter run; skipped if the main file already has num_iter rows
             path_iter = _path('Results_NUM_ITER', seed, suite_id, task_id)
             if not data_main['try_num_iter'].astype(bool).any() and os.path.exists(path_iter):
@@ -188,7 +190,10 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
             data = pd.concat(frames, ignore_index=True)
             for method in HPO_METHODS:
                 for j, strategy in enumerate(TUNING_STRAT):
-                    if (method == 'grid_search' and j >= 2) or (method == 'hyperband' and j == 3):
+                    if method == 'hyperband' and j == 3:
+                        res[method][j,:,k,l,:] = np.nan
+                        continue
+                    if method == 'grid_search' and j >= 2:
                         continue
                     for m in FOLDS:
                         values = _cell_values(data, method, strategy, m, metric)
