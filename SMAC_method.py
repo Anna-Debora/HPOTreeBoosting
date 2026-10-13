@@ -138,7 +138,7 @@ class ParameterOptimizationSMAC:
                 max_depth = Categorical(name='max_depth',items=[-1,1,2,3,4,5,6,7,8,9,10])
                 param.add([num_leaves,max_depth])
         if self.try_max_depth:
-                max_depth = Categorical(name='max_depth',items=[-1,1,2,3,4,5,6,7,8,9,10])
+                max_depth = Categorical(name='max_depth',items=[1,2,3,4,5,6,7,8,9,10])
                 param.add([max_depth])
         if self.try_num_iter:
                 n_iter = Integer(name='n_iter', bounds = (1,1000))
