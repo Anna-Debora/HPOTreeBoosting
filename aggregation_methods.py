@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from scipy.optimize import minimize
 
@@ -95,7 +97,7 @@ def _mean_over_tasks_and_seeds(values):
     return float(np.mean(task_means[valid])) if np.any(valid) else float("nan")
 
 
-def improvability(result_dict):
+def improvability(result_dict, seed_aggregation="mean_error"):
     """Berechne Improvability je HPO-Methode, Tuningstrategie und Budget.
 
     Parameters
@@ -105,7 +107,14 @@ def improvability(result_dict):
         die Form ``(Tuningstrategie, Iteration, Task, Seed)``; ``Default`` hat
         die Form ``(Iteration, Task)``. Die Fold-Achse ist dort bereits gemittelt.
         ``rmse`` und ``logloss`` kennzeichnen Fehlermetriken; sonst gelten R2
-        und Accuracy als Scores, bei denen groesser besser ist.
+        und Accuracy als Scores, bei denen groesser besser ist. Normalisierte
+        Ergebnisse (``normalized=True``) werden abgelehnt.
+    seed_aggregation : {"mean_error", "per_seed"}
+        ``"mean_error"`` (Standard): Der Fehler wird je Task und Methode zuerst
+        ueber die Seeds gemittelt, dann werden ``bestErr`` und der Wert je Task
+        gebildet. Fehlt fuer eine Methode ein Seed (NaN), entfaellt sie fuer
+        diesen Task. ``"per_seed"``: ``bestErr`` und der Wert werden je Seed
+        gebildet und danach ueber die Seeds gemittelt.
 
     Returns
     -------
@@ -115,21 +124,52 @@ def improvability(result_dict):
         Wert pro Iterationsbudget. ``Default`` wird als Vergleichseintrag fuer
         jede Strategie mit ausgegeben.
 
+    Raises
+    ------
+    ValueError
+        Bei ``result_dict['normalized'] == True`` (normalisierte Scores
+        verzerren die Verhaeltnisse) oder unbekanntem ``seed_aggregation``.
+
+    Warns
+    -----
+    UserWarning
+        Wenn weder ``rmse`` noch ``classification`` gesetzt ist: dann wird
+        ``1 - R2`` als Fehler verwendet.
+
     Formel
     ------
-    Pro Task und Seed wird fuer jede Methode der Fehler ``err`` bestimmt. Bei
-    RMSE/Log Loss ist das der Rohwert; bei R2/Accuracy wird ``err = 1 - Score``
-    verwendet. Mit dem kleinsten beobachteten Fehler ``bestErr`` lautet der
-    Wert ``1 - bestErr / err``. Er ist 0 fuer die beste Methode und wird ueber
-    Seeds innerhalb jedes Tasks sowie anschliessend gleichgewichtet ueber Tasks
-    gemittelt. Der undefinierte Fall ``err = bestErr = 0`` wird als 0 behandelt.
+    Fundstelle: TabICLv2 (Qu et al., arXiv:2602.11139), Appendix J.1
+    "Aggregation metrics" / "Improvability"; TabArena (Erickson et al., 2025),
+    Appendix A.1. Pro Task wird fuer jede Methode der Fehler ``err`` bestimmt
+    und mit dem kleinsten Fehler ``bestErr`` aller Methoden zu
+    ``1 - bestErr / err = (err - bestErr) / err`` verrechnet. Der Wert ist 0 fuer
+    die beste Methode und liegt in [0, 1] (Paper: in Prozent). Danach wird
+    gleichgewichtet ueber Tasks gemittelt. Der undefinierte Fall
+    ``err = bestErr = 0`` wird als 0 behandelt.
 
-    Abweichung: TabArena beschreibt Improvability fuer Fehlermetriken. Die
-    Score-zu-Fehler-Abbildung ``1 - Score`` erweitert die Definition hier auf
-    R2 und Accuracy. Anders als bei TabArena werden Ergebnisse pro
-    Tuningstrategie und Iterationsbudget statt nur fuer einen Leaderboard-
-    Endpunkt berechnet.
+    Fehlermass: TabICLv2/TabArena verwenden fuer Regression RMSE, fuer
+    Klassifikation 1 - ROC-AUC (binaer) bzw. Log Loss (Multiklasse); bei TALENT
+    1 - Accuracy. Fuer Regression sollte daher ``result_dict['rmse'] = True``
+    gesetzt sein. ``1 - R2`` ist nur eine Notloesung: der relative Abstand auf
+    1 - R2 (proportional zur MSE) ist nicht der auf RMSE.
+
+    Abweichung: Die Ergebnisse werden pro Tuningstrategie und Iterationsbudget
+    statt nur fuer einen Leaderboard-Endpunkt berechnet, und ``bestErr`` ist das
+    Minimum ueber Default und die HPO-Methoden der jeweiligen Strategie.
     """
+    if seed_aggregation not in ("mean_error", "per_seed"):
+        raise ValueError("seed_aggregation muss 'mean_error' oder 'per_seed' sein.")
+    if result_dict.get("normalized", False):
+        raise ValueError(
+            "improvability braucht rohe Scores; normalisierte Ergebnisse verzerren die Verhaeltnisse."
+        )
+    if not result_dict.get("rmse", False) and not result_dict.get("classification", False):
+        warnings.warn(
+            "Regression ohne rmse=True: 1 - R2 wird als Fehler verwendet (Notloesung); "
+            "TabICLv2/TabArena verwenden RMSE.",
+            UserWarning,
+            stacklevel=2,
+        )
     default_scores, methods, _, seed_count = _prepare_results(result_dict)
     max_budget = max(array.shape[1] for array, _ in methods.values())
     output = {"Default": {}}
@@ -157,6 +197,8 @@ def improvability(result_dict):
             )
             names = list(entries)
             errors = np.stack([entries[name] for name in names])
+            if seed_aggregation == "mean_error":
+                errors = np.mean(errors, axis=2, keepdims=True)
             available = np.isfinite(errors)
             best_error = np.min(np.where(available, errors, np.inf), axis=0)
             with np.errstate(divide="ignore", invalid="ignore"):
