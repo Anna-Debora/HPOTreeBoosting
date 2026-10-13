@@ -84,6 +84,21 @@ def _available_strategies(methods):
     )
 
 
+def _budget_indices(budgets, max_budget):
+    """Map 1-based iteration counts to the zero-based result-array indices."""
+    if budgets is None:
+        return list(range(max_budget))
+    selected = list(budgets)
+    if any(not isinstance(value, (int, np.integer)) or isinstance(value, bool) or value < 1
+           for value in selected):
+        raise ValueError("budgets must contain positive integer iteration counts.")
+    if len(set(selected)) != len(selected):
+        raise ValueError("budgets must not contain duplicate iteration counts.")
+    if any(value > max_budget for value in selected):
+        raise ValueError(f"budgets must not exceed the available {max_budget} iterations.")
+    return [value - 1 for value in selected]
+
+
 def _mean_over_tasks_and_seeds(values):
     """Gleiches Gewicht fuer Tasks; Seeds werden zuerst innerhalb des Tasks gemittelt."""
     seed_counts = np.sum(np.isfinite(values), axis=1)
@@ -97,7 +112,7 @@ def _mean_over_tasks_and_seeds(values):
     return float(np.mean(task_means[valid])) if np.any(valid) else float("nan")
 
 
-def improvability(result_dict, seed_aggregation="mean_error"):
+def improvability(result_dict, seed_aggregation="mean_error", budgets=None):
     """Berechne Improvability je HPO-Methode, Tuningstrategie und Budget.
 
     Parameters
@@ -115,6 +130,9 @@ def improvability(result_dict, seed_aggregation="mean_error"):
         gebildet. Fehlt fuer eine Methode ein Seed (NaN), entfaellt sie fuer
         diesen Task. ``"per_seed"``: ``bestErr`` und der Wert werden je Seed
         gebildet und danach ueber die Seeds gemittelt.
+    budgets : iterable[int] | None, default=None
+        Iteration counts to return (for example, 10 denotes trial 10). When
+        None, all iterations are returned as before.
 
     Returns
     -------
@@ -172,10 +190,11 @@ def improvability(result_dict, seed_aggregation="mean_error"):
         )
     default_scores, methods, _, seed_count = _prepare_results(result_dict)
     max_budget = max(array.shape[1] for array, _ in methods.values())
+    budget_indices = _budget_indices(budgets, max_budget)
     output = {"Default": {}}
     for method, (_, strategy_count) in methods.items():
         output[method] = {
-            _TUNING_STRATEGIES[index]: np.full(max_budget, np.nan)
+            _TUNING_STRATEGIES[index]: np.full(len(budget_indices), np.nan)
             for index in range(strategy_count)
         }
 
@@ -186,12 +205,12 @@ def improvability(result_dict, seed_aggregation="mean_error"):
             for array, count in methods.values()
             if strategy_index < count
         )
-        output["Default"][strategy_name] = np.full(budget_count, np.nan)
+        output["Default"][strategy_name] = np.full(len(budget_indices), np.nan)
         for method, (_, strategy_count) in methods.items():
             if strategy_index < strategy_count:
-                output[method][strategy_name] = np.full(budget_count, np.nan)
+                output[method][strategy_name] = np.full(len(budget_indices), np.nan)
 
-        for budget in range(budget_count):
+        for output_index, budget in enumerate(budget_indices):
             entries = _strategy_entries(
                 default_scores, methods, budget, strategy_index, seed_count, result_dict
             )
@@ -208,7 +227,7 @@ def improvability(result_dict, seed_aggregation="mean_error"):
 
             for entrant_index, name in enumerate(names):
                 method_name, _, tuning_name = name.partition(":")
-                output[method_name][tuning_name or strategy_name][budget] = (
+                output[method_name][tuning_name or strategy_name][output_index] = (
                     _mean_over_tasks_and_seeds(scores[entrant_index])
                 )
 
@@ -281,7 +300,8 @@ def _task_win_totals(entries, seed_count):
     return names, task_wins
 
 
-def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0, scale=_ELO_SCALE):
+def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0,
+    scale=_ELO_SCALE, budgets=None):
     """Berechne Elo je HPO-Methode, Tuningstrategie und Iterationsbudget.
 
     Parameters
@@ -299,6 +319,9 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0, sca
     scale : float, default=400
         Elo-Skalierung. Eine Differenz von ``scale`` Punkten entspricht einer
         erwarteten Gewinnchance von 10:1.
+    budgets : iterable[int] | None, default=None
+        Iteration counts to return (for example, 10 denotes trial 10). When
+        None, all iterations are returned as before.
 
     Returns
     -------
@@ -331,12 +354,12 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0, sca
         raise ValueError("scale muss groesser als 0 sein.")
 
     default_scores, methods, _, seed_count = _prepare_results(result_dict)
+    max_budget = max(array.shape[1] for array, _ in methods.values())
+    budget_indices = _budget_indices(budgets, max_budget)
     output = {"Default": {}}
     for method, (_, strategy_count) in methods.items():
         output[method] = {
-            _TUNING_STRATEGIES[index]: np.full(
-                max(array.shape[1] for array, _ in methods.values()), np.nan
-            )
+            _TUNING_STRATEGIES[index]: np.full(len(budget_indices), np.nan)
             for index in range(strategy_count)
         }
 
@@ -348,12 +371,12 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0, sca
             for array, count in methods.values()
             if strategy_index < count
         )
-        output["Default"][strategy_name] = np.full(budget_count, _ELO_INIT_RATING)
+        output["Default"][strategy_name] = np.full(len(budget_indices), _ELO_INIT_RATING)
         for method, (_, strategy_count) in methods.items():
             if strategy_index < strategy_count:
-                output[method][strategy_name] = np.full(budget_count, np.nan)
+                output[method][strategy_name] = np.full(len(budget_indices), np.nan)
 
-        for budget in range(budget_count):
+        for output_index, budget in enumerate(budget_indices):
             entries = _strategy_entries(
                 default_scores, methods, budget, strategy_index, seed_count, result_dict
             )
@@ -373,7 +396,7 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0, sca
             median_ratings = np.median(bootstrap_ratings, axis=0)
             for entrant_index, name in enumerate(names):
                 method_name, _, tuning_name = name.partition(":")
-                output[method_name][tuning_name or strategy_name][budget] = median_ratings[
+                output[method_name][tuning_name or strategy_name][output_index] = median_ratings[
                     entrant_index
                 ]
 
