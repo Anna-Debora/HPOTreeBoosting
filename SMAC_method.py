@@ -10,6 +10,7 @@ import os
 import random
 import re
 import copy
+import time
 import gpboost as gpb
 import numpy as np
 import optuna
@@ -27,6 +28,22 @@ from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 # from skopt.utils import use_named_args
 
 from utils import modified_grid_search_tune_parameters, modify,_get_param_combination,truncate,tune_pars_TPE_algorithm_optuna,runhistory_to_dataframe
+
+
+def _configuration_key(configuration):
+    values = configuration.get_dictionary() if hasattr(configuration, 'get_dictionary') else configuration
+    return tuple(sorted(values.items()))
+
+
+def _align_config_runtimes(configurations, runtime_by_configuration):
+    aligned_runtimes = []
+    for configuration in configurations:
+        key = _configuration_key(configuration)
+        durations = runtime_by_configuration.get(key)
+        if not durations:
+            raise RuntimeError(f'No objective runtime recorded for SMAC configuration {key}')
+        aligned_runtimes.append(sum(durations))
+    return aligned_runtimes
 
 
 
@@ -107,6 +124,7 @@ class ParameterOptimizationSMAC:
             space = {
             'learning_rate': (0.001, 1.0),
             'min_data_in_leaf': (1, 1000),
+            'lambda_l1':  (0.0, 100.0),
             'lambda_l2':  (0.0, 100.0),
             'max_bin': (255, int(self.max_bin_val)),
             'bagging_fraction': (0.5, 1.0),
@@ -125,12 +143,20 @@ class ParameterOptimizationSMAC:
         if self.try_num_iter:
                 n_iter = Integer(name='n_iter', bounds = (1,1000))
                 param.add([n_iter])
+        runtime_by_configuration = {}
+
         def objective_opt(params, seed = self.seed):
             
-            score, best_iter = self._train_model_for_validation(
-                X_train, y_train, X_val, y_val, 
-                params
-            )
+            runtime_start = time.perf_counter()
+            try:
+                score, best_iter = self._train_model_for_validation(
+                    X_train, y_train, X_val, y_val,
+                    params
+                )
+            finally:
+                runtime_by_configuration.setdefault(_configuration_key(params), []).append(
+                    time.perf_counter() - runtime_start
+                )
             # Get the best number of iterations
             if score < self.min_score:
                 self.min_score = score
@@ -144,11 +170,13 @@ class ParameterOptimizationSMAC:
         _ = smac.optimize()
         rh = smac.runhistory
         configuration = rh.get_configs()
+        runtimes = _align_config_runtimes(configuration, runtime_by_configuration)
         trials = {}
         for k in range(len(configuration)):
             trials[k] = {'params':dict(configuration[k]), 'score': rh.get_cost(configuration[k])}
         #print('This are the trials',trials)
         df_trials = self._convert_dict_to_df(trials)
+        df_trials.insert(df_trials.columns.get_loc('val_score') + 1, 'runtime', runtimes)
         #print('Best iteration:',self.best_iter)
         df_trials = self._compute_test_scores(
             X_train_full=X_train_full, y_train_full=y_train_full, X_test=X_test, y_test=y_test,
@@ -161,7 +189,7 @@ class ParameterOptimizationSMAC:
         df_trials['try_num_iter'] = self.try_num_iter
         #reoder order of columns
         #print('Here are the columns', df)
-        df_trials = df_trials[['learning_rate','min_data_in_leaf','max_depth','lambda_l2','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
+        df_trials = df_trials[['learning_rate','min_data_in_leaf','max_depth','lambda_l1','lambda_l2','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
         return df_trials
 
     def _generate_local_seeds(self):
@@ -284,7 +312,7 @@ class ParameterOptimizationSMAC:
         test_rmse = []
         #df.to_csv('Results/dataframe.csv', index=False)
         for _, row in df.iterrows():
-            params_copy = row.drop(['val_score']).to_dict()
+            params_copy = row.drop(['val_score', 'runtime'], errors='ignore').to_dict()
             # Ensure the correct types for specific parameters
             params_copy = {key: int(value) if key in ['min_data_in_leaf', 'max_depth', 'num_leaves', 'max_bin','n_iter'] else value for key, value in params_copy.items()} 
             #print("----------This is a row", row)
@@ -367,21 +395,21 @@ class ParameterOptimizationSMAC:
         # Drop unnecessary columns from the DataFrame with the trials
         df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'duration', 'state'], inplace=True)
         if self.try_num_leaves and not(self.try_num_iter):
-            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'num_leaves']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'num_leaves']
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
-            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin','max_depth', 'min_data_in_leaf', 'num_leaves']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin','max_depth', 'min_data_in_leaf', 'num_leaves']
         elif self.try_max_depth and not(self.try_num_iter):
-            df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
+            df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
-            df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf','n_iter','num_leaves']
+            df.columns = ['val_score','bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf','n_iter','num_leaves']
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
-            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter','num_leaves']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter','num_leaves']
             df['max_depth'] = -1
         elif self.try_num_iter and self.joint_tuning_depth_leaves:
-            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l2', 'learning_rate', 'max_bin','max_depth', 'min_data_in_leaf','n_iter','num_leaves']
+            df.columns = ['val_score', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin','max_depth', 'min_data_in_leaf','n_iter','num_leaves']
         return df
     
 
@@ -389,21 +417,21 @@ class ParameterOptimizationSMAC:
         """This function converts the arrays from the GP-BO trials into a DataFrame."""
 
         if self.try_num_leaves and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves'])
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves'])
         elif self.try_max_depth and not(self.try_num_iter):
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction'])
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','n_iter'])
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves','n_iter'])
             df['max_depth'] = -1
         elif self.joint_tuning_depth_leaves and self.try_num_iter:
-            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves','n_iter'])
+            df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf','lambda_l1', 'lambda_l2', 'max_bin', 'bagging_fraction', 'feature_fraction','max_depth', 'num_leaves','n_iter'])
         # Convert the 'score' array into a column for the DataFrame
         df['val_score'] = func_vals
 

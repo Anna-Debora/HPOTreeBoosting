@@ -781,7 +781,13 @@ class ParameterOptimization:
         df_trials['joint_tuning_depth_leaves'] = self.joint_tuning_depth_leaves
         df_trials['try_num_iter'] = self.try_num_iter
         return df_trials # score, best_parameters, self.best_iter
-    def hyperband_method(self,  X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8): 
+    def hyperband_method(self,  X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8):
+        """Run Hyperband and assign each survivor an equal share of its bracket's training time.
+
+        Runtime is the total wall-clock time spent in validation-model training
+        calls within a bracket, divided evenly among its surviving configurations.
+        Summing runtime across rows recovers the measured training time across brackets.
+        """
         self.min_score = float('inf')
         
         # Split the full training set into training and validation sets
@@ -795,6 +801,7 @@ class ParameterOptimization:
         s_values = np.arange(s_max, -1, -1)
         
         def objective_opt(trial):
+            bracket_runtime = 0.0
             n = int(np.ceil(B/R*factor**(s_values[trial.number])/(s_values[trial.number]+1)))
             r = R*1/(factor**(s_values[trial.number]))
             #initialize n parameter configurations
@@ -832,7 +839,13 @@ class ParameterOptimization:
                 best_iter = {}
                 for ind, param_grid in param_config.items():
                     #print(f'Validate using {r_k} num_boost rounds.')
-                    scores[ind], best_iter[ind] = self._train_model_for_validation(X_train, y_train, X_val, y_val, params = param_grid,num_boost_round=r_k)
+                    runtime_start = time.perf_counter()
+                    try:
+                        scores[ind], best_iter[ind] = self._train_model_for_validation(
+                            X_train, y_train, X_val, y_val, params=param_grid, num_boost_round=r_k
+                        )
+                    finally:
+                        bracket_runtime += time.perf_counter() - runtime_start
                 if len(param_config) > 1 and int(np.floor(n_k/factor)) > 0:
                     param_config, scores = truncate(param_config,scores, int(np.floor(n_k/factor)))
                 else: 
@@ -840,13 +853,21 @@ class ParameterOptimization:
             #print(f'This are the s_values {s_values}')
             #print(f'This is the param config {param_config} and the scores {scores}.')
             if self.df_trials is None:
-                self.df_trials = pd.DataFrame.from_dict(param_config, orient='index')
+                df_temp = pd.DataFrame.from_dict(param_config, orient='index')
                 #self.df_trials['s value'] = s_values[trial.number]
-                self.df_trials['val_score'] = scores.values()
+                df_temp['val_score'] = scores.values()
             else:
                 df_temp = pd.DataFrame.from_dict(param_config, orient='index')
                 #df_temp['s value'] = s_values[trial.number]
                 df_temp['val_score'] = scores.values()
+            df_temp.insert(
+                df_temp.columns.get_loc('val_score') + 1,
+                'runtime',
+                bracket_runtime / len(df_temp),
+            )
+            if self.df_trials is None:
+                self.df_trials = df_temp
+            else:
                 self.df_trials = pd.concat([self.df_trials, df_temp])
             best_ind = min(scores, key=scores.get)
             self.best_iter = best_iter[best_ind]
@@ -874,7 +895,7 @@ class ParameterOptimization:
         df_trials['try_num_iter'] = self.try_num_iter
         #reorder the columns
         #print('Here are the columns:',df_trials.columns)
-        df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
+        df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
         return df_trials 
 
 
