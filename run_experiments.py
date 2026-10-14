@@ -15,13 +15,40 @@ import numpy as np
 from methods import ParameterOptimization
 
 
+RESULT_COLUMNS = (
+    "iter", "learning_rate", "min_data_in_leaf", "max_depth", "lambda_l2",
+    "lambda_l1", "num_leaves", "max_bin", "bagging_fraction", "feature_fraction",
+    "val_score", "runtime", "test_score", "test_log_loss", "test_f1_score",
+    "test_rmse", "current_best_test_score", "current_best_test_log_loss",
+    "current_best_test_f1_score", "current_best_test_rmse", "try_num_leaves",
+    "joint_tuning_depth_leaves", "try_num_iter", "fold", "method", "task_id",
+    "library", "classification", "n_iter",
+)
+
+
 
 def main(args):                                  
     os.makedirs(args.result_folder, exist_ok=True)
+    strategy = getattr(args, "strategy", None)
+    strategy_configs = {
+        "max_depth": dict(try_max_depth=True, try_num_leaves=False,
+                           joint_tuning_depth_leaves=False, try_num_iter=False),
+        "num_leaves": dict(try_max_depth=False, try_num_leaves=True,
+                            joint_tuning_depth_leaves=False, try_num_iter=False),
+        "joint": dict(try_max_depth=False, try_num_leaves=False,
+                      joint_tuning_depth_leaves=True, try_num_iter=False),
+        "num_iter": dict(try_max_depth=True, try_num_leaves=False,
+                         joint_tuning_depth_leaves=False, try_num_iter=True),
+    }
+    if strategy is not None and strategy not in strategy_configs:
+        raise ValueError(f"Unknown strategy: {strategy}")
     seed_folder = f"seed_{args.seed}"
     library_folder = os.path.join(seed_folder, args.library)
     os.makedirs(os.path.join(args.result_folder, library_folder), exist_ok=True)
-    file_path = os.path.join(library_folder, f"{args.suite_id}_{args.task_id}.csv")
+    filename = f"{args.suite_id}_{args.task_id}"
+    if strategy is not None:
+        filename += f"__{strategy}"
+    file_path = os.path.join(library_folder, f"{filename}.csv")
     path = f"data/{args.suite_id}_{args.task_id}"
 
     # Read the data from local files
@@ -40,45 +67,30 @@ def main(args):
     task_id = int(args.task_id)
     seed = int(args.seed)
 
-    # Run the experiment for the current task
-    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
-                                try_max_depth=True,
-                                try_num_leaves=False,
-                                joint_tuning_depth_leaves=False,
-                                try_num_iter= False,
-                                suite_id=suite_id, seed=seed, library=args.library)
-    final_results_md = obj.run_methods()
-
-    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
-                                try_max_depth=False,
-                                try_num_leaves=True,
-                                joint_tuning_depth_leaves=False,
-                                try_num_iter= False,
-                                suite_id=suite_id, seed=seed, library=args.library)
-    final_results_nl = obj.run_methods()
-    
-    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
-                                try_max_depth=False,
-                                try_num_leaves=False,
-                                joint_tuning_depth_leaves=True,
-                                try_num_iter= False,
-                                suite_id=suite_id, seed=seed, library=args.library)
-    final_results_joint = obj.run_methods()
-    obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator,
-                                try_max_depth=True,
-                                try_num_leaves=False,
-                                joint_tuning_depth_leaves=False,
-                                try_num_iter= True,
-                                suite_id=suite_id, seed=seed, library=args.library)
-    final_results_iter = obj.run_methods()
-    # Format the DataFrame
-    final_results = pd.concat([final_results_md, final_results_nl,final_results_joint,final_results_iter], ignore_index=True)
-    final_results["task_id"] = task_id
-    final_results["library"] = args.library
-    final_results["classification"] = 1 if suite_id in [334, 337] else 0
-
-    # Save the results
-    final_results.to_csv(os.path.join(args.result_folder, file_path), index=False)
+    strategies = [strategy] if strategy is not None else list(strategy_configs)
+    output_path = os.path.join(args.result_folder, file_path)
+    first_chunk = True
+    for strategy_name in strategies:
+        obj = ParameterOptimization(
+            X=X, y=y, categorical_indicator=categorical_indicator,
+            suite_id=suite_id, seed=seed, library=args.library,
+            **strategy_configs[strategy_name],
+        )
+        splits = list(obj.splits)
+        for fold_index, split in enumerate(splits):
+            obj.splits = [split]
+            fold_results = obj.run_methods()
+            fold_results["fold"] = fold_index
+            fold_results["task_id"] = task_id
+            fold_results["library"] = args.library
+            fold_results["classification"] = 1 if suite_id in [334, 337] else 0
+            extra_columns = [column for column in fold_results.columns if column not in RESULT_COLUMNS]
+            fold_results = fold_results.reindex(columns=[*RESULT_COLUMNS, *extra_columns])
+            fold_results.to_csv(
+                output_path, index=False, mode="w" if first_chunk else "a",
+                header=first_chunk,
+            )
+            first_chunk = False
 
 
 if __name__ == '__main__':
@@ -88,5 +100,6 @@ if __name__ == '__main__':
     parser.add_argument('--seed')
     parser.add_argument('--result_folder')
     parser.add_argument('--library', default='gpboost')
+    parser.add_argument('--strategy', choices=('max_depth', 'num_leaves', 'joint', 'num_iter'))
     args = parser.parse_args()
     main(args)

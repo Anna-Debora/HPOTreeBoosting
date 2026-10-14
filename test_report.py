@@ -89,9 +89,14 @@ class ReportTests(unittest.TestCase):
 
     def test_mini_full_loader_matches_create_scores_dict(self):
         root = Path("/tmp/mini_full")
-        suite_id, task_id, seed, library, trial_count = 335, 361288, 27225, "gpboost", 10
+        suite_id, task_id, seed, library = 335, 361288, 27225, "gpboost"
+        trial_counts = {"grid_search": 10, "random_search": 10, "tpe": 30,
+                        "gp_bo": 12, "SMAC": 10}
+        max_trials = max(trial_counts.values())
+        trial_count = max_trials
         main_path = root / "Results" / f"seed_{seed}" / library / f"{suite_id}_{task_id}.csv"
-        self._create_mini_full(root, suite_id, task_id, seed, library, trial_count)
+        split_root = root / "strategy_split"
+        self._create_mini_full(root, suite_id, task_id, seed, library, trial_counts)
 
         original_folds = upm.FOLDS
         original_create_scores_dict = upm.create_scores_dict
@@ -121,27 +126,44 @@ class ReportTests(unittest.TestCase):
                          data["warnings"])
         self.assertTrue(np.isfinite(data["scores"][library]["R2"]["Default"]).any())
 
-        reader_result = data["create_scores_dict"][library][(False, "score")][0]
-        rmse_result = data["create_scores_dict"][library][(False, "rmse")][0]
-        metric_map = {"R2": reader_result, "RMSE": rmse_result}
+        reader_results = {}
         for method in ("grid_search", "random_search", "tpe", "gp_bo", "SMAC"):
             strategy_count = 2 if method == "grid_search" else 3 if method == "SMAC" else 4
+            budget = trial_counts[method]
+            reader_result, rmse_result = self._read_create_scores_for_method(
+                root, suite_id, task_id, seed, library, method, budget, split=False
+            )
+            split_reader_result, split_rmse_result = self._read_create_scores_for_method(
+                root / "strategy_split", suite_id, task_id, seed, library,
+                method, budget, split=True
+            )
+            reader_results[method] = reader_result
             for strategy_index in range(strategy_count):
                 direct = data["scores"][library]["R2"][method][strategy_index, :, 0, 0]
-                expected = metric_map["R2"][method][strategy_index, :, 0, 0]
-                self.assertEqual(len(expected), trial_count)
-                np.testing.assert_allclose(direct, expected, equal_nan=True)
+                expected = reader_result[method][strategy_index, :, 0, 0]
+                self.assertEqual(len(expected), budget)
+                np.testing.assert_allclose(direct[:budget], expected, equal_nan=True)
+                self.assertTrue(np.isnan(direct[budget:]).all())
+                split_expected = split_reader_result[method][strategy_index, :, 0, 0]
+                self.assertEqual(expected.shape, split_expected.shape)
+                np.testing.assert_array_equal(np.isfinite(expected), np.isfinite(split_expected))
                 direct_rmse = data["scores"][library]["RMSE"][method][strategy_index, :, 0, 0]
-                expected_rmse = metric_map["RMSE"][method][strategy_index, :, 0, 0]
-                np.testing.assert_allclose(direct_rmse, expected_rmse, equal_nan=True)
-                for budget_index in (0, trial_count - 1):
+                expected_rmse = rmse_result[method][strategy_index, :, 0, 0]
+                np.testing.assert_allclose(direct_rmse[:budget], expected_rmse, equal_nan=True)
+                self.assertTrue(np.isnan(direct_rmse[budget:]).all())
+                split_expected_rmse = split_rmse_result[method][strategy_index, :, 0, 0]
+                self.assertEqual(expected_rmse.shape, split_expected_rmse.shape)
+                np.testing.assert_array_equal(
+                    np.isfinite(expected_rmse), np.isfinite(split_expected_rmse)
+                )
+                for budget_index in (0, budget - 1):
                     self.assertEqual(direct[budget_index], expected[budget_index])
         direct_default = data["scores"][library]["R2"]["Default"][:, 0, 0]
         np.testing.assert_allclose(
-            direct_default, reader_result["Default"][:, 0], equal_nan=True
+            direct_default, reader_results["tpe"]["Default"][:, 0], equal_nan=True
         )
 
-        self.assertNotIn("runtime", reader_result)
+        self.assertNotIn("runtime", next(iter(reader_results.values())))
         main_frame = __import__("pandas").read_csv(main_path)
         for method in ("grid_search", "random_search", "tpe", "gp_bo"):
             for strategy_index, (try_leaves, joint, num_iter) in enumerate((
@@ -159,10 +181,12 @@ class ReportTests(unittest.TestCase):
                 expected_runtime = np.cumsum(rows["runtime"].to_numpy(dtype=float))
                 actual_runtime = data["runtime"][library][method][strategy_index, :, 0, 0]
                 np.testing.assert_allclose(
-                    actual_runtime, expected_runtime, rtol=1e-10, atol=1e-10,
+                    actual_runtime[:len(expected_runtime)], expected_runtime,
+                    rtol=1e-10, atol=1e-10,
                     err_msg=f"{method}/{strategy_index}: actual={actual_runtime[:3]}, "
                             f"expected={expected_runtime[:3]}",
                 )
+                self.assertTrue(np.isnan(actual_runtime[len(expected_runtime):]).all())
 
         runtime_sources = {
             "hyperband": root / "Results_Hyperband_2007" / f"seed_{seed}" / library
@@ -187,6 +211,8 @@ class ReportTests(unittest.TestCase):
                 if method == "hyperband":
                     positions = np.rint(np.linspace(0, trial_count - 1, len(rows))).astype(int)
                     actual_runtime = actual_runtime[positions]
+                else:
+                    actual_runtime = actual_runtime[:len(expected_runtime)]
                 np.testing.assert_allclose(
                     actual_runtime, expected_runtime, rtol=1e-10, atol=1e-10,
                     err_msg=f"{method}/{strategy_index} cumulative runtimes",
@@ -203,17 +229,114 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(smac_path.exists())
         self.assertTrue(np.isfinite(data["scores"][library]["R2"]["hyperband"]).any())
         self.assertTrue(np.isfinite(data["scores"][library]["R2"]["SMAC"]).any())
+        split_root = root / "strategy_split"
+        original_folds = upm.FOLDS
+        original_num_folds = upm.NUM_FOLDS
         upm.create_scores_dict = one_fold_create_scores_dict
         try:
+            split_data = load_report_data(split_root, [library])
             report_data = run_report(root, [library], root / "report", budgets=[1, trial_count])
         finally:
             upm.FOLDS = original_folds
+            upm.NUM_FOLDS = original_num_folds
             upm.create_scores_dict = original_create_scores_dict
+        self.assertEqual(data["iterations"], split_data["iterations"])
+        for metric in ("R2", "RMSE", "Accuracy", "LogLoss"):
+            for method in data["methods"]:
+                self.assertEqual(
+                    data["scores"][library][metric][method].shape,
+                    split_data["scores"][library][metric][method].shape,
+                )
+                np.testing.assert_array_equal(
+                    np.isfinite(data["scores"][library][metric][method]),
+                    np.isfinite(split_data["scores"][library][metric][method]),
+                )
+                self.assertEqual(
+                    data["runtime"][library][method].shape,
+                    split_data["runtime"][library][method].shape,
+                )
+        make_all_tables(split_data, root / "split_report", budgets=[1, trial_count])
+        for table in ("overall_metrics.csv", "per_dataset_end_budget.csv",
+                      "library_comparison.csv", "runtime_summary.csv"):
+            full_table = __import__("pandas").read_csv(root / "report" / "tables" / table)
+            split_table = __import__("pandas").read_csv(root / "split_report" / "tables" / table)
+            self.assertEqual(list(full_table.columns), list(split_table.columns))
+            self.assertEqual(len(full_table), len(split_table))
         self.assertFalse(any("Fehlt:" in warning for warning in report_data["warnings"]),
                  report_data["warnings"])
         overall = __import__("pandas").read_csv(root / "report" / "tables" / "overall_metrics.csv")
         elo_values = overall.loc[overall["domain"] == "regression", "elo"].to_numpy(dtype=float)
         self.assertTrue(np.isfinite(elo_values).any(), overall.to_string())
+
+    @staticmethod
+    def _read_create_scores_for_method(root, suite_id, task_id, seed, library, method, budget, split):
+        import json
+        import shutil
+
+        with tempfile.TemporaryDirectory(prefix="mini_create_scores-") as temp:
+            compatible = Path(temp) / "results"
+            main_directory = compatible / "Results" / f"seed_{seed}" / library
+            main_directory.mkdir(parents=True, exist_ok=True)
+            source_main = Path(root) / "Results" / f"seed_{seed}" / library
+            canonical = source_main / f"{suite_id}_{task_id}.csv"
+            destination = main_directory / canonical.name
+            if split:
+                frames = [__import__("pandas").read_csv(
+                    source_main / f"{suite_id}_{task_id}__{strategy}.csv"
+                ) for strategy in ("max_depth", "num_leaves", "joint", "num_iter")]
+                __import__("pandas").concat(frames, ignore_index=True).to_csv(destination, index=False)
+            else:
+                shutil.copy2(canonical, destination)
+
+            for directory_name in ("Results_Hyperband_2007", "Results_SMAC"):
+                source = Path(root) / directory_name
+                if source.exists():
+                    (compatible / directory_name).symlink_to(source, target_is_directory=True)
+            default_source = (Path(root) / "Results_Default_Run" / library
+                              / f"{suite_id}_{task_id}.csv")
+            default_frame = __import__("pandas").read_csv(default_source)
+            default_destination = (compatible / "Results_Default_Run" / library
+                                   / f"{suite_id}_{task_id}.csv")
+            default_destination.parent.mkdir(parents=True, exist_ok=True)
+            default_frame.groupby("fold", sort=False).head(budget).to_csv(
+                default_destination,
+                index=False,
+            )
+
+            index_directory = Path(temp) / "task_indices"
+            index_directory.mkdir()
+            for current_suite in (334, 335, 336, 337):
+                task_ids = [task_id] if current_suite == suite_id else []
+                np.save(index_directory / f"{current_suite}_task_indices.npy",
+                        np.asarray(task_ids, dtype=int))
+                (index_directory / f"{current_suite}_task_names.json").write_text(
+                    json.dumps([str(task_id)] if task_ids else [])
+                )
+
+            saved = {name: getattr(upm, name) for name in (
+                "seeds", "NUM_SEEDS", "FOLDS", "NUM_FOLDS", "NUM_ITERS",
+                "NUM_TASKS", "NUM_REGR_TASKS", "NUM_CLASS_TASKS", "HPO_METHODS", "NUM_METHODS",
+            )}
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp)
+                upm.seeds, upm.NUM_SEEDS = [seed], 1
+                upm.FOLDS, upm.NUM_FOLDS = [0], 1
+                upm.NUM_ITERS = budget
+                upm.NUM_REGR_TASKS, upm.NUM_CLASS_TASKS = 1, 0
+                upm.NUM_TASKS = 1
+                upm.HPO_METHODS, upm.NUM_METHODS = [method], 1
+                scores, _ = upm.create_scores_dict(
+                    str(compatible), classification=False, library=library
+                )
+                rmse, _ = upm.create_scores_dict(
+                    str(compatible), classification=False, rmse=True, library=library
+                )
+                return scores, rmse
+            finally:
+                os.chdir(old_cwd)
+                for name, value in saved.items():
+                    setattr(upm, name, value)
 
     def test_euler_job_generator_only_writes_sbatch_text(self):
         task_file = self.root / "euler_tasks.txt"
@@ -224,8 +347,11 @@ class ReportTests(unittest.TestCase):
             results="Results", out=output,
         )
         text = script.read_text()
-        self.assertEqual(job_count, 8)
-        self.assertEqual(len(manifest.read_text().splitlines()), 8)
+        self.assertEqual(job_count, 32)
+        manifest_rows = manifest.read_text().splitlines()
+        self.assertEqual(len(manifest_rows), 32)
+        self.assertEqual({row.split("\t")[-1] for row in manifest_rows},
+                 {"max_depth", "num_leaves", "joint", "num_iter"})
         self.assertIn("#SBATCH --partition=normal.4h", text)
         self.assertIn("#SBATCH --time=04:00:00", text)
         self.assertIn("stack/2024-06 gcc/12.2.0 python/3.9.18", text)
@@ -235,46 +361,60 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(command.startswith("sbatch "))
 
     @staticmethod
-    def _create_mini_full(root, suite_id, task_id, seed, library, trial_count):
+    def _create_mini_full(root, suite_id, task_id, seed, library, trial_counts):
         project_root = Path(__file__).resolve().parent
         root.mkdir(parents=True, exist_ok=True)
+        trial_count = max(trial_counts.values())
         old_cwd = os.getcwd()
         original_grid = methods.ParameterOptimization.grid_search_method
         original_optimize = optuna.study.Study.optimize
         original_gp_minimize = methods.gp_minimize
         original_hyperband_method = methods.ParameterOptimization.hyperband_method
+        original_train_validation = methods.ParameterOptimization._train_model_for_validation
         original_split = methods.ParameterOptimization._split_data
         original_smac_split = SMAC_method.ParameterOptimizationSMAC._split_data
         original_scenario = SMAC_method.Scenario
 
         def small_grid(self, *args, num_try_random=None, **kwargs):
             return original_grid(
-                self, *args, num_try_random=trial_count if num_try_random in (None, 270)
-                else min(num_try_random, trial_count), **kwargs
+                self, *args, num_try_random=trial_counts["grid_search"]
+                if num_try_random in (None, 270) else min(num_try_random, trial_counts["random_search"]),
+                **kwargs
             )
 
         def small_optimize(self, func, *args, **kwargs):
-            kwargs["n_trials"] = min(kwargs.get("n_trials", trial_count), trial_count)
+            kwargs["n_trials"] = min(kwargs.get("n_trials", trial_counts["tpe"]), trial_counts["tpe"])
             return original_optimize(self, func, *args, **kwargs)
 
         def small_gp_minimize(func, dimensions, *args, **kwargs):
-            kwargs["n_calls"] = trial_count
+            kwargs["n_calls"] = trial_counts["gp_bo"]
             return original_gp_minimize(func, dimensions, *args, **kwargs)
 
         def small_hyperband_method(self, *args, **kwargs):
             kwargs["R"] = 9
             return original_hyperband_method(self, *args, **kwargs)
 
+        def bounded_train_validation(self, X_train, y_train, X_val, y_val, params,
+                                     num_boost_round=1000):
+            bounded_params = dict(params)
+            if "n_iter" in bounded_params:
+                bounded_params["n_iter"] = min(int(bounded_params["n_iter"]), 80)
+            return original_train_validation(
+                self, X_train, y_train, X_val, y_val, bounded_params,
+                num_boost_round=min(num_boost_round, 80),
+            )
+
         methods.ParameterOptimization.grid_search_method = small_grid
         optuna.study.Study.optimize = small_optimize
         methods.gp_minimize = small_gp_minimize
         methods.ParameterOptimization.hyperband_method = small_hyperband_method
+        methods.ParameterOptimization._train_model_for_validation = bounded_train_validation
         methods.ParameterOptimization._split_data = lambda self: list(original_split(self))[:1]
         SMAC_method.ParameterOptimizationSMAC._split_data = (
             lambda self: list(original_smac_split(self))[:1]
         )
         SMAC_method.Scenario = lambda *args, **kwargs: original_scenario(
-            *args, **{**kwargs, "n_trials": trial_count}
+            *args, **{**kwargs, "n_trials": trial_counts["SMAC"]}
         )
         try:
             os.chdir(root)
@@ -287,6 +427,27 @@ class ReportTests(unittest.TestCase):
                 suite_id=str(suite_id), task_id=str(task_id), seed=str(seed),
                 result_folder=str(root / "Results"), library=library,
             ))
+            full_csv = root / "Results" / f"seed_{seed}" / library / f"{suite_id}_{task_id}.csv"
+            full_frame = __import__("pandas").read_csv(full_csv)
+            split_root = root / "strategy_split"
+            split_frames = []
+            for strategy_name in ("max_depth", "num_leaves", "joint", "num_iter"):
+                run_experiments.main(argparse.Namespace(
+                    suite_id=str(suite_id), task_id=str(task_id), seed=str(seed),
+                    result_folder=str(split_root / "Results"), library=library,
+                    strategy=strategy_name,
+                ))
+                split_path = (split_root / "Results" / f"seed_{seed}" / library
+                              / f"{suite_id}_{task_id}__{strategy_name}.csv")
+                split_frames.append(__import__("pandas").read_csv(split_path))
+            combined = __import__("pandas").concat(split_frames, ignore_index=True)
+            if len(full_frame) != len(combined):
+                raise AssertionError(f"Row count differs: full={len(full_frame)}, split={len(combined)}")
+            if list(full_frame.columns) != list(combined.columns):
+                raise AssertionError("CSV columns differ between full and strategy-split runs")
+            grouping = ["method", "try_num_leaves", "joint_tuning_depth_leaves", "try_num_iter"]
+            if not full_frame.groupby(grouping).size().equals(combined.groupby(grouping).size()):
+                raise AssertionError("Per-method strategy row counts differ between full and split runs")
             run_default.main(argparse.Namespace(
                 task_id="7", result_folder=str(root / "Results_Default_Run"), library=library,
             ))
@@ -300,12 +461,18 @@ class ReportTests(unittest.TestCase):
                 result_folder_SMAC=str(root / "Results_SMAC"),
                 result_folder_H=str(root / "Results_Hyperband_2007"), library=library,
             ))
+            for shared_dir in ("Results_Default_Run", "Results_Hyperband_2007", "Results_SMAC"):
+                source = root / shared_dir
+                destination = split_root / shared_dir
+                if source.exists() and not destination.exists():
+                    destination.symlink_to(source, target_is_directory=True)
         finally:
             os.chdir(old_cwd)
             methods.ParameterOptimization.grid_search_method = original_grid
             optuna.study.Study.optimize = original_optimize
             methods.gp_minimize = original_gp_minimize
             methods.ParameterOptimization.hyperband_method = original_hyperband_method
+            methods.ParameterOptimization._train_model_for_validation = original_train_validation
             methods.ParameterOptimization._split_data = original_split
             SMAC_method.ParameterOptimizationSMAC._split_data = original_smac_split
             SMAC_method.Scenario = original_scenario

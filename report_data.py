@@ -288,6 +288,41 @@ def _file_for(results_root, method, library, seed, task):
     return root / f"seed_{seed}" / library / f"{task['suite_id']}_{task['task_id']}.csv"
 
 
+def _main_result_paths(results_root, library, seed, task):
+    """Return a canonical main CSV, or its strategy-split replacements."""
+    root = Path(results_root)
+    stem = f"{task['suite_id']}_{task['task_id']}"
+    directory = root / "Results" / f"seed_{seed}" / library
+    canonical = directory / f"{stem}.csv"
+    split_paths = [directory / f"{stem}__{strategy}.csv" for strategy in STRATEGIES]
+    if canonical.exists():
+        return [canonical]
+    found = [path for path in split_paths if path.exists()]
+    if found:
+        return found
+
+    legacy_directory = root / f"seed_{seed}" / library
+    legacy_canonical = legacy_directory / f"{stem}.csv"
+    if legacy_canonical.exists():
+        return [legacy_canonical]
+    return [path for path in (legacy_directory / f"{stem}__{strategy}.csv"
+                              for strategy in STRATEGIES) if path.exists()]
+
+
+def _read_main_results(results_root, library, seed, task, warnings_list):
+    paths = _main_result_paths(results_root, library, seed, task)
+    if not paths:
+        expected = _file_for(results_root, "random_search", library, seed, task)
+        warnings_list.append(f"Fehlt: {expected} (oder strategy-spezifische CSVs)")
+        return None
+    frames = []
+    for path in paths:
+        frame = _read_frame(path, warnings_list)
+        if frame is not None:
+            frames.append(frame)
+    return pd.concat(frames, ignore_index=True) if frames else None
+
+
 def _read_frame(path, warnings_list, required=False):
     if not path.exists():
         warnings_list.append(f"Fehlt: {path}")
@@ -316,6 +351,41 @@ def _create_scores_dict_if_compatible(results_root, library, tasks, seeds, itera
     try:
         with tempfile.TemporaryDirectory(prefix="report_task_indices-") as temp:
             os.makedirs(os.path.join(temp, "task_indices"), exist_ok=True)
+            compatible_root = Path(temp) / "compatible_results"
+
+            def link_result(source, destination):
+                if not source.exists():
+                    return
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if destination.exists():
+                    destination.unlink()
+                destination.symlink_to(source.resolve())
+
+            for task in tasks:
+                suite_id, task_id = task["suite_id"], task["task_id"]
+                filename = f"{suite_id}_{task_id}.csv"
+                default_source = Path(results_root) / "Results_Default_Run" / library / filename
+                link_result(default_source, compatible_root / "Results_Default_Run" / library / filename)
+                for seed in seeds:
+                    seed_name = f"seed_{seed}"
+                    source_hb = Path(results_root) / "Results_Hyperband_2007" / seed_name / library / filename
+                    link_result(source_hb, compatible_root / "Results_Hyperband_2007" / seed_name / library / filename)
+                    source_smac = Path(results_root) / "Results_SMAC" / seed_name / filename
+                    if library == "gpboost":
+                        link_result(source_smac, compatible_root / "Results_SMAC" / seed_name / filename)
+
+                    main_source = Path(results_root) / "Results" / seed_name / library / filename
+                    main_destination = compatible_root / "Results" / seed_name / library / filename
+                    if main_source.exists():
+                        link_result(main_source, main_destination)
+                    else:
+                        split_stem = f"{suite_id}_{task_id}__"
+                        split_dir = Path(results_root) / "Results" / seed_name / library
+                        split_paths = [split_dir / f"{split_stem}{strategy}.csv" for strategy in STRATEGIES]
+                        split_frames = [pd.read_csv(path) for path in split_paths if path.exists()]
+                        if split_frames:
+                            main_destination.parent.mkdir(parents=True, exist_ok=True)
+                            pd.concat(split_frames, ignore_index=True).to_csv(main_destination, index=False)
             for suite_id in (334, 335, 336, 337):
                 suite_tasks = [task for task in tasks if task["suite_id"] == suite_id]
                 np.save(os.path.join(temp, "task_indices", f"{suite_id}_task_indices.npy"),
@@ -346,7 +416,7 @@ def _create_scores_dict_if_compatible(results_root, library, tasks, seeds, itera
                         ("accuracy", {}), ("logloss", {"logloss": True}),
                     ):
                         scores, names = upm.create_scores_dict(
-                            str(results_root), classification=classification,
+                            str(compatible_root), classification=classification,
                             library=library, **kwargs
                         )
                         loaded[(classification, metric)] = (scores, names, selected)
@@ -381,22 +451,28 @@ def load_report_data(results_root, libraries, tasks_file=None, project_root=None
         for task in tasks:
             for seed in seeds_by_library.get(library, []):
                 for method in ("random_search", "tpe", "gp_bo", "grid_search", "hyperband"):
-                    path = _file_for(results_root, method, library, seed, task)
-                    if path.exists():
-                        try:
-                            frame = pd.read_csv(path)
-                            if "iter" in frame:
-                                frame["iter"] = pd.to_numeric(frame["iter"], errors="coerce")
-                                grouping = [column for column in ("method", *_FLAG_NAMES, "fold")
-                                            if column in frame]
-                                method_frame = frame
-                                if method not in ("hyperband", "SMAC") and "method" in frame:
-                                    method_frame = frame.loc[frame["method"].astype(str).eq(method)]
-                                counts = method_frame.groupby(grouping, dropna=False)["iter"].count()
-                                if not counts.empty:
-                                    max_iterations = max(max_iterations, int(counts.max()))
-                        except Exception:
-                            continue
+                    if method in ("random_search", "tpe", "gp_bo", "grid_search"):
+                        paths = _main_result_paths(results_root, library, seed, task)
+                    else:
+                        paths = [_file_for(results_root, method, library, seed, task)]
+                    frames = [frame for path in paths if path.exists()
+                              for frame in [pd.read_csv(path)]]
+                    if frames and method in ("random_search", "tpe", "gp_bo", "grid_search"):
+                        frame = pd.concat(frames, ignore_index=True)
+                    elif frames:
+                        frame = frames[0]
+                    else:
+                        continue
+                    if "iter" in frame:
+                        frame["iter"] = pd.to_numeric(frame["iter"], errors="coerce")
+                        grouping = [column for column in ("method", *_FLAG_NAMES, "fold")
+                                    if column in frame]
+                        method_frame = frame
+                        if method not in ("hyperband", "SMAC") and "method" in frame:
+                            method_frame = frame.loc[frame["method"].astype(str).eq(method)]
+                        counts = method_frame.groupby(grouping, dropna=False)["iter"].count()
+                        if not counts.empty:
+                            max_iterations = max(max_iterations, int(counts.max()))
             default_path = _file_for(results_root, "Default", library, None, task)
             if default_path.exists():
                 try:
@@ -482,7 +558,10 @@ def load_report_data(results_root, libraries, tasks_file=None, project_root=None
                         if message not in warnings_list:
                             warnings_list.append(message)
                         continue
-                    frame = _read_frame(path, warnings_list)
+                    if method in ("grid_search", "random_search", "tpe", "gp_bo"):
+                        frame = _read_main_results(results_root, library, seed, task, warnings_list)
+                    else:
+                        frame = _read_frame(path, warnings_list)
                     if frame is None:
                         missing_files.append(str(path))
                         continue

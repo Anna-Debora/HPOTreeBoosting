@@ -7,6 +7,8 @@ import json
 import shlex
 from pathlib import Path
 
+STRATEGIES = ("max_depth", "num_leaves", "joint", "num_iter")
+
 
 def read_tasks(path):
     path = Path(path)
@@ -42,7 +44,7 @@ def read_tasks(path):
     return tasks
 
 
-def generate_jobs(tasks_file, seeds, libraries, results, out):
+def generate_jobs(tasks_file, seeds, libraries, results, out, project_dir="."):
     tasks = read_tasks(tasks_file)
     seeds = [int(seed) for seed in seeds]
     libraries = list(libraries)
@@ -50,38 +52,45 @@ def generate_jobs(tasks_file, seeds, libraries, results, out):
             for suite_id, task_id in tasks
             for seed in seeds
             for library in libraries]
+    jobs = [(*job, strategy) for job in jobs for strategy in STRATEGIES]
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     logs = out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     manifest = out / "jobs.tsv"
     manifest.write_text("".join(
-        f"{suite_id}\t{task_id}\t{seed}\t{library}\n"
-        for suite_id, task_id, seed, library in jobs
+        f"{suite_id}\t{task_id}\t{seed}\t{library}\t{strategy}\n"
+        for suite_id, task_id, seed, library, strategy in jobs
     ))
 
     manifest_shell = shlex.quote(str(manifest.resolve()))
     results_shell = shlex.quote(str(Path(results).resolve()))
+    project_shell = shlex.quote(str(Path(project_dir).resolve()))
     script = f"""#!/bin/bash
 #SBATCH --job-name=hpo-tree-boosting
 #SBATCH --partition=normal.4h
 #SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=4G
 #SBATCH --array=0-{len(jobs) - 1}
 #SBATCH --output={shlex.quote(str((logs / '%x_%A_%a.out').resolve()))}
 #SBATCH --error={shlex.quote(str((logs / '%x_%A_%a.err').resolve()))}
 #SBATCH --export=ALL
 
 set -euo pipefail
+export OMP_NUM_THREADS=1
 module load stack/2024-06 gcc/12.2.0 python/3.9.18
+cd {project_shell}
 source .venv/bin/activate
 
 JOB_LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" {manifest_shell})
-IFS=$'\\t' read -r SUITE_ID TASK_ID SEED LIBRARY <<< "$JOB_LINE"
+IFS=$'\\t' read -r SUITE_ID TASK_ID SEED LIBRARY STRATEGY <<< "$JOB_LINE"
 python run_experiments.py \\
     --suite_id "$SUITE_ID" \\
     --task_id "$TASK_ID" \\
     --seed "$SEED" \\
     --library "$LIBRARY" \\
+    --strategy "$STRATEGY" \\
     --result_folder {results_shell}
 
 # run_experiments.py writes the task CSV only after all strategies complete.
@@ -102,9 +111,11 @@ def main(argv=None):
                         default=("gpboost", "xgboost", "catboost"))
     parser.add_argument("--results", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--project-dir", default=".")
     args = parser.parse_args(argv)
     script, manifest, command, count = generate_jobs(
-        args.tasks_file, args.seeds, args.libraries, args.results, args.out
+        args.tasks_file, args.seeds, args.libraries, args.results, args.out,
+        project_dir=args.project_dir,
     )
     print(f"Generated {count} array jobs")
     print(f"Manifest: {manifest}")
