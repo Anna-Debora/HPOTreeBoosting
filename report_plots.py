@@ -133,6 +133,13 @@ def _avg_std(payload, metric, method, strategy_index):
             return np.nanstd(values, axis=(1, 2))
 
 
+def normalized_available(data, library, domain):
+    """True if create_scores_dict succeeded for this library/domain (all files present)."""
+    classification = domain == "classification"
+    loaded = data.get("create_scores_dict", {}).get(library, {})
+    return (classification, "accuracy" if classification else "score") in loaded
+
+
 def _domain_groups(data):
     return {
         "regression": [i for i, task in enumerate(data["tasks"]) if not task["classification"]],
@@ -147,9 +154,9 @@ def _x_positions(method, length, iterations):
 
 
 def _plot_overall(data, library, domain, metric, strategy, task_indices, methods,
-                  out_dir, language):
+                  out_dir, language, normalize=True):
     payload = _metric_payload(data, library, metric, task_indices, methods)
-    normalized = _normalized_payload(payload)
+    normalized = _normalized_payload(payload) if normalize else payload
     strategy_index = STRATEGIES.index(strategy)
     fig, ax = plt.subplots(figsize=(8.2, 5.4))
     for method in methods:
@@ -163,20 +170,34 @@ def _plot_overall(data, library, domain, metric, strategy, task_indices, methods
         x = _x_positions(method, len(mean), data["iterations"])
         color = COLORS[method]
         ax.plot(x[valid], mean[valid], label=METHOD_LABELS[method], color=color, linewidth=2)
-        if method != "Default":
+        if not normalize:
+            # Band: +-1 std across seeds of the task-averaged curve (only with >1 seed).
+            per_seed = _mean(values, axis=1)
+            if np.isfinite(per_seed).any(axis=0).sum() > 1:
+                with np.errstate(invalid="ignore"):
+                    spread = np.nan_to_num(np.nanstd(per_seed, axis=1))
+                ax.fill_between(x[valid], (mean - spread)[valid], (mean + spread)[valid],
+                                color=color, alpha=0.13)
+        else:
             std = _avg_std(normalized, metric, method, strategy_index)
             count = np.sum(np.isfinite(values), axis=(1, 2))
             margin = np.divide(2.0 * std, np.sqrt(count), out=np.zeros_like(std), where=count > 0)
             ax.fill_between(x[valid], (mean - margin)[valid], (mean + margin)[valid], color=color, alpha=0.13)
     if "Default" in normalized:
         default = _mean(normalized["Default"][:, :, None], axis=(1, 2))
-        ax.plot(np.arange(1, len(default) + 1), default, "--", color=COLORS["Default"],
-                label=METHOD_LABELS["Default"], linewidth=1.8)
+        if np.isfinite(default).any():
+            ax.plot(np.arange(1, len(default) + 1), default, "--", color=COLORS["Default"],
+                    label=METHOD_LABELS["Default"], linewidth=1.8)
     xlabel = "Number of trials" if language == "en" else "Anzahl der Durchläufe"
-    ylabel = "Normalized score" if language == "en" else "Normalisierter Score"
+    if normalize:
+        ylabel = "Normalized score" if language == "en" else "Normalisierter Score"
+    else:
+        ylabel = (f"{METRIC_LABELS[metric]} (not normalized)" if language == "en"
+                  else f"{METRIC_LABELS[metric]} (nicht normalisiert)")
     ax.set(xlabel=xlabel, ylabel=ylabel, title=f"{library} | {domain} | {STRATEGY_LABELS[strategy]} | {METRIC_LABELS[metric]}")
     ax.set_xlim(1, data["iterations"])
-    ax.set_ylim(-0.05, 1.05)
+    if normalize:
+        ax.set_ylim(-0.05, 1.05)
     ax.grid(True, color="#d8dde2", linestyle="--", linewidth=0.6)
     ax.legend(frameon=False, ncol=2)
     fig.tight_layout()
@@ -316,7 +337,8 @@ def _runtime_scores(data, library, metric, selection):
     return data[source][library][metric]
 
 
-def _plot_runtime(data, library, task_indices, strategy, out_dir, language, selection):
+def _plot_runtime(data, library, task_indices, strategy, out_dir, language, selection,
+                  normalize=True):
     metric = "Accuracy"
     method_names = [method for method in METHODS if method in data["runtime"][library]]
     strategy_index = STRATEGIES.index(strategy)
@@ -327,7 +349,7 @@ def _plot_runtime(data, library, task_indices, strategy, out_dir, language, sele
         [method for method in method_names if method != "Default"],
         source="scores" if selection == "oracle" else "val_selected",
     )
-    normalized_scores = _normalized_payload(score_payload)
+    normalized_scores = _normalized_payload(score_payload) if normalize else score_payload
     reference = scores_by_method.get("random_search")
     if reference is None:
         data["warnings"].append(f"Laufzeitplot übersprungen für {library}: Random Search fehlt.")
@@ -355,7 +377,8 @@ def _plot_runtime(data, library, task_indices, strategy, out_dir, language, sele
             ax.plot(grid, values, label=METHOD_LABELS[method], color=COLORS[method], linewidth=2)
     ax.set_xscale("log")
     ax.set(xlabel="Cumulative runtime / Random Search runtime" if language == "en" else "Kumulierte Laufzeit / Random-Search-Laufzeit",
-           ylabel="Normalized accuracy" if language == "en" else "Normalisierte Accuracy",
+           ylabel=("Normalized accuracy" if language == "en" else "Normalisierte Accuracy") if normalize
+           else ("Accuracy (not normalized)" if language == "en" else "Accuracy (nicht normalisiert)"),
            title=f"Accuracy vs runtime | {library} | {STRATEGY_LABELS[strategy]} | selection={selection}")
     ax.grid(True, which="both", color="#d8dde2", linestyle="--", linewidth=0.6)
     ax.legend(frameon=False, ncol=2)
@@ -398,14 +421,22 @@ def make_all_plots(data, out_dir, language="en", selection="val"):
                 data["scores"][library][primary_metric[domain]]["Default"], task_indices, axis=1
             )).any() else [])
             metric = primary_metric[domain]
+            normalize = normalized_available(data, library, domain)
+            if not normalize:
+                data["warnings"].append(
+                    f"Plots für {library}/{domain} sind NICHT normalisiert (Rohwerte {METRIC_LABELS[metric]}, "
+                    "Mittel über Folds, Tasks; Band = ±1 Std über Seeds bei >1 Seed): "
+                    "create_scores_dict nicht möglich (fehlende Dateien oder inkompatibles Layout, siehe Warnung 'create_scores_dict übersprungen')."
+                )
             for strategy in STRATEGIES:
                 _plot_overall(data, library, domain, metric, strategy, task_indices,
-                              plot_methods, plots_dir, language)
+                              plot_methods, plots_dir, language, normalize=normalize)
                 for task_index in task_indices:
                     _plot_per_task(data, library, task_index, metric, strategy,
                                    methods + (["Default"] if "Default" in plot_methods else []), plots_dir, language)
                 if domain == "classification":
-                    _plot_runtime(data, library, task_indices, strategy, plots_dir, language, selection)
+                    _plot_runtime(data, library, task_indices, strategy, plots_dir, language,
+                                  selection, normalize=normalize)
 
     for domain, task_indices in domain_groups.items():
         if not task_indices:

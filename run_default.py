@@ -17,7 +17,10 @@ from methods import ParameterOptimization
 
 def main(args):
     task_id = int(args.task_id)
-    if task_id < 7:
+    if getattr(args, "suite_id", None) is not None:
+        # With --suite_id, --task_id is the real task id and no suite_*_tasks.txt is read.
+        suite_id = int(args.suite_id)
+    elif task_id < 7:
         tasks = np.loadtxt(f"suite_334_tasks.txt")
         task_id = int(tasks[task_id])
         suite_id = 334
@@ -60,7 +63,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task_id')
+    parser.add_argument('--task_id', help="flat index into suite_*_tasks.txt, or the real task id if --suite_id is given")
+    parser.add_argument('--suite_id', default=None)
     parser.add_argument('--result_folder')
     parser.add_argument('--library', default='gpboost')
     args = parser.parse_args()

@@ -272,6 +272,8 @@ def _fit_bradley_terry(wins, scale, init_rating, anchor_index):
     )
     centered = fit.x - np.mean(fit.x)
     ratings = init_rating + scale * centered / np.log(10.0)
+    if anchor_index is None:
+        return ratings
     return ratings + (init_rating - ratings[anchor_index])
 
 
@@ -338,7 +340,8 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0,
     Sieg. Bradley-Terry schaetzt Log-Staerken ``t`` mit
     ``P(i gewinnt j) = 1 / (1 + 10 ** ((t_j - t_i) / scale))``. Ratings werden
     auf Mittelwert 1000 zentriert und danach so verschoben, dass ``Default``
-    genau 1000 betraegt.
+    genau 1000 betraegt. Eintraege ohne Daten (auch ``Default``) erhalten NaN;
+    ohne ``Default`` bleibt die Zentrierung auf Mittelwert 1000.
 
     Abweichungen zu TabArena: Der Default-Lauf ersetzt den Default-Random-Forest
     als Elo-Anker. Das Projekt speichert keinen Random-Forest; seine Werte
@@ -371,7 +374,7 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0,
             for array, count in methods.values()
             if strategy_index < count
         )
-        output["Default"][strategy_name] = np.full(len(budget_indices), _ELO_INIT_RATING)
+        output["Default"][strategy_name] = np.full(len(budget_indices), np.nan)
         for method, (_, strategy_count) in methods.items():
             if strategy_index < strategy_count:
                 output[method][strategy_name] = np.full(len(budget_indices), np.nan)
@@ -380,10 +383,13 @@ def elo(result_dict, bootstrap_rounds=_ELO_BOOTSTRAP_ROUNDS, random_state=0,
             entries = _strategy_entries(
                 default_scores, methods, budget, strategy_index, seed_count, result_dict
             )
+            # Entrants without any finite value stay NaN instead of receiving a rating.
+            entries = {name: values for name, values in entries.items()
+                       if np.isfinite(values).any()}
+            if len(entries) < 2:
+                continue
             names, task_wins = _task_win_totals(entries, seed_count)
-            if "Default" not in names:
-                raise ValueError("'Default' muss als Elo-Anker vergleichbar sein.")
-            anchor_index = names.index("Default")
+            anchor_index = names.index("Default") if "Default" in names else None
             bootstrap_ratings = np.empty((bootstrap_rounds, len(names)))
             task_count = task_wins.shape[0]
             for round_index in range(bootstrap_rounds):

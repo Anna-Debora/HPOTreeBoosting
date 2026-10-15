@@ -10,7 +10,7 @@ from scipy.stats import rankdata
 
 from aggregation_methods import elo, improvability
 from report_data import METHODS, METRICS, STRATEGIES
-from report_plots import _metric_payload, _normalized_payload
+from report_plots import _metric_payload, _normalized_payload, normalized_available
 
 
 PRIMARY = {"regression": "R2", "classification": "Accuracy"}
@@ -110,7 +110,13 @@ def _overall_tables(data, out_dir, budgets):
             error_metric = ERROR_METRIC[domain]
             methods = _available_methods(data, library, score_metric, task_indices)
             payload = _metric_payload(data, library, score_metric, task_indices, methods)
-            normalized = _normalized_payload(payload)
+            has_normalization = normalized_available(data, library, domain)
+            normalized = _normalized_payload(payload) if has_normalization else None
+            if len(task_indices) < 5:
+                data["warnings"].append(
+                    f"Elo für {library}/{domain} basiert auf nur {len(task_indices)} Tasks (<5): "
+                    "Bootstrap-Ratings sind nicht belastbar."
+                )
             error_result = _aggregation_dict(data, library, error_metric, task_indices, methods)
             score_result = _aggregation_dict(data, library, score_metric, task_indices, methods)
             improv = improvability(error_result, budgets=budgets)
@@ -132,13 +138,16 @@ def _overall_tables(data, out_dir, budgets):
                 accuracy_result = _aggregation_dict(data, library, "Accuracy", task_indices, methods)
                 accuracy_result["classification"] = True
                 accuracy_improv = improvability(accuracy_result, budgets=budgets)
-                accuracy_elo = elo(accuracy_result, budgets=budgets)
+                try:
+                    accuracy_elo = elo(accuracy_result, budgets=budgets)
+                except ValueError:
+                    accuracy_elo = {}
 
             for strategy_index, strategy in enumerate(STRATEGIES):
                 for budget_position, budget in enumerate(budgets):
                     budget_index = budget - 1
                     for method in methods:
-                        if budget_index < normalized[method].shape[1]:
+                        if has_normalization and budget_index < normalized[method].shape[1]:
                             norm_value = _mean(normalized[method][strategy_index, budget_index])
                         else:
                             norm_value = np.nan
@@ -157,7 +166,8 @@ def _overall_tables(data, out_dir, budgets):
                     rows.append({
                         "library": library, "domain": domain, "strategy": strategy,
                         "method": "Default", "budget": budget,
-                        "normalized_score": _mean(normalized["Default"][budget_index, :]),
+                        "normalized_score": (_mean(normalized["Default"][budget_index, :])
+                                             if has_normalization else np.nan),
                         "improvability": improv["Default"][strategy][budget_position],
                         "elo": ratings["Default"][strategy][budget_position],
                         "mean_task_rank": _rank_scores(
