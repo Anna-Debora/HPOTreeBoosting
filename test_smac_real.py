@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shutil
 import tempfile
 
 import numpy as np
@@ -91,7 +92,7 @@ def main():
                 result_folder_H=result_h, library="gpboost"
             ))
 
-            smac_path = os.path.join(result_smac, f"seed_{SEED}", f"{SUITE}_{TASK}.csv")
+            smac_path = os.path.join(result_smac, f"seed_{SEED}", "gpboost", f"{SUITE}_{TASK}.csv")
             smac_data = pd.read_csv(smac_path)
             keys = ["try_num_leaves", "joint_tuning_depth_leaves"]
             print(f"SMAC CSV: {smac_path}")
@@ -104,6 +105,8 @@ def main():
             print(f"runtime column present: {'runtime' in smac_data.columns}")
 
             _fill_reader_inputs(temp)
+            legacy = os.path.join(result_smac, f"seed_{SEED}", f"{SUITE}_{TASK}.csv")
+            shutil.copyfile(smac_path, legacy)  # create_scores_dict liest SMAC ohne Bibliotheksordner
             upm.seeds = [SEED]
             upm.NUM_SEEDS = 1
             upm.NUM_REGR_TASKS = 1
