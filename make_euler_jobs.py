@@ -47,6 +47,7 @@ def _sbatch_header(job_count, logs):
 
 set -euo pipefail
 export OMP_NUM_THREADS=1
+export PYTHONHASHSEED=0
 module load stack/2024-06 gcc/12.2.0 python/3.9.18
 """
 
@@ -173,6 +174,7 @@ def generate_jobs(tasks_file, seeds, libraries, results, out, project_dir=".", k
 
 set -euo pipefail
 export OMP_NUM_THREADS=1
+export PYTHONHASHSEED=0
 module load stack/2024-06 gcc/12.2.0 python/3.9.18
 cd {project_shell}
 source .venv/bin/activate
