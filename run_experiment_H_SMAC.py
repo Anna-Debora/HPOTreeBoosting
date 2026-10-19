@@ -40,7 +40,7 @@ def main(args):
     seed_folder = f"seed_{args.seed}"
     if run_smac:
         os.makedirs(args.result_folder_SMAC, exist_ok=True)
-        os.makedirs(os.path.join(args.result_folder_SMAC, seed_folder), exist_ok=True)
+        os.makedirs(os.path.join(args.result_folder_SMAC, seed_folder, args.library), exist_ok=True)
     if run_hyperband:
         os.makedirs(args.result_folder_H, exist_ok=True)
         os.makedirs(os.path.join(args.result_folder_H, seed_folder, args.library), exist_ok=True)
@@ -56,7 +56,7 @@ def main(args):
         X = pd.read_csv(os.path.join(path, f"{suite_id}_{task_id}_X.csv"))
         y = pd.read_csv(os.path.join(path, f"{suite_id}_{task_id}_y.csv"))
         categorical_indicator = np.load(os.path.join(path, f"{suite_id}_{task_id}_categorical_indicator.npy"))
-        file_path_SMAC = f"seed_{args.seed}/{args.suite_id}_{task_id}.csv"
+        file_path_SMAC = f"seed_{args.seed}/{args.library}/{args.suite_id}_{task_id}.csv"
         file_path_H = f"seed_{args.seed}/{args.library}/{args.suite_id}_{task_id}.csv"
         if run_hyperband:
             for index, flags in enumerate(STRATEGIES):
@@ -67,7 +67,7 @@ def main(args):
         if run_smac:
             for index, flags in enumerate(STRATEGIES):
                 obj = ParameterOptimizationSMAC(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id,
-                                                try_num_iter=False, seed=seed, **flags)
+                                                try_num_iter=False, seed=seed, library=args.library, **flags)
                 _save(obj.method_smac(), task_id, suite_id,
                       os.path.join(args.result_folder_SMAC, file_path_SMAC), index == 0)
 
@@ -80,6 +80,6 @@ if __name__ == '__main__':
     parser.add_argument('--only', choices=('hyperband', 'smac'), default=None)
     parser.add_argument('--result_folder_SMAC')
     parser.add_argument('--result_folder_H')
-    parser.add_argument('--library', default='gpboost')  # Hyperband only; SMAC is GPBoost-only
+    parser.add_argument('--library', default='gpboost')
     args = parser.parse_args()
     main(args)

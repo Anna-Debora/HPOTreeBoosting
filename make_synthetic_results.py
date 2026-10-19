@@ -163,15 +163,15 @@ def generate(results_dir, iterations=270, hyperband_iterations=11):
                 hyperband_path.parent.mkdir(parents=True, exist_ok=True)
                 pd.concat(hyperband_frames, ignore_index=True).to_csv(hyperband_path, index=False)
 
-                if library == "gpboost":
-                    smac_frames = []
-                    for fold in range(5):
-                        for strategy in ("max_depth", "num_leaves", "joint"):
-                            smac_frames.append(_block(seed, library, task_index, fold, task,
-                                                      "SMAC", strategy, iterations))
-                    smac_path = root / "Results_SMAC" / f"seed_{seed}" / f"{suite_id}_{task_id}.csv"
-                    smac_path.parent.mkdir(parents=True, exist_ok=True)
-                    pd.concat(smac_frames, ignore_index=True).to_csv(smac_path, index=False)
+                smac_frames = []
+                for fold in range(5):
+                    for strategy in ("max_depth", "num_leaves", "joint"):
+                        smac_frames.append(_block(seed, library, task_index, fold, task,
+                                                  "SMAC", strategy, iterations))
+                smac_path = (root / "Results_SMAC" / f"seed_{seed}" / library
+                             / f"{suite_id}_{task_id}.csv")
+                smac_path.parent.mkdir(parents=True, exist_ok=True)
+                pd.concat(smac_frames, ignore_index=True).to_csv(smac_path, index=False)
 
     return root
 

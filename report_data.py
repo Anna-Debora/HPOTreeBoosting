@@ -86,7 +86,7 @@ def discover_tasks(results_root, tasks_file=None, project_root=None):
     root = Path(results_root)
     identifiers = set()
     for pattern in ("Results/seed_*/*/*.csv", "Results_Hyperband_2007/seed_*/*/*.csv",
-                    "Results_SMAC/seed_*/*.csv", "Results_Default_Run/*/*.csv",
+                    "Results_SMAC/seed_*/*/*.csv", "Results_SMAC/seed_*/*.csv", "Results_Default_Run/*/*.csv",
                     "seed_*/*/*.csv"):
         for path in root.glob(pattern):
             stem = path.stem.split("_")
@@ -281,7 +281,11 @@ def _file_for(results_root, method, library, seed, task):
     if method == "hyperband":
         return root / "Results_Hyperband_2007" / f"seed_{seed}" / library / f"{task['suite_id']}_{task['task_id']}.csv"
     if method == "SMAC":
-        return root / "Results_SMAC" / f"seed_{seed}" / f"{task['suite_id']}_{task['task_id']}.csv"
+        stem = f"{task['suite_id']}_{task['task_id']}.csv"
+        current = root / "Results_SMAC" / f"seed_{seed}" / library / stem
+        legacy = root / "Results_SMAC" / f"seed_{seed}" / stem
+        # Old layout had no library folder and was gpboost-only.
+        return legacy if library == "gpboost" and not current.exists() and legacy.exists() else current
     standard = root / "Results" / f"seed_{seed}" / library / f"{task['suite_id']}_{task['task_id']}.csv"
     if standard.exists():
         return standard
@@ -370,9 +374,9 @@ def _create_scores_dict_if_compatible(results_root, library, tasks, seeds, itera
                     seed_name = f"seed_{seed}"
                     source_hb = Path(results_root) / "Results_Hyperband_2007" / seed_name / library / filename
                     link_result(source_hb, compatible_root / "Results_Hyperband_2007" / seed_name / library / filename)
-                    source_smac = Path(results_root) / "Results_SMAC" / seed_name / filename
-                    if library == "gpboost":
-                        link_result(source_smac, compatible_root / "Results_SMAC" / seed_name / filename)
+                    source_smac = _file_for(results_root, "SMAC", library, seed, task)
+                    # upm.create_scores_dict reads SMAC without library folder; link per library.
+                    link_result(source_smac, compatible_root / "Results_SMAC" / seed_name / filename)
 
                     main_source = Path(results_root) / "Results" / seed_name / library / filename
                     main_destination = compatible_root / "Results" / seed_name / library / filename
@@ -405,8 +409,6 @@ def _create_scores_dict_if_compatible(results_root, library, tasks, seeds, itera
                 upm.NUM_REGR_TASKS = len(class_groups[False])
                 upm.NUM_TASKS = len(selected)
                 expected_methods = list(METHODS)
-                if library != "gpboost":
-                    expected_methods.remove("SMAC")
                 upm.HPO_METHODS = expected_methods
                 upm.NUM_METHODS = len(expected_methods)
                 try:
@@ -553,11 +555,6 @@ def load_report_data(results_root, libraries, tasks_file=None, project_root=None
                 frame_by_method = {}
                 for method in METHODS:
                     path = _file_for(results_root, method, library, seed, task)
-                    if method == "SMAC" and library != "gpboost":
-                        message = f"SMAC wird nur für gpboost gelesen ({library} übersprungen)."
-                        if message not in warnings_list:
-                            warnings_list.append(message)
-                        continue
                     if method in ("grid_search", "random_search", "tpe", "gp_bo"):
                         frame = _read_main_results(results_root, library, seed, task, warnings_list)
                     else:

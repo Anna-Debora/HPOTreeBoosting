@@ -26,8 +26,9 @@ RUNTIME_ESTIMATES = {
         "large tasks may hit the 4 h limit and then lose the whole task (CSV is written per strategy)."
     ),
     "smac": (
-        "smac (gpboost only, one job per task/seed): 270 trials x 5 folds x 3 strategies = 4050 validation fits + "
-        "4050 test refits of <=1000 rounds. Guess: 0.5-2 h per job; large tasks may hit the 4 h limit."
+        "smac (one job per task/seed/library): 270 trials x 5 folds x 3 strategies = 4050 validation fits + "
+        "4050 test refits of <=1000 rounds. Guess: 0.5-2 h per job for gpboost; xgboost/catboost per-round cost "
+        "is unmeasured (catboost is typically slower), so large tasks may hit the 4 h limit."
     ),
 }
 
@@ -73,11 +74,8 @@ python run_default.py \\
     else:
         if not seeds:
             raise ValueError(f"--seeds is required for kind={kind}")
-        if kind == "smac" and "gpboost" not in libraries:
-            raise ValueError("SMAC runs for gpboost only; include gpboost in --libraries")
-        job_libraries = ["gpboost"] if kind == "smac" else libraries
         rows = [(suite, task, int(seed), library) for suite, task in tasks
-                for seed in seeds for library in job_libraries]
+                for seed in seeds for library in libraries]
         folder_flag = ("--result_folder_H", "Results_Hyperband_2007") if kind == "hyperband" \
             else ("--result_folder_SMAC", "Results_SMAC")
         body = f"""IFS=$'\\t' read -r SUITE_ID TASK_ID SEED LIBRARY <<< "$JOB_LINE"
