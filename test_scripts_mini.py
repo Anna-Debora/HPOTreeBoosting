@@ -88,7 +88,7 @@ def main():
             expect = {
                 f"default/{lib}/{SUITE}_{TASK}.csv" for lib in LIBRARIES} | {
                 f"hyperband/seed_{SEED}/{lib}/{SUITE}_{TASK}.csv" for lib in LIBRARIES} | {
-                f"smac/seed_{SEED}/{SUITE}_{TASK}.csv"}
+                f"smac/seed_{SEED}/{lib}/{SUITE}_{TASK}.csv" for lib in LIBRARIES}
             got = {f"{n}/{f}" for n, r in [("default", res_default), ("hyperband", res_h), ("smac", res_smac)]
                    for f in tree(r)}
             assert got == expect, (got ^ expect)

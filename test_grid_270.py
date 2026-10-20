@@ -58,4 +58,4 @@ print(sorted(results['bagging_fraction'].unique()))
 print("   -> Erwartet: [0.5, 1.0]")
 
 print("\nWelche lambda_l1-Werte kommen vor?")
-print(sorted(results['lambda_l1'].unique()))
+print(sorted(results['lambda_l1'].unique()) if 'lambda_l1' in results.columns else 'nicht Teil des Gitters (nur Zufallssuche)')
