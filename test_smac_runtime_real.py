@@ -43,10 +43,12 @@ def _checked_run_smac(self, *args, **kwargs):
             measured_training_seconds += time.perf_counter() - started
 
     self._train_model_for_validation = _timed_train
+    wall_start = time.perf_counter()
     try:
         result = _original_run_smac(self, *args, **kwargs)
     finally:
         self._train_model_for_validation = original_train
+    wall_seconds = time.perf_counter() - wall_start
 
     assert "lambda_l1" in result.columns
     assert result.columns.get_loc("runtime") == result.columns.get_loc("val_score") + 1
@@ -54,7 +56,10 @@ def _checked_run_smac(self, *args, **kwargs):
     assert (result["runtime"] > 0).all()
     assert result["lambda_l1"].between(0, 100).all()
     assert len(result) == 20
-    np.testing.assert_allclose(result["runtime"].sum(), measured_training_seconds, rtol=0.1, atol=0.03)
+    # Wall-Clock inkl. Surrogat: mindestens die Trainingszeit, hoechstens die Gesamtdauer von run_smac
+    assert result["runtime"].sum() >= measured_training_seconds * 0.99, (result["runtime"].sum(), measured_training_seconds)
+    assert result["runtime"].sum() <= wall_seconds + 1e-6, (result["runtime"].sum(), wall_seconds)
+    print(f"SMAC: Wall-Clock {result['runtime'].sum():.2f}s, davon Training {measured_training_seconds:.2f}s")
     _observations.append((self.try_num_leaves, self.joint_tuning_depth_leaves, result["runtime"].sum()))
     return result
 

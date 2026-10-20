@@ -701,6 +701,7 @@ class ParameterOptimization:
         ]
         self.min_score = float('inf')
         self._gp_runtimes = []
+        self._gp_objective_runtimes = []
 
         # Adjust the space for the case where we tune the 'num_leaves' parameter
         if self.try_num_leaves:
@@ -732,7 +733,11 @@ class ParameterOptimization:
                 X_train, y_train, X_val, y_val, 
                 params
             )
-            self._gp_runtimes.append(time.perf_counter() - runtime_start)
+            runtime_end = time.perf_counter()
+            # Wall-Clock inkl. Surrogat: Zeit seit Ende des vorigen Aufrufs (Training + GP-Fit + Auswahl des naechsten Punkts)
+            self._gp_runtimes.append(runtime_end - self._gp_last_end)
+            self._gp_objective_runtimes.append(runtime_end - runtime_start)
+            self._gp_last_end = runtime_end
 
             # Get the best number of iterations
             if score < self.min_score:
@@ -741,6 +746,7 @@ class ParameterOptimization:
 
             return score
 
+        self._gp_last_end = time.perf_counter()
         result = gp_minimize(objective_gp_bo, space, n_calls=270, random_state=self.seed)  
 
         # Restore the 'numpy' module to its original state

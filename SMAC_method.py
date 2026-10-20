@@ -90,6 +90,7 @@ class ParameterOptimizationSMAC(ParameterOptimization):
                 n_iter = Integer(name='n_iter', bounds = (1,1000))
                 param.add([n_iter])
         runtime_by_configuration = {}
+        last_end = [time.perf_counter()]  # Wall-Clock-Referenz: Ende des vorigen Aufrufs (bzw. Start von SMAC)
 
         def objective_opt(params, seed = self.seed):
             
@@ -100,9 +101,10 @@ class ParameterOptimizationSMAC(ParameterOptimization):
                     params.get_dictionary()
                 )
             finally:
-                runtime_by_configuration.setdefault(_configuration_key(params), []).append(
-                    time.perf_counter() - runtime_start
-                )
+                # Wall-Clock inkl. Surrogat: Zeit seit Ende des vorigen Aufrufs
+                runtime_end = time.perf_counter()
+                runtime_by_configuration.setdefault(_configuration_key(params), []).append(runtime_end - last_end[0])
+                last_end[0] = runtime_end
             # Get the best number of iterations
             if score < self.min_score:
                 self.min_score = score
