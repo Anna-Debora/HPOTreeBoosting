@@ -870,7 +870,7 @@ class ParameterOptimization:
             df_temp.insert(
                 df_temp.columns.get_loc('val_score') + 1,
                 'runtime',
-                bracket_runtime / len(df_temp),
+                (time.perf_counter() - hb_last_end[0]) / len(df_temp),  # Wall-Clock des Brackets (inkl. Ziehen und Aussortieren)
             )
             if self.df_trials is None:
                 self.df_trials = df_temp
@@ -878,7 +878,9 @@ class ParameterOptimization:
                 self.df_trials = pd.concat([self.df_trials, df_temp])
             best_ind = min(scores, key=scores.get)
             self.best_iter = best_iter[best_ind]
+            hb_last_end[0] = time.perf_counter()
             return scores[best_ind]
+        hb_last_end = [time.perf_counter()]  # Wall-Clock-Referenz: Start der Methode bzw. Ende des vorigen Brackets
         study = optuna.create_study(direction='minimize', sampler=optuna.samplers.RandomSampler(seed=self.seed))
         study.optimize(objective_opt, n_trials=s_max+1)
         #print('This is the best_iter', self.best_iter)

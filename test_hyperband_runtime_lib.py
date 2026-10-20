@@ -25,16 +25,20 @@ def _checked_hyperband_method(self, *args, **kwargs):
             measured_training_seconds += time.perf_counter() - started
 
     self._train_model_for_validation = _timed_train
+    wall_start = time.perf_counter()
     try:
         result = _original_hyperband_method(self, *args, **kwargs)
     finally:
         self._train_model_for_validation = original_train
+    wall_seconds = time.perf_counter() - wall_start
 
     assert "runtime" in result.columns
     assert result.columns.get_loc("runtime") == result.columns.get_loc("val_score") + 1
     assert result["runtime"].notna().all()
     assert (result["runtime"] > 0).all()
-    np.testing.assert_allclose(result["runtime"].sum(), measured_training_seconds, rtol=0.1, atol=0.03)
+    # Wall-Clock des Brackets: mindestens die Trainingszeit, hoechstens die Gesamtdauer der Methode
+    assert result["runtime"].sum() >= measured_training_seconds * 0.99, (result["runtime"].sum(), measured_training_seconds)
+    assert result["runtime"].sum() <= wall_seconds + 1e-6, (result["runtime"].sum(), wall_seconds)
     _observations.append((self.library, len(result), result["runtime"].sum()))
     return result
 
