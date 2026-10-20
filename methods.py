@@ -31,6 +31,9 @@ from utils import modified_grid_search_tune_parameters, modify,_get_param_combin
 
 
 
+CATBOOST_MAX_BORDER_COUNT = 1024
+
+
 class ParameterOptimization:
     """This class is used to perform hyperparameter tuning using the proposed methods and to evaluate the model obtained using the best hyperparameters."""
 
@@ -67,6 +70,9 @@ class ParameterOptimization:
         self.try_max_depth = try_max_depth
         self.hyperband = hyperband
         self.max_bin_val = np.min([self.X.shape[0], 10000])
+        if library == "catboost":
+            # CatBoost-Fits werden mit border_count sehr langsam (Zeit ~ proportional): Obergrenze 1024
+            self.max_bin_val = int(np.min([self.max_bin_val, CATBOOST_MAX_BORDER_COUNT]))
         self.X = self._clean_column_names(self.X)
 
         self._create_other_params()

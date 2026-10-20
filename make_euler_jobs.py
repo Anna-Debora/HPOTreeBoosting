@@ -33,11 +33,19 @@ RUNTIME_ESTIMATES = {
 }
 
 
-def _sbatch_header(job_count, logs):
+def _slurm_limits(libraries):
+    """CatBoost ist deutlich langsamer: 24h-Partition, sonst 4h."""
+    if "catboost" in list(libraries or []):
+        return "normal.24h", "24:00:00"
+    return "normal.4h", "04:00:00"
+
+
+def _sbatch_header(job_count, logs, libraries=()):
+    partition, time_limit = _slurm_limits(libraries)
     return f"""#!/bin/bash
 #SBATCH --job-name=hpo-tree-boosting
-#SBATCH --partition=normal.4h
-#SBATCH --time=04:00:00
+#SBATCH --partition={partition}
+#SBATCH --time={time_limit}
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --array=0-{job_count - 1}
@@ -90,7 +98,7 @@ python run_experiment_H_SMAC.py \\
 """
     manifest.write_text("".join("\t".join(map(str, row)) + "\n" for row in rows))
     manifest_shell = shlex.quote(str(manifest.resolve()))
-    script = _sbatch_header(len(rows), logs) + f"""cd {project_shell}
+    script = _sbatch_header(len(rows), logs, libraries) + f"""cd {project_shell}
 source .venv/bin/activate
 
 JOB_LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" {manifest_shell})
@@ -161,10 +169,11 @@ def generate_jobs(tasks_file, seeds, libraries, results, out, project_dir=".", k
     manifest_shell = shlex.quote(str(manifest.resolve()))
     results_shell = shlex.quote(str(Path(results).resolve()))
     project_shell = shlex.quote(str(Path(project_dir).resolve()))
+    partition, time_limit = _slurm_limits(libraries)
     script = f"""#!/bin/bash
 #SBATCH --job-name=hpo-tree-boosting
-#SBATCH --partition=normal.4h
-#SBATCH --time=04:00:00
+#SBATCH --partition={partition}
+#SBATCH --time={time_limit}
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --array=0-{len(jobs) - 1}
