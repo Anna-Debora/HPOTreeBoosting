@@ -312,10 +312,11 @@ class ParameterOptimization:
             return y_pred, best_iter
 
         if library == "catboost":
-            catboost_train = catboost.Pool(X_train, label=y_train)
+            cat_features = list(getattr(self, "cat_feature_names", [])) or None
+            catboost_train = catboost.Pool(X_train, label=y_train, cat_features=cat_features)
             catboost_valid = None
             if X_valid is not None:
-                catboost_valid = catboost.Pool(X_valid, label=y_valid)
+                catboost_valid = catboost.Pool(X_valid, label=y_valid, cat_features=cat_features)
 
             catboost_options = dict(train_options)
             params = catboost_options.pop("params", {}).copy()
@@ -358,7 +359,7 @@ class ParameterOptimization:
                     fit_options["early_stopping_rounds"] = early_stopping_rounds
             model.fit(catboost_train, **fit_options)
 
-            catboost_predict = catboost.Pool(X_predict)
+            catboost_predict = catboost.Pool(X_predict, cat_features=cat_features)
             if self.suite_id in [334, 337]:
                 y_pred = model.predict(
                     catboost_predict, prediction_type="Probability"
@@ -950,15 +951,25 @@ class ParameterOptimization:
         """This function converts the categorical features of the data into numeric types."""
         # Extract the categorical columns in the DataFrame
         categorical_columns = self.X.columns[self.categorical_indicator]
+        self.cat_feature_names = []
 
-        # Fit the OneHotEncoder
-        enc = OneHotEncoder()
-        encoded_columns = enc.fit_transform(self.X[categorical_columns])
+        if self.library == "catboost":
+            # CatBoost verarbeitet Kategorien nativ: keine One-Hot-Kodierung.
+            # Kategoriale Spalten werden als Strings uebergeben (fehlende Werte = eigene Kategorie).
+            self.X.reset_index(drop=True, inplace=True)
+            for column in categorical_columns:
+                values = self.X[column].astype(object)
+                self.X[column] = values.where(values.notna(), "__missing__").astype(str)
+            self.cat_feature_names = list(categorical_columns)
+        else:
+            # Fit the OneHotEncoder
+            enc = OneHotEncoder()
+            encoded_columns = enc.fit_transform(self.X[categorical_columns])
 
-        # Format the DataFrame with the encoded columns
-        encoded_df = pd.DataFrame(encoded_columns.toarray(), columns=enc.get_feature_names_out(categorical_columns))
-        self.X.reset_index(drop=True, inplace=True)
-        self.X = pd.concat([self.X.drop(columns=categorical_columns), encoded_df], axis=1)
+            # Format the DataFrame with the encoded columns
+            encoded_df = pd.DataFrame(encoded_columns.toarray(), columns=enc.get_feature_names_out(categorical_columns))
+            self.X.reset_index(drop=True, inplace=True)
+            self.X = pd.concat([self.X.drop(columns=categorical_columns), encoded_df], axis=1)
 
         # Convert the target variable into numeric type
         if self.suite_id in [334, 337]:
