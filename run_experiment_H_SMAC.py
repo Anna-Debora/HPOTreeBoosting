@@ -14,6 +14,7 @@ import numpy as np
 
 from methods import ParameterOptimization
 from SMAC_method import ParameterOptimizationSMAC
+from task_types import is_classification
 
 # (try_num_leaves, try_max_depth, joint_tuning_depth_leaves); the first strategy creates the CSV, the others append.
 STRATEGIES = (
@@ -25,7 +26,7 @@ STRATEGIES = (
 
 def _save(frame, task_id, suite_id, path, first):
     frame["task_id"] = task_id
-    frame["classification"] = 1 if suite_id in [334, 337] else 0
+    frame["classification"] = 1 if is_classification(suite_id) else 0
     if first:
         frame.to_csv(path, index=False)
     else:

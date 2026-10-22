@@ -28,6 +28,7 @@ from skopt.space import Real, Integer, Categorical
 from skopt.utils import use_named_args
 
 from utils import modified_grid_search_tune_parameters, modify,_get_param_combination,truncate,tune_pars_TPE_algorithm_optuna
+from task_types import is_classification
 
 
 
@@ -279,7 +280,7 @@ class ParameterOptimization:
                 translated_name = param_translation.get(name, name)
                 if translated_name == "max_depth" and value <= 0:
                     value = 0
-                if translated_name == "min_child_weight" and self.suite_id in [334, 337]:
+                if translated_name == "min_child_weight" and is_classification(self.suite_id):
                     # Binary-logistic Hessian <= 0.25 per row; vorläufig, Fabio bestätigen.
                     value = 0.25 * value
                 translated_params[translated_name] = (
@@ -287,7 +288,7 @@ class ParameterOptimization:
                 )
 
             translated_params["objective"] = (
-                "binary:logistic" if self.suite_id in [334, 337]
+                "binary:logistic" if is_classification(self.suite_id)
                 else "reg:squarederror"
             )
             translated_params["tree_method"] = "hist"
@@ -341,7 +342,7 @@ class ParameterOptimization:
             catboost_params = {
                 "iterations": int(num_boost_round),
                 "loss_function": (
-                    "Logloss" if self.suite_id in [334, 337] else "RMSE"
+                    "Logloss" if is_classification(self.suite_id) else "RMSE"
                 ),
                 "verbose": False,
                 "allow_writing_files": False,
@@ -366,7 +367,7 @@ class ParameterOptimization:
             model.fit(catboost_train, **fit_options)
 
             catboost_predict = catboost.Pool(X_predict, cat_features=cat_features)
-            if self.suite_id in [334, 337]:
+            if is_classification(self.suite_id):
                 y_pred = model.predict(
                     catboost_predict, prediction_type="Probability"
                 )[:, 1]
@@ -409,7 +410,7 @@ class ParameterOptimization:
         }
         df = pd.DataFrame.from_dict(default_params)
         # Evaluate the model based on the respective task
-        if self.suite_id in [334, 337]:
+        if is_classification(self.suite_id):
             log_loss_score = log_loss(y_test, y_pred)
             y_pred = (y_pred > 0.5).astype(int)
             score = accuracy_score(y_test, y_pred)
@@ -570,7 +571,7 @@ class ParameterOptimization:
         # y_pred = bst.predict(data=self.X_test, pred_latent=False)
 
         # # Adjust the evaluation metric based on the task
-        # if self.suite_id in [334, 337]:
+        # if is_classification(self.suite_id):
         #     y_pred = (y_pred > 0.5).astype(int)
         #     score = accuracy_score(self.y_test, y_pred)
 
@@ -670,7 +671,7 @@ class ParameterOptimization:
         # y_pred = bst.predict(data=self.X_test, pred_latent=False)
 
         # # Adjust the evaluation metric based on the task
-        # if self.suite_id in [334, 337]:
+        # if is_classification(self.suite_id):
         #     y_pred = (y_pred > 0.5).astype(int)
         #     score = accuracy_score(self.y_test, y_pred)
 
@@ -774,7 +775,7 @@ class ParameterOptimization:
         # y_pred = bst.predict(data=self.X_test, pred_latent=False)
 
         # # Adjust the evaluation metric based on the task
-        # if self.suite_id in [334, 337]:
+        # if is_classification(self.suite_id):
         #     y_pred = (y_pred > 0.5).astype(int)
         #     score = accuracy_score(self.y_test, y_pred)
 
@@ -952,7 +953,7 @@ class ParameterOptimization:
         elif not self.joint_tuning_depth_leaves:
             self.other_params['num_leaves'] = 2**10     #{'verbose': -1, 'num_leaves': 2**10}
         # Set the objective and metric functions based on the given task
-        if self.suite_id in [334, 337]:
+        if is_classification(self.suite_id):
             self.other_params['objective'] = 'binary_logit'
             self.other_params['metric'] = 'binary_error'
 
@@ -986,7 +987,7 @@ class ParameterOptimization:
             self.X = pd.concat([self.X.drop(columns=categorical_columns), encoded_df], axis=1)
 
         # Convert the target variable into numeric type
-        if self.suite_id in [334, 337]:
+        if is_classification(self.suite_id):
             le = LabelEncoder()
             self.y = le.fit_transform(self.y)
 
@@ -1013,7 +1014,7 @@ class ParameterOptimization:
         )
 
         # Evaluate the model based on the respective task
-        if self.suite_id in [334, 337]:
+        if is_classification(self.suite_id):
             y_pred = (y_pred > 0.5).astype(int)
             score = 1 - accuracy_score(y_val, y_pred)
 
@@ -1047,7 +1048,7 @@ class ParameterOptimization:
         )
 
         # Evaluate the model based on the respective task
-        if self.suite_id in [334, 337]:
+        if is_classification(self.suite_id):
             y_pred = (y_pred > 0.5).astype(int)
             score = 1 - accuracy_score(y_val, y_pred)
 
@@ -1087,7 +1088,7 @@ class ParameterOptimization:
             )
 
             # Evaluate the model based on the respective task
-            if self.suite_id in [334, 337]:
+            if is_classification(self.suite_id):
                 log_loss_score = log_loss(y_test, y_pred)
                 y_pred = (y_pred > 0.5).astype(int)
                 score = accuracy_score(y_test, y_pred)

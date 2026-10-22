@@ -14,6 +14,7 @@ import pandas as pd
 
 import methods
 from methods import ParameterOptimization
+from task_types import is_classification
 
 N_RANDOM, N_TPE, N_GPBO = 10, 30, 12
 SUITE, TASK, SEED, LIBRARY = 335, 361288, 27225, "gpboost"
@@ -67,7 +68,7 @@ def main(result_folder, suite=SUITE, task=TASK, seed=SEED):
     final = pd.concat([run_config(cfg, suite, task, seed) for cfg in CONFIGS], ignore_index=True)
     final["task_id"] = task
     final["library"] = LIBRARY
-    final["classification"] = 1 if suite in [334, 337] else 0
+    final["classification"] = 1 if is_classification(suite) else 0
 
     out_dir = os.path.join(result_folder, f"seed_{seed}", LIBRARY)
     os.makedirs(out_dir, exist_ok=True)

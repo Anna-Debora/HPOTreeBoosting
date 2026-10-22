@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 
 from methods import ParameterOptimization
+from task_types import is_classification
 
 
 
@@ -55,7 +56,7 @@ def main(args):
     obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id, library=args.library)
     final_results = obj.run_default()
     final_results["task_id"] = task_id
-    final_results["classification"] = 1 if suite_id in [334, 337] else 0
+    final_results["classification"] = 1 if is_classification(suite_id) else 0
 
     # Save the results
     final_results.to_csv(os.path.join(args.result_folder, file_path), index=False)

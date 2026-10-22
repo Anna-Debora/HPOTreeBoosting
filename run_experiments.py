@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 
 from methods import ParameterOptimization
+from task_types import is_classification
 
 
 RESULT_COLUMNS = (
@@ -83,7 +84,7 @@ def main(args):
             fold_results["fold"] = fold_index
             fold_results["task_id"] = task_id
             fold_results["library"] = args.library
-            fold_results["classification"] = 1 if suite_id in [334, 337] else 0
+            fold_results["classification"] = 1 if is_classification(suite_id) else 0
             extra_columns = [column for column in fold_results.columns if column not in RESULT_COLUMNS]
             fold_results = fold_results.reindex(columns=[*RESULT_COLUMNS, *extra_columns])
             fold_results.to_csv(
