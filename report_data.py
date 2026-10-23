@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import utils_plot_maker as upm
+from task_types import ALL_SUITES, is_classification
 
 
 METHODS = ("grid_search", "random_search", "tpe", "gp_bo", "hyperband", "SMAC")
@@ -27,7 +28,7 @@ def _truthy(series):
 
 
 def _task_is_classification(suite_id):
-    return int(suite_id) in (334, 337)
+    return is_classification(suite_id)
 
 
 def _read_task_file(path):
@@ -108,7 +109,7 @@ def discover_tasks(results_root, tasks_file=None, project_root=None):
 
 def _tasks_from_indices(directory):
     tasks = []
-    for suite_id in (334, 335, 336, 337):
+    for suite_id in ALL_SUITES:
         ids_file = directory / f"{suite_id}_task_indices.npy"
         names_file = directory / f"{suite_id}_task_names.json"
         if not ids_file.exists():
@@ -390,7 +391,7 @@ def _create_scores_dict_if_compatible(results_root, library, tasks, seeds, itera
                         if split_frames:
                             main_destination.parent.mkdir(parents=True, exist_ok=True)
                             pd.concat(split_frames, ignore_index=True).to_csv(main_destination, index=False)
-            for suite_id in (334, 335, 336, 337):
+            for suite_id in ALL_SUITES:
                 suite_tasks = [task for task in tasks if task["suite_id"] == suite_id]
                 np.save(os.path.join(temp, "task_indices", f"{suite_id}_task_indices.npy"),
                         np.asarray([task["task_id"] for task in suite_tasks], dtype=int))

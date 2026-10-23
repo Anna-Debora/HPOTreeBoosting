@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from task_types import suites_for
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import seaborn as sns
@@ -42,11 +43,11 @@ def set_plot_theme():
 def create_scores_dict(classification=False, rmse=False):
     if classification:
         NUM_TASKS = NUM_CLASS_TASKS
-        suites = [334, 337]
+        suites = suites_for(True)
     
     else:
         NUM_TASKS = NUM_REGR_TASKS
-        suites = [335, 336] 
+        suites = suites_for(False) 
     
     scores_NL = np.zeros((NUM_METHODS, NUM_ITERS, NUM_TASKS, NUM_SEEDS, NUM_FOLDS))
     scores_MD = np.zeros((NUM_METHODS, NUM_ITERS, NUM_TASKS, NUM_SEEDS, NUM_FOLDS))
@@ -112,11 +113,11 @@ def create_scores_dict(classification=False, rmse=False):
 def create_scores_dict_joint_tuning(classification=False, rmse=False):
     if classification:
         NUM_TASKS = NUM_CLASS_TASKS
-        suites = [334, 337]
+        suites = suites_for(True)
     
     else:
         NUM_TASKS = NUM_REGR_TASKS
-        suites = [335, 336] 
+        suites = suites_for(False) 
 
     scores_J = np.zeros((NUM_METHODS_JOINT, NUM_ITERS, NUM_TASKS, NUM_SEEDS, NUM_FOLDS))
     k = 0

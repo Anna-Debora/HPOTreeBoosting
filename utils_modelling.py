@@ -11,6 +11,7 @@ from typing import Optional
 import gpboost as gpb
 import numpy as np
 import pandas as pd
+from task_types import suites_for
 
 
 
@@ -39,10 +40,10 @@ def read_and_preprocess_dataset(classification=False):
     df = pd.DataFrame()
 
     if classification:
-        suites = [334, 337]
+        suites = suites_for(True)
 
     else:
-        suites = [335, 336]
+        suites = suites_for(False)
 
     for suite_id in suites:
         tasks = np.load(f"task_indices/{suite_id}_task_indices.npy")

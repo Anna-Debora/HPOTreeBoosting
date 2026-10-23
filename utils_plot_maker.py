@@ -9,6 +9,7 @@ import os
 import copy
 import numpy as np
 import pandas as pd
+from task_types import suites_for
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import seaborn as sns
@@ -130,10 +131,10 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
         raise ValueError("'rmse' can only be True if 'classification' is False.")
     if classification:
         NUM_TASKS = NUM_CLASS_TASKS
-        suites = [334, 337]
+        suites = suites_for(True)
     else:
         NUM_TASKS = NUM_REGR_TASKS
-        suites = [335, 336] 
+        suites = suites_for(False) 
     metric = 'current_best_test_rmse' if rmse else 'current_best_test_log_loss' if logloss else 'current_best_test_score'
     names = []
     task_list = []

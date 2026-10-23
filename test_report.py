@@ -48,9 +48,9 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(data["scores"][library]["R2"]["gp_bo"].shape, (4, 270, 3, 2))
             self.assertEqual(data["runtime"][library]["random_search"].shape, (4, 270, 3, 2))
             self.assertTrue(np.isnan(data["runtime"][library]["Default"]).all())
-        for library in ("xgboost", "catboost"):
-            self.assertTrue(np.isnan(data["scores"][library]["R2"]["SMAC"]).all())
-        self.assertTrue(np.isfinite(data["scores"]["gpboost"]["R2"]["SMAC"]).any())
+        # SMAC laeuft seit der Umstellung fuer alle Bibliotheken (Ordner pro Bibliothek).
+        for library in ("gpboost", "xgboost", "catboost"):
+            self.assertTrue(np.isfinite(data["scores"][library]["R2"]["SMAC"]).any())
 
     def test_runtime_step_function_is_hand_calculable(self):
         grid = np.array([0.25, 0.5, 0.75, 1.0])
@@ -191,7 +191,7 @@ class ReportTests(unittest.TestCase):
         runtime_sources = {
             "hyperband": root / "Results_Hyperband_2007" / f"seed_{seed}" / library
             / f"{suite_id}_{task_id}.csv",
-            "SMAC": root / "Results_SMAC" / f"seed_{seed}" / f"{suite_id}_{task_id}.csv",
+            "SMAC": root / "Results_SMAC" / f"seed_{seed}" / library / f"{suite_id}_{task_id}.csv",
         }
         for method, path in runtime_sources.items():
             frame = __import__("pandas").read_csv(path)
@@ -223,7 +223,7 @@ class ReportTests(unittest.TestCase):
         )
         hyperband_path = (root / "Results_Hyperband_2007" / f"seed_{seed}" / library
                           / f"{suite_id}_{task_id}.csv")
-        smac_path = root / "Results_SMAC" / f"seed_{seed}" / f"{suite_id}_{task_id}.csv"
+        smac_path = root / "Results_SMAC" / f"seed_{seed}" / library / f"{suite_id}_{task_id}.csv"
         self.assertIn("current_best_test_score", default_frame.columns)
         self.assertTrue(hyperband_path.exists())
         self.assertTrue(smac_path.exists())
@@ -288,10 +288,20 @@ class ReportTests(unittest.TestCase):
             else:
                 shutil.copy2(canonical, destination)
 
-            for directory_name in ("Results_Hyperband_2007", "Results_SMAC"):
-                source = Path(root) / directory_name
-                if source.exists():
-                    (compatible / directory_name).symlink_to(source, target_is_directory=True)
+            source = Path(root) / "Results_Hyperband_2007"
+            if source.exists():
+                (compatible / "Results_Hyperband_2007").symlink_to(source, target_is_directory=True)
+            # upm.create_scores_dict liest SMAC ohne Bibliotheksordner: Datei der Bibliothek dorthin kopieren.
+            smac_root = Path(root) / "Results_SMAC"
+            for seed_dir in smac_root.glob("seed_*") if smac_root.exists() else []:
+                stem = f"{suite_id}_{task_id}.csv"
+                smac_source = seed_dir / library / stem
+                if not smac_source.exists():
+                    smac_source = seed_dir / stem
+                if smac_source.exists():
+                    target = compatible / "Results_SMAC" / seed_dir.name / stem
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(smac_source, target)
             default_source = (Path(root) / "Results_Default_Run" / library
                               / f"{suite_id}_{task_id}.csv")
             default_frame = __import__("pandas").read_csv(default_source)

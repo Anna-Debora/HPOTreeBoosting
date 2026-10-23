@@ -21,3 +21,15 @@ def is_classification(suite_id):
     if suite_id not in CLASSIFICATION_SUITES and suite_id not in REGRESSION_SUITES:
         raise ValueError(f"Unbekannte suite_id {suite_id}; bekannt sind {ALL_SUITES}")
     return suite_id in CLASSIFICATION_SUITES
+
+
+def suites_for(classification, directory="task_indices"):
+    """Suiten einer Domaene. Die neuen Pseudo-Suiten nur, wenn ihre Task-Datei existiert."""
+    import os
+    if classification:
+        old, new = list(OLD_CLASSIFICATION_SUITES), NEW_CLASSIFICATION_SUITE
+    else:
+        old, new = list(OLD_REGRESSION_SUITES), NEW_REGRESSION_SUITE
+    if os.path.exists(os.path.join(directory, f"{new}_task_indices.npy")):
+        old.append(new)
+    return old

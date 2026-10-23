@@ -28,6 +28,21 @@ class TaskTypeTests(unittest.TestCase):
             code = [l for l in text.splitlines() if not l.strip().startswith("#")]
             self.assertFalse(any("[334, 337]" in l for l in code), name)
 
+    def test_suites_for(self):
+        import os, tempfile
+        from task_types import suites_for, NEW_CLASSIFICATION_SUITE
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(suites_for(True, tmp), [334, 337])
+            self.assertEqual(suites_for(False, tmp), [335, 336])
+            open(os.path.join(tmp, f"{NEW_CLASSIFICATION_SUITE}_task_indices.npy"), "w").close()
+            self.assertEqual(suites_for(True, tmp), [334, 337, NEW_CLASSIFICATION_SUITE])
+            self.assertEqual(suites_for(False, tmp), [335, 336])
+
+    def test_report_knows_new_suites(self):
+        text = Path("report_data.py").read_text()
+        self.assertNotIn("(334, 335, 336, 337)", text)
+        self.assertNotIn("(334, 337)", text)
+
 
 if __name__ == "__main__":
     unittest.main()
