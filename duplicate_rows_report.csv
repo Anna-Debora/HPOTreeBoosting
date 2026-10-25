@@ -45,3 +45,6 @@ suite_id,task_id,name,rows,doppelte_zeilen,anteil
 1002,14969,GesturePhaseSegmentationProcessed,5482,0,0.0
 1002,363619,Bank_Customer_Churn,4074,0,0.0
 1002,910102,waveform-5000,3310,0,0.0
+1001,900023,cpu_small,8192,0,0.0
+1001,900031,house_8L,22784,1,0.0
+1002,3711,elevators,10260,0,0.0

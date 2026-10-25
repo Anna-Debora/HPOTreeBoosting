@@ -6,9 +6,6 @@ suite_id,task_id,name,entsprechende_alte_aufgabe,grund,sicherheit
 1002,910051,eye_movements_bin,"eye_movements (334, 337)","gleicher Inhalt wie 337 (alle Spalten und Ziel identisch, nur Zeilenreihenfolge anders)",sicher
 1002,363627,credit_card_clients_default,"default-of-credit-card-clients (334, 337)","gleicher Datensatz (UCI Taiwan), nach Ausgleich wie alt 13272 Zeilen",sicher
 1002,363673,GiveMeSomeCredit,credit (337),"gleicher Datensatz (Give Me Some Credit), nach Ausgleich wie alt 16714 Zeilen",sicher
-1001,900023,cpu_small,cpu_act (336),"Teilmenge der Merkmale von cpu_act, gleiches Ziel","variante, Fabio fragen"
-1001,900031,house_8L,house_16H (336),"Teilmenge der Merkmale von house_16H, gleiches Ziel","variante, Fabio fragen"
-1002,3711,elevators,elevators (336),"gleiche Merkmale, Ziel binarisiert (alt: Regression)","variante, Fabio fragen"
 1002,910104,wine-quality-dataset-balanced-classification,wine_quality (336),"abgeleitet von wine_quality (336), kuenstlich vervielfachte Zeilen",sicher
 1002,910019,amazon-survey-coupon-recommendation-dataset,in_vehicle_coupon_recommendation (OpenML 363681),"gleicher Datensatz wie in_vehicle_coupon_recommendation (OpenML 363681), BCCO hat Kategorien als Zahlen",sicher
 1001,900001,2dplanes,,"kuenstlich erzeugt, Grinsztajn schliesst synthetische Daten aus",sicher
