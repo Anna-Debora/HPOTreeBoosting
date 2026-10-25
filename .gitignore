@@ -50,7 +50,6 @@ results_model/
 timing.results.txt
 __pycache__
 Results/
-task_indices/
 plots/
 auxiliary_code.py
 Hyperband/
@@ -66,6 +65,24 @@ progress_2/
 progress_3/
 Runtime Comparison_1
 Runtime Comparison_2
-Runtime_Comparison_3catboost_info/
+Runtime_Comparison_3
+catboost_info/
 mini_*.csv
 plot_*.png
+
+# Logs, Proben, Sicherungen
+*.log
+testlog/
+report_probe*/
+task_indices_backup*/
+out_*.csv
+
+# einmalige Umbau- und Probe-Skripte
+patch_*.py
+fix_smac.py
+smac_wip.patch
+requirements_vorher.txt
+make_mini_results.py
+plot_compare_test.py
+plot_runtime_test.py
+test_maxbin_timing.py
