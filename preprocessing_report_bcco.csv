@@ -1,0 +1,157 @@
+suite_id,task_id,name,source,target_col,rows_before,cols_before,dropped_missing_columns,rows_after_missing,dropped_categorical,dropped_numeric,numeric_to_categorical,rows_after,cols_after,status,classes_kept
+1001,900000,1000-Cameras-Dataset,stable-ai/bcco_reg,target,1038.0,12.0,0.0,1036.0,1.0,0.0,0.0,1036.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (1036 < 3000),
+1001,900001,2dplanes,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: kuenstlich erzeugte Daten,
+1001,900002,Ailerons,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900003,Another-Dataset-on-used-Fiat-500,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900004,BNG(echoMonths),stable-ai/bcco_reg,target,17496.0,9.0,0.0,17496.0,0.0,0.0,3.0,17496.0,9.0,ok,
+1001,900005,BNG(lowbwt),stable-ai/bcco_reg,target,31104.0,9.0,0.0,31104.0,0.0,0.0,4.0,31104.0,9.0,ok,
+1001,900006,Bike_Sharing_Demand,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900007,Brazilian_houses,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900008,CPMP-2015-regression,stable-ai/bcco_reg,target,2108.0,26.0,0.0,2108.0,1.0,2.0,1.0,2108.0,23.0,AUSGESCHIEDEN: zu wenige Zeilen (2108 < 3000),
+1001,900009,CPS1988,stable-ai/bcco_reg,target,28155.0,6.0,0.0,28155.0,0.0,0.0,0.0,28155.0,6.0,ok,
+1001,900010,Food_Delivery_Time,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900011,IEEE80211aa-GATS,stable-ai/bcco_reg,target,4046.0,33.0,0.0,4046.0,0.0,4.0,2.0,4046.0,29.0,ok,
+1001,900012,MiamiHousing2016,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900013,Moneyball,stable-ai/bcco_reg,target,1232.0,14.0,4.0,1232.0,1.0,0.0,1.0,1232.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (1232 < 3000),
+1001,900014,NASA_PHM2008,stable-ai/bcco_reg,target,45918.0,21.0,0.0,45918.0,0.0,5.0,2.0,45918.0,16.0,ok,
+1001,900015,QSAR_fish_toxicity,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900016,abalone,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900017,airfoil_self_noise,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900018,boston,stable-ai/bcco_reg,target,506.0,13.0,0.0,506.0,0.0,0.0,1.0,506.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (506 < 3000),
+1001,900019,cars,stable-ai/bcco_reg,target,804.0,17.0,0.0,804.0,0.0,0.0,15.0,804.0,17.0,AUSGESCHIEDEN: zu wenige Zeilen (804 < 3000),
+1001,900020,concrete_compressive_strength,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900021,cpu_act,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900022,cpu_activity,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,900023,cpu_small,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,900024,dataset_sales,stable-ai/bcco_reg,target,10738.0,14.0,0.0,10738.0,0.0,5.0,2.0,10738.0,9.0,ok,
+1001,900025,delta_elevators,stable-ai/bcco_reg,target,9517.0,6.0,0.0,9517.0,0.0,1.0,0.0,9517.0,5.0,ok,
+1001,900026,elevators,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900027,energy_efficiency,stable-ai/bcco_reg,target,768.0,8.0,0.0,768.0,0.0,3.0,1.0,768.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (768 < 3000),
+1001,900028,fried,stable-ai/bcco_reg,target,40768.0,10.0,0.0,40768.0,0.0,0.0,0.0,40768.0,10.0,ok,
+1001,900029,grid_stability,stable-ai/bcco_reg,target,10000.0,12.0,0.0,10000.0,0.0,0.0,0.0,10000.0,12.0,ok,
+1001,900030,house_16H,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900031,house_8L,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,900032,house_sales,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900033,house_sales_reduced,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,900034,houses,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900035,kin8nm,stable-ai/bcco_reg,target,8192.0,8.0,0.0,8192.0,0.0,0.0,0.0,8192.0,8.0,ok,
+1001,900036,miami_housing,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900037,mv,stable-ai/bcco_reg,target,40768.0,10.0,0.0,40768.0,0.0,0.0,0.0,40768.0,10.0,ok,
+1001,900038,physiochemical_protein,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900039,pol,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900040,puma32H,stable-ai/bcco_reg,target,8192.0,32.0,0.0,8192.0,0.0,0.0,0.0,8192.0,32.0,ok,
+1001,900041,puma8NH,stable-ai/bcco_reg,target,8192.0,8.0,0.0,8192.0,0.0,0.0,0.0,8192.0,8.0,ok,
+1001,900042,pumadyn32nh,stable-ai/bcco_reg,target,8192.0,32.0,0.0,8192.0,0.0,0.0,0.0,8192.0,32.0,ok,
+1001,900043,qsar_aquatic_toxicity,stable-ai/bcco_reg,target,546.0,8.0,0.0,546.0,0.0,0.0,0.0,546.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (546 < 3000),
+1001,900044,seattlecrime6,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900045,space_ga,stable-ai/bcco_reg,target,3107.0,6.0,0.0,3107.0,0.0,0.0,0.0,3107.0,6.0,ok,
+1001,900046,student_performance_por,stable-ai/bcco_reg,target,649.0,30.0,0.0,649.0,0.0,0.0,0.0,649.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (649 < 3000),
+1001,900047,sulfur,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900048,superconductivity,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,900049,yprop_4_1,stable-ai/bcco_reg,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910000,BNG(cmc),stable-ai/bcco_cls,label,55296.0,9.0,0.0,55296.0,0.0,0.0,3.0,38564.0,9.0,ok,1|3
+1002,910001,CPMP-2015-runtime-classification,stable-ai/bcco_cls,target,527.0,22.0,0.0,527.0,0.0,1.0,1.0,314.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (314 < 3000),idastar.symmulgt.transmul|idastar.symmullt.transmul
+1002,910002,CostaMadre1,stable-ai/bcco_cls,target,296.0,37.0,0.0,296.0,0.0,0.0,0.0,76.0,37.0,AUSGESCHIEDEN: zu wenige Zeilen (76 < 3000),N|Y
+1002,910003,Fitness_Club_c,stable-ai/bcco_cls,label,1500.0,6.0,0.0,1480.0,0.0,0.0,1.0,898.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (898 < 3000),0.0|1.0
+1002,910004,GAMETES_Epistasis_2-Way_20atts_0.1H_EDM-1_1,stable-ai/bcco_cls,target,1600.0,20.0,0.0,1600.0,0.0,0.0,0.0,1600.0,20.0,AUSGESCHIEDEN: zu wenige Zeilen (1600 < 3000),0|1
+1002,910005,Gender_Gap_in_Spanish_WP,stable-ai/bcco_cls,label,4746.0,13.0,0.0,4746.0,0.0,0.0,0.0,3202.0,13.0,ok,0.0|1.0
+1002,910006,GesturePhaseSegmentationProcessed,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910007,KDD,stable-ai/bcco_cls,label,5032.0,45.0,0.0,5032.0,0.0,0.0,3.0,5032.0,45.0,ok,-1.0|1.0
+1002,910008,LED-display-domain-7digit,stable-ai/bcco_cls,target,500.0,7.0,0.0,500.0,0.0,0.0,7.0,114.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (114 < 3000),4|8
+1002,910009,MIC,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910010,Marketing_Campaign,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910011,National_Health_and_Nutrition_Health_Survey,stable-ai/bcco_cls,label,2278.0,7.0,0.0,2278.0,0.0,0.0,1.0,728.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (728 < 3000),0.0|1.0
+1002,910012,PieChart1,stable-ai/bcco_cls,target,705.0,37.0,0.0,705.0,0.0,0.0,0.0,122.0,37.0,AUSGESCHIEDEN: zu wenige Zeilen (122 < 3000),N|Y
+1002,910013,PopularKids,stable-ai/bcco_cls,target,478.0,10.0,0.0,478.0,0.0,0.0,0.0,282.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (282 < 3000),Grades|Popular
+1002,910014,SPECTF,stable-ai/bcco_cls,target,349.0,44.0,0.0,349.0,0.0,0.0,0.0,190.0,44.0,AUSGESCHIEDEN: zu wenige Zeilen (190 < 3000),0|1
+1002,910015,ad-click-data,stable-ai/bcco_cls,target,1000.0,3.0,0.0,984.0,0.0,0.0,1.0,980.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),0.0|1.0
+1002,910016,ad-click-prediction-dataset,stable-ai/bcco_cls,target,10000.0,7.0,0.0,816.0,0.0,0.0,0.0,600.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (600 < 3000),0.0|1.0
+1002,910017,ada,stable-ai/bcco_cls,class,4147.0,48.0,0.0,4147.0,0.0,3.0,39.0,2058.0,45.0,AUSGESCHIEDEN: zu wenige Zeilen (2058 < 3000),0|1
+1002,910018,airlines_seed_0_nrows_2000_nclasses_10_ncols_100_stratify_True,stable-ai/bcco_cls,label,2000.0,7.0,0.0,2000.0,0.0,0.0,0.0,1782.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (1782 < 3000),0|1
+1002,910019,amazon-survey-coupon-recommendation-dataset,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,910020,analcatdata_apnea2,stable-ai/bcco_cls,target,475.0,3.0,0.0,475.0,0.0,0.0,0.0,128.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),N|P
+1002,910021,analcatdata_birthday,stable-ai/bcco_cls,target,365.0,3.0,0.0,335.0,0.0,0.0,0.0,98.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),N|P
+1002,910022,analcatdata_broadwaymult,stable-ai/bcco_cls,target,285.0,7.0,0.0,267.0,1.0,0.0,0.0,68.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (68 < 3000),0|1
+1002,910023,analcatdata_dmft,stable-ai/bcco_cls,target,661.0,4.0,0.0,661.0,0.0,0.0,0.0,264.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (264 < 3000),Diet_enrichment|Mouthwash
+1002,910024,analcatdata_draft,stable-ai/bcco_cls,target,366.0,4.0,0.0,365.0,0.0,0.0,0.0,62.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (62 < 3000),N|P
+1002,910025,analcatdata_germangss,stable-ai/bcco_cls,target,400.0,5.0,0.0,400.0,0.0,0.0,1.0,200.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (200 < 3000),Poorly|Well
+1002,910026,arsenic-female-bladder,stable-ai/bcco_cls,target,559.0,4.0,0.0,559.0,0.0,0.0,0.0,160.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (160 < 3000),N|P
+1002,910027,autoMpg,stable-ai/bcco_cls,target,398.0,7.0,0.0,392.0,0.0,0.0,0.0,370.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (370 < 3000),N|P
+1002,910028,autoUniv-au4-2500,stable-ai/bcco_cls,label,2500.0,100.0,0.0,2500.0,0.0,0.0,16.0,2262.0,100.0,AUSGESCHIEDEN: zu wenige Zeilen (2262 < 3000),class1|class2
+1002,910029,autoUniv-au7-1100,stable-ai/bcco_cls,label,1100.0,12.0,0.0,1100.0,0.0,0.0,2.0,492.0,12.0,AUSGESCHIEDEN: zu wenige Zeilen (492 < 3000),class2|class5
+1002,910030,balance-scale,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910031,bankadditionalfullcsv,stable-ai/bcco_cls,target,41188.0,20.0,0.0,41188.0,0.0,0.0,1.0,9280.0,20.0,ok,0.0|1.0
+1002,910032,baseball,stable-ai/bcco_cls,label,1340.0,16.0,0.0,1320.0,0.0,0.0,0.0,134.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (134 < 3000),0|2
+1002,910033,chemical-x,stable-ai/bcco_cls,target,1759.0,10.0,0.0,1759.0,0.0,0.0,0.0,1620.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1620 < 3000),0.0|1.0
+1002,910034,chscase_funds,stable-ai/bcco_cls,target,185.0,2.0,0.0,185.0,0.0,0.0,0.0,174.0,2.0,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),N|P
+1002,910035,chscase_vine2,stable-ai/bcco_cls,target,468.0,2.0,0.0,468.0,0.0,0.0,0.0,424.0,2.0,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),N|P
+1002,910036,classification-in-asteroseismology,stable-ai/bcco_cls,target,1001.0,1.0,0.0,1001.0,0.0,0.0,0.0,576.0,1.0,AUSGESCHIEDEN: zu wenige Merkmale (1 < 4),0.0|1.0
+1002,910037,colic,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910038,colleges_usnews,stable-ai/bcco_cls,target,1302.0,33.0,0.0,158.0,1.0,0.0,1.0,110.0,32.0,AUSGESCHIEDEN: zu wenige Zeilen (110 < 3000),N|P
+1002,910039,companion-plants,stable-ai/bcco_cls,target,995.0,3.0,0.0,995.0,0.0,0.0,0.0,498.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),2.0|3.0
+1002,910040,company_bankruptcy_prediction,stable-ai/bcco_cls,label,6819.0,95.0,0.0,6819.0,0.0,1.0,1.0,440.0,94.0,AUSGESCHIEDEN: zu wenige Zeilen (440 < 3000),0.0|1.0
+1002,910041,compass,stable-ai/bcco_cls,label,16644.0,17.0,0.0,16644.0,0.0,1.0,1.0,16644.0,16.0,ok,-1|0
+1002,910042,consultant-job-placement-data-2023,stable-ai/bcco_cls,target,439.0,8.0,0.0,436.0,0.0,1.0,0.0,198.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (198 < 3000),0.0|1.0
+1002,910043,coupons,stable-ai/bcco_cls,target,150.0,5.0,0.0,150.0,0.0,0.0,1.0,104.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (104 < 3000),0.0|2.0
+1002,910044,credit-approval,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910045,customer-segmentation,stable-ai/bcco_cls,target,10695.0,9.0,0.0,8819.0,0.0,0.0,3.0,4616.0,9.0,ok,0.0|3.0
+1002,910046,cylinder-bands,stable-ai/bcco_cls,target,540.0,37.0,0.0,277.0,1.0,1.0,1.0,198.0,35.0,AUSGESCHIEDEN: zu wenige Zeilen (198 < 3000),band|noband
+1002,910047,dis,stable-ai/bcco_cls,label,3772.0,29.0,0.0,3772.0,0.0,7.0,14.0,116.0,22.0,AUSGESCHIEDEN: zu wenige Zeilen (116 < 3000),0|1
+1002,910048,disclosure_x_noise,stable-ai/bcco_cls,target,662.0,3.0,0.0,662.0,0.0,0.0,0.0,658.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),N|P
+1002,910049,employees-attrition-analysis,stable-ai/bcco_cls,target,4410.0,27.0,0.0,4300.0,0.0,3.0,2.0,1390.0,24.0,AUSGESCHIEDEN: zu wenige Zeilen (1390 < 3000),0.0|1.0
+1002,910050,eucalyptus,stable-ai/bcco_cls,class,736.0,19.0,0.0,641.0,0.0,0.0,1.0,256.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (256 < 3000),average|good
+1002,910051,eye_movements_bin,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,910052,fictional-character-battle-outcome-prediction,stable-ai/bcco_cls,target,2351.0,7.0,0.0,2351.0,0.0,0.0,1.0,1312.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (1312 < 3000),0.0|1.0
+1002,910053,first-order-theorem-proving,stable-ai/bcco_cls,Class,6118.0,51.0,0.0,6118.0,0.0,0.0,0.0,2178.0,51.0,AUSGESCHIEDEN: zu wenige Zeilen (2178 < 3000),1|6
+1002,910054,forty_soybean_cultivars_from_subsequent_harvests,stable-ai/bcco_cls,Season,320.0,10.0,0.0,320.0,1.0,0.0,0.0,320.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (320 < 3000),1|2
+1002,910055,glioma_grading_clinical_and_mutation_features_dataset,stable-ai/bcco_cls,Grade,839.0,23.0,0.0,839.0,0.0,0.0,21.0,704.0,23.0,AUSGESCHIEDEN: zu wenige Zeilen (704 < 3000),0|1
+1002,910056,golf_play_dataset_extended,stable-ai/bcco_cls,label,1095.0,9.0,0.0,1095.0,0.0,0.0,2.0,458.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (458 < 3000),0.0|1.0
+1002,910057,guitar-chord-finger-positioning,stable-ai/bcco_cls,target,294.0,9.0,2.0,180.0,0.0,1.0,0.0,54.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (54 < 3000),3.0|4.0
+1002,910058,hcc-survival-data-set,stable-ai/bcco_cls,target,165.0,30.0,0.0,165.0,0.0,0.0,3.0,126.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (126 < 3000),0.0|1.0
+1002,910059,heart-h,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910060,heart-long-beach,stable-ai/bcco_cls,target,200.0,13.0,0.0,200.0,0.0,0.0,2.0,102.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (102 < 3000),1|2
+1002,910061,hill-valley,stable-ai/bcco_cls,label,1212.0,100.0,0.0,1212.0,0.0,0.0,0.0,1212.0,100.0,AUSGESCHIEDEN: zu wenige Zeilen (1212 < 3000),0|1
+1002,910062,income,stable-ai/bcco_cls,target,31978.0,12.0,0.0,31978.0,0.0,0.0,1.0,15390.0,12.0,ok,0.0|1.0
+1002,910063,jasmine,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910064,jm1,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910065,liver-disorders,stable-ai/bcco_cls,target,583.0,10.0,0.0,579.0,0.0,0.0,1.0,330.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (330 < 3000),0.0|1.0
+1002,910066,loan-application-data,stable-ai/bcco_cls,target,500.0,11.0,0.0,390.0,0.0,0.0,5.0,246.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (246 < 3000),0.0|1.0
+1002,910067,machine-learning,stable-ai/bcco_cls,target,20000.0,12.0,1.0,18371.0,0.0,0.0,2.0,7366.0,11.0,ok,0.0|1.0
+1002,910068,madeline,stable-ai/bcco_cls,class,3140.0,259.0,0.0,3140.0,0.0,0.0,0.0,3122.0,259.0,ok,0|1
+1002,910069,malware-analysis-datasets-pe-section-headers,stable-ai/bcco_cls,target,43293.0,4.0,0.0,43293.0,0.0,0.0,0.0,3450.0,4.0,ok,0.0|1.0
+1002,910070,maternal-health-risk,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910071,medium-app-reviews-from-google-play-store,stable-ai/bcco_cls,target,61266.0,7.0,3.0,54953.0,0.0,0.0,0.0,31988.0,4.0,ok,0.0|3.0
+1002,910072,meta,stable-ai/bcco_cls,target,528.0,21.0,0.0,264.0,1.0,1.0,1.0,76.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (76 < 3000),N|P
+1002,910073,mfeat-morphological,stable-ai/bcco_cls,label,2000.0,6.0,0.0,2000.0,0.0,0.0,0.0,400.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),10|8
+1002,910074,mfeat-zernike,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910075,microaggregation2,stable-ai/bcco_cls,label,20000.0,20.0,0.0,20000.0,0.0,0.0,0.0,8964.0,20.0,ok,1|2
+1002,910076,nfl-combine-performance-data-2009-2019,stable-ai/bcco_cls,target,3477.0,15.0,0.0,1497.0,0.0,0.0,0.0,636.0,15.0,AUSGESCHIEDEN: zu wenige Zeilen (636 < 3000),0.0|1.0
+1002,910077,orange-quality,stable-ai/bcco_cls,target,241.0,10.0,0.0,241.0,0.0,2.0,0.0,104.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (104 < 3000),5.0|7.0
+1002,910078,pbc,stable-ai/bcco_cls,target,418.0,18.0,0.0,276.0,0.0,1.0,6.0,258.0,17.0,AUSGESCHIEDEN: zu wenige Zeilen (258 < 3000),N|P
+1002,910079,pbcseq,stable-ai/bcco_cls,target,1945.0,18.0,0.0,1113.0,1.0,1.0,1.0,1066.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (1066 < 3000),N|P
+1002,910080,pc1,stable-ai/bcco_cls,label,1109.0,21.0,0.0,1109.0,0.0,0.0,0.0,154.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (154 < 3000),0.0|1.0
+1002,910081,phoneme,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910082,plasma_retinol,stable-ai/bcco_cls,target,315.0,13.0,0.0,315.0,0.0,0.0,0.0,266.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (266 < 3000),N|P
+1002,910083,pm10,stable-ai/bcco_cls,target,500.0,7.0,0.0,500.0,0.0,0.0,0.0,492.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (492 < 3000),N|P
+1002,910084,predict-customer-purchase-behavior-dataset,stable-ai/bcco_cls,target,1500.0,6.0,0.0,1500.0,0.0,0.0,2.0,1296.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (1296 < 3000),0.0|1.0
+1002,910085,predict_students_dropout_and_academic_success,stable-ai/bcco_cls,label,4424.0,34.0,0.0,4424.0,0.0,1.0,8.0,2842.0,33.0,AUSGESCHIEDEN: zu wenige Zeilen (2842 < 3000),0.0|2.0
+1002,910086,prnn_synth,stable-ai/bcco_cls,target,250.0,2.0,0.0,250.0,0.0,0.0,0.0,250.0,2.0,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),0|1
+1002,910087,profb,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,910088,qsar-bioconcentration-classes-data-set,stable-ai/bcco_cls,target,779.0,11.0,0.0,779.0,0.0,0.0,2.0,510.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (510 < 3000),0.0|2.0
+1002,910089,retail-chain-salespeople-engagement,stable-ai/bcco_cls,target,2095.0,64.0,0.0,2095.0,0.0,0.0,60.0,1622.0,64.0,AUSGESCHIEDEN: zu wenige Zeilen (1622 < 3000),0.0|1.0
+1002,910090,rmftsa_ctoarrivals,stable-ai/bcco_cls,target,264.0,2.0,0.0,264.0,0.0,0.0,0.0,202.0,2.0,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),N|P
+1002,910091,schizo,stable-ai/bcco_cls,target,340.0,13.0,0.0,112.0,0.0,0.0,0.0,104.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (104 < 3000),non-schizophrenic|schizophrenic
+1002,910092,sentiment-analysis,stable-ai/bcco_cls,target,499.0,5.0,0.0,499.0,0.0,0.0,0.0,332.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (332 < 3000),1.0|2.0
+1002,910093,servo,stable-ai/bcco_cls,target,167.0,4.0,0.0,167.0,0.0,0.0,0.0,76.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (76 < 3000),N|P
+1002,910094,simple-diabetes-dataset,stable-ai/bcco_cls,target,768.0,8.0,0.0,768.0,0.0,0.0,0.0,536.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (536 < 3000),0.0|1.0
+1002,910095,sonar,stable-ai/bcco_cls,target,208.0,60.0,0.0,208.0,0.0,0.0,0.0,194.0,60.0,AUSGESCHIEDEN: zu wenige Zeilen (194 < 3000),Mine|Rock
+1002,910096,spambase,stable-ai/bcco_cls,label,4601.0,57.0,0.0,4601.0,0.0,0.0,0.0,3626.0,57.0,ok,0|1
+1002,910097,statlog,stable-ai/bcco_cls,label,1000.0,20.0,0.0,1000.0,0.0,0.0,3.0,600.0,20.0,AUSGESCHIEDEN: zu wenige Zeilen (600 < 3000),0.0|1.0
+1002,910098,tabletpc-priceclassification,stable-ai/bcco_cls,target,2000.0,19.0,0.0,1983.0,0.0,0.0,6.0,1000.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (1000 < 3000),0.0|2.0
+1002,910099,tokyo1,stable-ai/bcco_cls,target,959.0,44.0,0.0,959.0,0.0,7.0,0.0,692.0,37.0,AUSGESCHIEDEN: zu wenige Zeilen (692 < 3000),0|1
+1002,910100,turiye_student_evaluation,stable-ai/bcco_cls,label,5820.0,32.0,0.0,5820.0,0.0,0.0,0.0,3240.0,32.0,ok,0|2
+1002,910101,user-knowledge,stable-ai/bcco_cls,target,403.0,5.0,0.0,403.0,0.0,0.0,0.0,244.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (244 < 3000),2|3
+1002,910102,waveform-5000,stable-ai/bcco_cls,label,5000.0,40.0,0.0,5000.0,0.0,0.0,0.0,3310.0,40.0,ok,0|2
+1002,910103,wholesale-customers,stable-ai/bcco_cls,target,440.0,8.0,0.0,440.0,0.0,0.0,0.0,284.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (284 < 3000),1|2
+1002,910104,wine-quality-dataset-balanced-classification,stable-ai/bcco_cls,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,910105,wine-quality-red,stable-ai/bcco_cls,label,1599.0,4.0,0.0,1599.0,0.0,0.0,0.0,1276.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (1276 < 3000),5|6
