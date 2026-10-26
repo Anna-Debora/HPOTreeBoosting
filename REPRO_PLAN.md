@@ -83,3 +83,22 @@ deterministisches Gitter, GPBoost 1.7.4. Ausserdem hat der Paper-Code `line_sear
 `cv()` übergeben, was GPBoost ≥ 1.5.8 nicht mehr kennt (siehe Übergabe-Notiz). Kleine systematische
 Abweichungen sind deshalb normal. Bedenklich wären andere Gewinner auf vielen Aufgaben oder Abweichungen
 weit über der Seed-Streuung.
+
+## Vorab-Probe (lokal, 26.10.2026): compas-two-years, Seed 27225
+
+Alle drei Job-Arten einmal lokal genau mit den Befehlen aus dem sbatch-Skript ausgeführt (Rechner stark
+ausgelastet): Hauptjob 1.5 CPU-Stunden (Schätzung inkl. Faktor 2: 1.9 h), SMAC 12 min, Default 5 s.
+Ergebnis von `compare_with_paper.py` (1 Aufgabe, 1 Seed, t = 135):
+
+| Methode | Accuracy wir / Paper | Log Loss wir / Paper | Urteil |
+|---|---|---|---|
+| Default | 0.6702 / 0.6700 | 0.7092 / 0.7090 | ok (< 0.03 %) |
+| Deterministisches Gitter | 0.6845 / 0.6845 | 0.6039 / 0.6039 | ok (identisch) |
+| Zufallsgitter | 0.6859 / 0.6851 | 0.6044 / 0.6062 | ok |
+| GP-BO | 0.6861 / 0.6877 | 0.6041 / 0.6041 | ok |
+| SMAC | 0.6861 / 0.6870 | 0.6073 / 0.6042 | Accuracy ok, Log Loss auffällig (z = 4.9) |
+| TPE | 0.6847 / 0.6873 | 0.6071 / 0.6043 | auffällig (z = −2.4 / 3.8) |
+
+Default und Gitter stimmen exakt mit dem Paper überein. Daten, Folds und Modell sind also dieselben, und
+die ausgelesenen Paper-Werte stimmen. Die adaptiven Methoden liegen innerhalb von etwa 0.4 %.
+Ob die Abweichungen bei TPE/SMAC System haben (z. B. wegen `lambda_l1`), zeigt erst der volle Testlauf.
