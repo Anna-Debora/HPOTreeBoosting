@@ -1,0 +1,301 @@
+suite_id,task_id,name,talent_task_type,openml_id,source,rows_before,cols_before,dropped_missing_columns,rows_after_missing,dropped_categorical,dropped_numeric,numeric_to_categorical,rows_after,cols_after,status,classes_kept
+1001,920000,1000-Cameras-Dataset,regression,43714.0,https://www.openml.org/search?type=data&status=active&id=43714&sort=runs,1038.0,10.0,0.0,1036.0,0.0,0.0,0.0,1036.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1036 < 3000),
+1001,920001,2dplanes,regression,215.0,https://www.openml.org/search?type=data&status=active&id=215&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920002,3D_Estimation_using_RSSI_of_WLAN_dataset,regression,45718.0,https://www.openml.org/search?type=data&status=active&id=45718&sort=runs,5760.0,6.0,0.0,5760.0,0.0,1.0,1.0,5760.0,5.0,ok,
+1001,920003,3D_Estimation_using_RSSI_of_WLAN_dataset_complete_1_target,regression,45720.0,https://www.openml.org/search?type=data&status=active&id=45720&sort=runs,14400.0,12.0,0.0,14400.0,0.0,7.0,1.0,14400.0,5.0,ok,
+1002,930000,ASP-POTASSCO-classification,multiclass,41705.0,https://www.openml.org/search?type=data&status=active&id=41705&sort=runs,1294.0,141.0,0.0,1076.0,0.0,11.0,3.0,382.0,130.0,AUSGESCHIEDEN: zu wenige Zeilen (382 < 3000),clasp.2.1.3.h1.n1|clasp.2.1.3.h10.n1
+1001,920004,Abalone_reg,regression,,https://archive.ics.uci.edu/dataset/1/abalone,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920005,Ailerons,regression,296.0,https://www.openml.org/search?type=data&status=active&id=296&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930001,Amazon_employee_access,binclass,4135.0,https://www.openml.org/search?type=data&status=active&id=4135&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920006,Another-Dataset-on-used-Fiat-500-(1538-rows),regression,43828.0,https://www.openml.org/search?type=data&status=active&id=43828&sort=runs,1538.0,6.0,0.0,1538.0,0.0,2.0,0.0,1538.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (1538 < 3000),
+1002,930002,BLE_RSSI_dataset_for_Indoor_localization,multiclass,,https://archive.ics.uci.edu/dataset/586/ble+rssi+dataset+for+indoor+localization,9984.0,3.0,0.0,9984.0,0.0,0.0,0.0,6792.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),1|2
+1002,930003,BNG(breast-w),binclass,251.0,https://www.openml.org/search?type=data&status=active&id=251&sort=runs,39366.0,9.0,0.0,39366.0,0.0,0.0,0.0,27092.0,9.0,ok,benign|malignant
+1002,930004,BNG(cmc),multiclass,255.0,https://www.openml.org/search?type=data&status=active&id=255&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920007,BNG(echoMonths),regression,1199.0,https://www.openml.org/search?type=data&status=active&id=1199&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920008,BNG(lowbwt),regression,1193.0,https://www.openml.org/search?type=data&status=active&id=1193&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920009,BNG(mv),regression,1213.0,https://www.openml.org/search?type=data&status=active&id=1213&sort=runs,78732.0,10.0,0.0,78732.0,0.0,0.0,0.0,78732.0,10.0,ok,
+1001,920010,BNG(stock),regression,1200.0,https://www.openml.org/search?type=data&status=active&id=1200&sort=runs,59049.0,9.0,0.0,59049.0,0.0,0.0,0.0,59049.0,9.0,ok,
+1002,930005,BNG(tic-tac-toe),binclass,137.0,https://www.openml.org/search?type=data&status=active&id=137&sort=runs,39366.0,9.0,0.0,39366.0,0.0,0.0,0.0,27328.0,9.0,ok,negative|positive
+1002,930006,Bank_Customer_Churn_Dataset,binclass,,https://www.kaggle.com/datasets/gauravtopre/bank-customer-churn-dataset,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930007,Basketball_c,binclass,,https://www.kaggle.com/datasets/yakhyojon/national-basketball-association-nba,1340.0,11.0,0.0,1340.0,0.0,0.0,0.0,1018.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (1018 < 3000),0|1
+1001,920011,Bias_correction_r,regression,,https://archive.ics.uci.edu/dataset/514/bias+correction+of+numerical+prediction+model+temperature+forecast,7725.0,21.0,0.0,7590.0,0.0,0.0,0.0,7590.0,21.0,ok,
+1001,920012,Bias_correction_r_2,regression,,https://archive.ics.uci.edu/dataset/514/bias+correction+of+numerical+prediction+model+temperature+forecast,7725.0,21.0,0.0,7590.0,0.0,0.0,0.0,7590.0,21.0,ok,
+1001,920013,Brazilian_houses_reproduced,regression,44152.0,https://www.openml.org/search?type=data&status=active&id=44152&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920014,CPMP-2015-regression,regression,41700.0,https://www.openml.org/search?type=data&status=active&id=41700&sort=runs,2108.0,25.0,0.0,2108.0,0.0,4.0,1.0,2108.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (2108 < 3000),
+1001,920015,CPS1988,regression,43963.0,https://www.openml.org/search?type=data&status=active&id=43963&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930008,California-Housing-Classification,binclass,45578.0,https://www.openml.org/search?type=data&status=active&id=45578&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930009,Cardiovascular-Disease-dataset,binclass,45547.0,https://www.openml.org/search?type=data&status=active&id=45547&sort=runs,70000.0,11.0,0.0,70000.0,0.0,0.0,0.0,69958.0,11.0,ok,0|1
+1002,930010,Click_prediction_small,binclass,1220.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&id=1220,39948.0,3.0,0.0,39948.0,0.0,2.0,0.0,13456.0,1.0,AUSGESCHIEDEN: zu wenige Merkmale (1 < 4),0|1
+1002,930011,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-10.0GHz(Urbinati),binclass,45538.0,https://www.openml.org/search?type=data&status=active&id=45538&sort=runs,2400.0,30.0,0.0,2400.0,0.0,0.0,0.0,2400.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1002,930012,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-10.5GHz(Urbinati),binclass,45539.0,https://www.openml.org/search?type=data&status=active&id=45539&sort=runs,2400.0,30.0,0.0,2400.0,0.0,0.0,0.0,2400.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1002,930013,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-11.0GHz(Urbinati),binclass,45540.0,https://www.openml.org/search?type=data&status=active&id=45540&sort=runs,2400.0,30.0,0.0,2400.0,0.0,0.0,0.0,2400.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1002,930014,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-9.0GHz(Urbinati),binclass,45536.0,https://www.openml.org/search?type=data&status=active&id=45536&sort=runs,2400.0,30.0,0.0,2400.0,0.0,0.0,0.0,2400.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1002,930015,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-9.5GHz(Urbinati),binclass,45537.0,https://www.openml.org/search?type=data&status=active&id=45537&sort=runs,2400.0,30.0,0.0,2400.0,0.0,0.0,0.0,2400.0,30.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1001,920016,CookbookReviews,regression,45744.0,https://www.openml.org/search?type=data&status=active&id=45744&sort=runs,18182.0,7.0,0.0,18182.0,0.0,1.0,0.0,18182.0,6.0,ok,
+1002,930016,Credit_c,multiclass,,https://www.kaggle.com/code/clkmuhammed/credit-score-classification-part-1-data-cleaning#B.-Numeric-Column-NaN-Values:-Reassign-Group-Min-Max,100000.0,22.0,0.0,32198.0,1.0,1.0,0.0,20172.0,20.0,ok,1|2
+1002,930017,Customer_Personality_Analysis,binclass,,https://www.kaggle.com/datasets/imakash3011/customer-personality-analysis,2240.0,24.0,0.0,2216.0,0.0,2.0,6.0,666.0,22.0,AUSGESCHIEDEN: zu wenige Zeilen (666 < 3000),0|1
+1001,920017,Data_Science_Salaries,regression,,https://www.kaggle.com/datasets/arnabchaki/data-science-salaries-2023/data,3755.0,5.0,0.0,3755.0,0.0,1.0,0.0,3755.0,4.0,ok,
+1002,930018,Diabetic_Retinopathy_Debrecen,binclass,,https://archive.ics.uci.edu/dataset/329/diabetic+retinopathy+debrecen,1151.0,19.0,0.0,1151.0,0.0,0.0,0.0,1080.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (1080 < 3000),0|1
+1001,920018,Diamonds,regression,,https://www.kaggle.com/datasets/joebeachcapital/diamonds,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930019,E-CommereShippingData,binclass,,https://www.kaggle.com/datasets/prachi13/customer-analytics,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930020,Employee,binclass,,https://www.kaggle.com/datasets/tawfikelmetwally/employee-dataset,4653.0,8.0,0.0,4653.0,0.0,2.0,0.0,3200.0,6.0,ok,0|1
+1002,930021,FICO-HELOC-cleaned,binclass,45553.0,https://www.openml.org/search?type=data&status=active&id=45553&sort=runs,9871.0,23.0,0.0,9871.0,0.0,0.0,0.0,9470.0,23.0,ok,Bad|Good
+1002,930022,FOREX_audcad-day-High,binclass,41721.0,https://www.openml.org/search?type=data&status=active&id=41721&sort=runs,1834.0,10.0,0.0,1834.0,0.0,0.0,0.0,1806.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1806 < 3000),False|True
+1002,930023,FOREX_audcad-hour-High,binclass,41763.0,https://www.openml.org/search?type=data&status=active&id=41763&sort=runs,43825.0,10.0,0.0,43825.0,0.0,0.0,0.0,42538.0,10.0,ok,False|True
+1002,930024,FOREX_audchf-day-High,binclass,41875.0,https://www.openml.org/search?type=data&status=active&id=41875&sort=runs,1833.0,10.0,0.0,1833.0,0.0,0.0,0.0,1808.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1808 < 3000),False|True
+1002,930025,FOREX_audjpy-day-High,binclass,41882.0,https://www.openml.org/search?type=data&status=active&id=41882&sort=runs,1832.0,10.0,0.0,1832.0,0.0,0.0,0.0,1782.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1782 < 3000),False|True
+1002,930026,FOREX_audjpy-hour-High,binclass,41718.0,https://www.openml.org/search?type=data&status=active&id=41718&sort=runs,43825.0,10.0,0.0,43825.0,0.0,0.0,0.0,42508.0,10.0,ok,False|True
+1002,930027,FOREX_audsgd-hour-High,binclass,41865.0,https://www.openml.org/search?type=data&status=active&id=41865&sort=runs,43825.0,10.0,0.0,43825.0,0.0,0.0,0.0,42534.0,10.0,ok,False|True
+1002,930028,FOREX_audusd-hour-High,binclass,41843.0,https://www.openml.org/search?type=data&status=active&id=41843&sort=runs,43825.0,10.0,0.0,43825.0,0.0,0.0,0.0,41230.0,10.0,ok,False|True
+1002,930029,FOREX_cadjpy-day-High,binclass,41839.0,https://www.openml.org/search?type=data&status=active&id=41839&sort=runs,1834.0,10.0,0.0,1834.0,0.0,0.0,0.0,1828.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1828 < 3000),False|True
+1002,930030,FOREX_cadjpy-hour-High,binclass,41833.0,https://www.openml.org/search?type=data&status=active&id=41833&sort=runs,43825.0,10.0,0.0,43825.0,0.0,0.0,0.0,42264.0,10.0,ok,False|True
+1001,920019,Facebook_Comment_Volume,regression,,https://archive.ics.uci.edu/dataset/363/facebook+comment+volume+dataset,40949.0,53.0,0.0,40949.0,0.0,1.0,14.0,40949.0,52.0,ok,
+1002,930031,Firm-Teacher_Clave-Direction_Classification,multiclass,,https://archive.ics.uci.edu/dataset/324/firm+teacher+clave+direction+classification,10800.0,16.0,0.0,10800.0,0.0,0.0,0.0,8602.0,16.0,ok,1|2
+1002,930032,Fitness_Club_c,binclass,,https://www.kaggle.com/datasets/ddosad/datacamps-data-science-associate-certification,1500.0,6.0,0.0,1467.0,0.0,0.0,0.0,894.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (894 < 3000),0|1
+1001,920020,Food_Delivery_Time,regression,,https://www.kaggle.com/datasets/rajatkumar30/food-delivery-time,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930033,GAMETES_Epistasis_2-Way_20atts_0.1H_EDM-1_1,binclass,40646.0,https://www.openml.org/search?type=data&status=active&id=40646&sort=runs,1600.0,20.0,0.0,1600.0,0.0,0.0,0.0,1600.0,20.0,AUSGESCHIEDEN: zu wenige Zeilen (1600 < 3000),0|1
+1002,930034,GAMETES_Heterogeneity_20atts_1600_Het_0.4_0.2_50_EDM-2_001,binclass,40649.0,https://www.openml.org/search?type=data&status=active&id=40649&sort=runs,1600.0,20.0,0.0,1600.0,0.0,0.0,0.0,1600.0,20.0,AUSGESCHIEDEN: zu wenige Zeilen (1600 < 3000),0|1
+1002,930035,Gender_Gap_in_Spanish_WP,multiclass,,https://archive.ics.uci.edu/dataset/852/gender+gap+in+spanish+wp,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930036,GesturePhaseSegmentationProcessed,multiclass,4538.0,https://www.openml.org/search?type=data&status=active&id=4538&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920021,Goodreads-Computer-Books,regression,43785.0,https://www.openml.org/search?type=data&status=active&id=43785&sort=runs,1234.0,5.0,0.0,1234.0,0.0,0.0,0.0,1234.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (1234 < 3000),
+1002,930037,HR_Analytics_Job_Change_of_Data_Scientists,binclass,,https://www.kaggle.com/datasets/arashnic/hr-analytics-job-change-of-data-scientists,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930038,Heart-Disease-Dataset-(Comprehensive),binclass,43672.0,https://www.openml.org/search?type=data&status=active&id=43672&sort=runs,1190.0,11.0,0.0,1190.0,0.0,3.0,3.0,1122.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (1122 < 3000),0|1
+1001,920022,IEEE80211aa-GATS,regression,43180.0,https://www.openml.org/search?type=data&status=active&id=43180&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930039,INNHotelsGroup,binclass,,https://www.kaggle.com/datasets/mariyamalshatta/inn-hotels-group,36275.0,17.0,0.0,36275.0,1.0,5.0,2.0,23770.0,11.0,ok,0|1
+1002,930040,Indian_pines,multiclass,41972.0,https://www.openml.org/search?type=data&status=active&id=41972&sort=runs,9144.0,220.0,0.0,9144.0,0.0,0.0,0.0,5004.0,220.0,ok,Corn|Soybeans
+1002,930041,Insurance,binclass,45064.0,https://www.openml.org/search?type=data&status=active&id=45064&sort=runs,23548.0,10.0,0.0,23548.0,1.0,0.0,0.0,11400.0,9.0,ok,0|1
+1002,930042,Intersectional-Bias-Assessment,binclass,45040.0,https://www.openml.org/search?type=data&status=active&id=45040&sort=runs,11000.0,19.0,0.0,11000.0,0.0,0.0,0.0,10752.0,19.0,ok,0|1
+1002,930043,Is-this-a-good-customer,binclass,43442.0,https://www.openml.org/search?type=data&status=active&id=43442&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930044,JapaneseVowels,multiclass,375.0,https://www.openml.org/search?type=data&status=active&id=375&sort=runs,9961.0,14.0,0.0,9961.0,0.0,0.0,0.0,2946.0,14.0,AUSGESCHIEDEN: zu wenige Zeilen (2946 < 3000),3|4
+1001,920023,Job_Profitability,regression,44311.0,https://www.openml.org/search?type=data&status=active&id=44311&sort=runs,14480.0,28.0,0.0,14476.0,0.0,0.0,5.0,14476.0,28.0,ok,
+1002,930045,KDD,binclass,45075.0,https://www.openml.org/search?type=data&status=active&id=45075&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930046,KDDCup09_upselling,binclass,44186.0,https://www.openml.org/search?type=data&status=active&id=44186&sort=runs,5128.0,49.0,0.0,5128.0,0.0,1.0,0.0,5128.0,48.0,ok,-1|1
+1001,920024,Kaggle_bike_sharing_demand_challange,regression,1414.0,https://www.openml.org/search?type=data&status=active&id=1414&sort=runs,10886.0,9.0,0.0,10886.0,1.0,0.0,0.0,10886.0,8.0,ok,
+1001,920025,Laptop_Prices_Dataset,regression,,https://www.kaggle.com/datasets/talhabarkaatahmad/laptop-prices-dataset-october-2023,4441.0,8.0,0.0,3324.0,0.0,2.0,2.0,3324.0,6.0,ok,
+1001,920026,Large-scale_Wave_Energy_Farm_Perth_100,regression,,https://archive.ics.uci.edu/dataset/882/large-scale+wave+energy+farm,7277.0,201.0,0.0,7277.0,0.0,0.0,0.0,7277.0,201.0,ok,
+1001,920027,Large-scale_Wave_Energy_Farm_Sydney_100,regression,,https://archive.ics.uci.edu/dataset/882/large-scale+wave+energy+farm,2318.0,201.0,0.0,2318.0,0.0,1.0,0.0,2318.0,200.0,AUSGESCHIEDEN: zu wenige Zeilen (2318 < 3000),
+1001,920028,Large-scale_Wave_Energy_Farm_Sydney_49,regression,,https://archive.ics.uci.edu/dataset/882/large-scale+wave+energy+farm,17964.0,99.0,0.0,17964.0,0.0,0.0,0.0,17964.0,99.0,ok,
+1002,930047,Long,binclass,42636.0,https://www.openml.org/search?type=data&status=active&id=42636&sort=runs,4477.0,19.0,0.0,4477.0,0.0,2.0,0.0,2794.0,17.0,AUSGESCHIEDEN: zu wenige Zeilen (2794 < 3000),0|1
+1002,930048,MIC,binclass,45648.0,https://www.openml.org/search?type=data&status=active&id=45648&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920029,MIP-2016-regression,regression,43071.0,https://www.openml.org/search?type=data&status=any&id=43071,1090.0,144.0,0.0,1090.0,0.0,29.0,8.0,1090.0,115.0,AUSGESCHIEDEN: zu wenige Zeilen (1090 < 3000),
+1002,930049,MagicTelescope,binclass,1120.0,https://www.openml.org/search?type=data&status=active&id=1120&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930050,Marketing_Campaign,binclass,,https://www.kaggle.com/datasets/rodsaldanha/arketing-campaign,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920030,MiamiHousing2016,regression,43093.0,https://www.openml.org/search?type=data&status=active&id=43093&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920031,Mobile_Phone_Market_in_Ghana,regression,,https://www.kaggle.com/datasets/redpen12/mobile-phone-market-in-ghana,3600.0,14.0,0.0,2090.0,3.0,1.0,0.0,2090.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (2090 < 3000),
+1002,930051,Mobile_Price_Classification,multiclass,,https://www.kaggle.com/datasets/iabhishekofficial/mobile-price-classification,2000.0,20.0,0.0,2000.0,0.0,1.0,0.0,1000.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (1000 < 3000),0|3
+1001,920032,Moneyball,regression,41021.0,https://www.openml.org/search?type=data&status=active&id=41021,1232.0,14.0,2.0,1232.0,1.0,0.0,0.0,1232.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (1232 < 3000),
+1001,920033,NASA_PHM2008,regression,42821.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&qualities.NumberOfClasses=lte_1&id=42821,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920034,NHANES_age_prediction,regression,,https://archive.ics.uci.edu/dataset/887/national+health+and+nutrition+health+survey+2013-2014+(nhanes)+age+prediction+subset,2277.0,7.0,0.0,2277.0,0.0,0.0,0.0,2277.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (2277 < 3000),
+1002,930052,National_Health_and_Nutrition_Health_Survey,binclass,,https://archive.ics.uci.edu/dataset/887/national+health+and+nutrition+health+survey+2013-2014+(nhanes)+age+prediction+subset,2278.0,7.0,0.0,2278.0,0.0,2.0,1.0,728.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (728 < 3000),0|1
+1001,920035,OnlineNewsPopularity,regression,4545.0,https://www.openml.org/search?type=data&status=active&id=4545,39644.0,59.0,0.0,39644.0,0.0,0.0,14.0,39644.0,59.0,ok,
+1001,920036,Parkinson_Multiple_Sound_Recording,regression,,https://archive.ics.uci.edu/dataset/301/parkinson+speech+dataset+with+multiple+types+of+sound+recordings,1040.0,26.0,0.0,1040.0,0.0,0.0,0.0,1040.0,26.0,AUSGESCHIEDEN: zu wenige Zeilen (1040 < 3000),
+1001,920037,Parkinsons_Telemonitoring,regression,,https://archive.ics.uci.edu/dataset/189/parkinsons+telemonitoring,5875.0,19.0,0.0,5875.0,0.0,0.0,0.0,5875.0,19.0,ok,
+1002,930053,Performance-Prediction,binclass,43812.0,https://www.openml.org/search?type=data&status=active&id=43812&sort=runs,1340.0,19.0,0.0,1329.0,0.0,0.0,0.0,1006.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (1006 < 3000),0|1
+1002,930054,PhishingWebsites,binclass,4534.0,https://www.openml.org/search?type=data&status=active&id=4534&sort=runs,11055.0,30.0,0.0,11055.0,0.0,0.0,0.0,9796.0,30.0,ok,-1|1
+1001,920038,Physicochemical_r,regression,,https://archive.ics.uci.edu/dataset/265/physicochemical+properties+of+protein+tertiary+structure,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930055,PieChart3,binclass,1453.0,https://www.openml.org/search?type=data&status=active&id=1453&sort=runs,1077.0,37.0,0.0,1077.0,0.0,1.0,0.0,268.0,36.0,AUSGESCHIEDEN: zu wenige Zeilen (268 < 3000),N|Y
+1002,930056,Pima_Indians_Diabetes_Database,binclass,,https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database,768.0,8.0,0.0,768.0,0.0,0.0,0.0,536.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (536 < 3000),0|1
+1002,930057,PizzaCutter3,binclass,1444.0,https://www.openml.org/search?type=data&status=active&id=1444&sort=runs,1043.0,37.0,0.0,1043.0,0.0,1.0,0.0,254.0,36.0,AUSGESCHIEDEN: zu wenige Zeilen (254 < 3000),N|Y
+1002,930058,Pumpkin_Seeds,binclass,,https://www.kaggle.com/datasets/muratkokludataset/pumpkin-seeds-dataset,2500.0,12.0,0.0,2500.0,0.0,0.0,0.0,2400.0,12.0,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
+1002,930059,QSAR_biodegradation,binclass,,https://archive.ics.uci.edu/dataset/254/qsar+biodegradation,1054.0,41.0,0.0,1054.0,0.0,8.0,4.0,710.0,33.0,AUSGESCHIEDEN: zu wenige Zeilen (710 < 3000),0|1
+1002,930060,Rain_in_Australia,multiclass,,https://www.kaggle.com/datasets/jsphyg/weather-dataset-rattle-package,145460.0,18.0,0.0,113679.0,2.0,0.0,0.0,50038.0,16.0,ok,0|1
+1001,920039,SAT11-HAND-runtime-regression,regression,41980.0,https://www.openml.org/search?type=data&status=any&id=41980,4440.0,116.0,10.0,4440.0,0.0,2.0,0.0,4440.0,104.0,ok,
+1002,930061,SDSS17,multiclass,,https://www.kaggle.com/datasets/fedesoriano/stellar-classification-dataset-sdss17,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930062,Shipping,binclass,45074.0,https://www.openml.org/search?type=data&status=active&id=45074&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920040,Shop_Customer_Data,regression,,https://www.kaggle.com/datasets/datascientistanna/customers-dataset,2000.0,6.0,0.0,1965.0,0.0,1.0,0.0,1965.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (1965 < 3000),
+1001,920041,Superconductivty,regression,,https://archive.ics.uci.edu/dataset/464/superconductivty+data,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930063,Telecom_Churn_Dataset,binclass,,https://www.kaggle.com/datasets/mnassrib/telecom-churn-datasets,3333.0,17.0,0.0,3333.0,1.0,0.0,0.0,966.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (966 < 3000),0|1
+1002,930064,UJI_Pen_Characters,multiclass,,https://archive.ics.uci.edu/dataset/160/uji+pen+characters,1364.0,80.0,0.0,1094.0,0.0,0.0,0.0,88.0,80.0,AUSGESCHIEDEN: zu wenige Zeilen (88 < 3000),21|23
+1002,930065,VulNoneVul,binclass,44150.0,https://www.openml.org/search?type=data&status=active&id=44150&sort=runs,5692.0,16.0,0.0,5692.0,0.0,1.0,0.0,106.0,15.0,AUSGESCHIEDEN: zu wenige Zeilen (106 < 3000),0|1
+1002,930066,Water_Quality_and_Potability,binclass,,https://www.kaggle.com/datasets/uom190346a/water-quality-and-potability,3276.0,8.0,0.0,2649.0,0.0,0.0,0.0,2104.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (2104 < 3000),0|1
+1002,930067,Waterstress,binclass,42464.0,https://www.openml.org/search?type=data&status=active&id=42464&sort=runs,1188.0,22.0,0.0,1188.0,0.0,0.0,0.0,1188.0,22.0,AUSGESCHIEDEN: zu wenige Zeilen (1188 < 3000),1|2
+1002,930068,Wilt,binclass,44489.0,https://www.openml.org/search?type=data&id=44489,4821.0,5.0,0.0,4821.0,0.0,0.0,0.0,516.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (516 < 3000),0|1
+1001,920042,Wine_Quality_red,regression,,https://archive.ics.uci.edu/dataset/186/wine+quality,1599.0,11.0,0.0,1599.0,0.0,0.0,0.0,1599.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (1599 < 3000),
+1001,920043,Wine_Quality_white,regression,,https://archive.ics.uci.edu/dataset/186/wine+quality,4898.0,11.0,0.0,4898.0,0.0,0.0,0.0,4898.0,11.0,ok,
+1002,930069,abalone,multiclass,1557.0,https://www.openml.org/search?type=data&status=active&id=1557&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930070,accelerometer,multiclass,,https://archive.ics.uci.edu/dataset/846/accelerometer,153004.0,4.0,0.0,153004.0,0.0,0.0,0.0,102000.0,4.0,ok,2|3
+1002,930071,ada,binclass,41156.0,https://www.openml.org/search?type=data&status=active&id=41156&sort=runs,4147.0,48.0,0.0,4147.0,0.0,3.0,39.0,2058.0,45.0,AUSGESCHIEDEN: zu wenige Zeilen (2058 < 3000),0|1
+1002,930072,ada_agnostic,binclass,1043.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&id=1043,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930073,ada_prior,binclass,1037.0,https://www.openml.org/search?type=data&status=active&id=1037&sort=runs,4562.0,14.0,0.0,4474.0,1.0,0.0,0.0,2218.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (2218 < 3000),-1|1
+1002,930074,adult,binclass,,https://archive.ics.uci.edu/dataset/2/adult,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920044,airfoil_self_noise,regression,43919.0,https://www.openml.org/search?type=data&status=active&id=43919&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930075,airlines_seed_0_nrows_2000_nclasses_10_ncols_100_stratify_True,binclass,44528.0,https://www.openml.org/search?type=data&status=active&id=44528&sort=runs,2000.0,7.0,0.0,2000.0,2.0,0.0,0.0,1782.0,5.0,AUSGESCHIEDEN: zu wenige Zeilen (1782 < 3000),0|1
+1002,930076,allbp,multiclass,40707.0,https://www.openml.org/search?type=data&status=active&id=40707&sort=runs,3772.0,29.0,0.0,3772.0,0.0,0.0,0.0,298.0,29.0,AUSGESCHIEDEN: zu wenige Zeilen (298 < 3000),1|2
+1002,930077,allrep,multiclass,40708.0,https://www.openml.org/search?type=data&status=active&id=40708&sort=runs,3772.0,29.0,0.0,3772.0,0.0,0.0,0.0,104.0,29.0,AUSGESCHIEDEN: zu wenige Zeilen (104 < 3000),0|3
+1002,930078,analcatdata_authorship,multiclass,458.0,https://www.openml.org/search?type=data&status=active&id=458&sort=runs,841.0,69.0,0.0,841.0,0.0,2.0,0.0,592.0,67.0,AUSGESCHIEDEN: zu wenige Zeilen (592 < 3000),Austen|London
+1001,920045,analcatdata_supreme,regression,504.0,https://www.openml.org/search?type=data&status=active&id=504&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920046,archive2,regression,,https://www.kaggle.com/datasets/yasserh/wine-quality-dataset,1143.0,12.0,0.0,1143.0,0.0,0.0,0.0,1143.0,12.0,AUSGESCHIEDEN: zu wenige Zeilen (1143 < 3000),
+1001,920047,archive_r56_Portuguese,regression,,https://www.kaggle.com/datasets/whenamancodes/student-performance/data,651.0,30.0,0.0,651.0,1.0,1.0,0.0,651.0,28.0,AUSGESCHIEDEN: zu wenige Zeilen (651 < 3000),
+1002,930079,artificial-characters,multiclass,1459.0,https://www.openml.org/search?type=data&status=active&id=1459&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920048,auction_verification,regression,,https://archive.ics.uci.edu/dataset/713/auction+verification,2043.0,7.0,0.0,2043.0,0.0,3.0,2.0,2043.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (2043 < 3000),
+1002,930080,autoUniv-au4-2500,multiclass,1548.0,https://www.openml.org/search?type=data&status=active&id=1548&sort=runs,2500.0,100.0,0.0,2500.0,0.0,16.0,7.0,2262.0,84.0,AUSGESCHIEDEN: zu wenige Zeilen (2262 < 3000),class1|class2
+1002,930081,autoUniv-au7-1100,multiclass,1552.0,https://www.openml.org/search?type=data&status=active&id=1552&sort=runs,1100.0,12.0,0.0,1100.0,0.0,3.0,0.0,492.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (492 < 3000),class2|class5
+1001,920049,avocado_sales,regression,43927.0,https://www.openml.org/search?type=data&status=active&id=43927&sort=runs,18249.0,13.0,0.0,18249.0,1.0,1.0,0.0,18249.0,11.0,ok,
+1002,930082,bank,binclass,,https://archive.ics.uci.edu/ml/datasets/Bank+Marketing,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920050,bank32nh,regression,558.0,https://www.openml.org/search?type=data&status=active&id=558&sort=runs,8192.0,32.0,0.0,8192.0,0.0,4.0,0.0,8192.0,28.0,ok,
+1001,920051,bank8FM,regression,572.0,https://www.openml.org/search?type=data&status=active&id=572&sort=runs,8192.0,8.0,0.0,8192.0,0.0,1.0,0.0,8192.0,7.0,ok,
+1002,930083,banknote_authentication,binclass,,https://archive.ics.uci.edu/dataset/267/banknote+authentication,1372.0,4.0,0.0,1372.0,0.0,0.0,0.0,1220.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (1220 < 3000),0|1
+1002,930084,baseball,multiclass,185.0,https://www.openml.org/search?type=data&status=active&id=185&sort=runs,1340.0,16.0,0.0,1320.0,0.0,0.0,0.0,134.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (134 < 3000),0|2
+1001,920052,boston,regression,531.0,https://www.openml.org/search?type=data&status=active&id=531,506.0,13.0,0.0,506.0,0.0,0.0,0.0,506.0,13.0,AUSGESCHIEDEN: zu wenige Zeilen (506 < 3000),
+1002,930085,car-evaluation,multiclass,40664.0,https://www.openml.org/search?type=data&status=active&id=40664&sort=runs,1728.0,21.0,0.0,1728.0,0.0,0.0,0.0,768.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (768 < 3000),0|1
+1001,920053,chscase_foot,regression,703.0,https://www.openml.org/search?type=data&status=active&id=703,526.0,5.0,0.0,526.0,1.0,1.0,1.0,526.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),
+1002,930086,churn,binclass,40701.0,https://www.openml.org/search?type=data&status=active&id=40701&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930087,cmc,multiclass,23.0,https://www.openml.org/search?type=data&status=active&id=23&sort=runs,1473.0,9.0,0.0,1473.0,0.0,0.0,0.0,1022.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (1022 < 3000),1|3
+1001,920054,colleges,regression,42727.0,https://www.openml.org/search?type=data&status=active&id=42727,7063.0,44.0,11.0,3095.0,5.0,0.0,0.0,3095.0,28.0,ok,
+1001,920055,combined_cycle_power_plant,regression,,https://archive.ics.uci.edu/dataset/294/combined+cycle+power+plant,9568.0,4.0,0.0,9568.0,0.0,0.0,0.0,9568.0,4.0,ok,
+1001,920056,communities_and_crime,regression,,https://archive.ics.uci.edu/dataset/183/communities+and+crime,1994.0,102.0,0.0,1993.0,0.0,1.0,0.0,1993.0,101.0,AUSGESCHIEDEN: zu wenige Zeilen (1993 < 3000),
+1002,930088,company_bankruptcy_prediction,binclass,,https://www.kaggle.com/datasets/fedesoriano/company-bankruptcy-prediction,6819.0,95.0,0.0,6819.0,0.0,0.0,0.0,440.0,95.0,AUSGESCHIEDEN: zu wenige Zeilen (440 < 3000),0|1
+1002,930089,compass,binclass,44162.0,https://www.openml.org/search?type=data&status=active&id=44162&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920057,concrete_compressive_strength,regression,,https://archive.ics.uci.edu/dataset/165/concrete+compressive+strength,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930090,connect-4,multiclass,40668.0,https://www.openml.org/search?type=data&status=active&id=40668,67557.0,42.0,0.0,67557.0,0.0,0.0,0.0,33270.0,42.0,ok,1|2
+1002,930091,contraceptive_method_choice,multiclass,,https://archive.ics.uci.edu/dataset/30/contraceptive+method+choice,1473.0,9.0,0.0,1473.0,0.0,3.0,0.0,1022.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (1022 < 3000),0|1
+1001,920058,cpu_act,regression,197.0,https://www.openml.org/search?type=data&status=active&id=197&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920059,cpu_small,regression,562.0,https://www.openml.org/search?type=data&status=active&id=562&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930092,credit,binclass,44089.0,https://www.openml.org/search?type=data&status=active&id=44089&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930093,credit-g,binclass,31.0,https://www.openml.org/search?type=data&status=active&id=31,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930094,customer_satisfaction_in_airline,binclass,,https://www.kaggle.com/datasets/yakhyojon/customer-satisfaction-in-airline,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930095,dabetes_130-us_hospitals,binclass,,https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920060,dataset_sales,regression,42183.0,https://www.openml.org/search?type=data&status=active&id=42183&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920061,debutanizer,regression,23516.0,https://www.openml.org/search?type=data&status=active&id=23516&sort=runs,2394.0,7.0,0.0,2394.0,0.0,0.0,0.0,2394.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (2394 < 3000),
+1002,930096,default_of_credit_card_clients,binclass,,https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930097,delta_ailerons,binclass,803.0,https://www.openml.org/search?type=data&status=active&id=803&sort=runs,7129.0,5.0,0.0,7129.0,0.0,0.0,0.0,6692.0,5.0,ok,N|P
+1001,920062,delta_elevators,regression,198.0,https://www.openml.org/search?type=data&status=active&id=198&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930098,dis,binclass,40713.0,https://www.openml.org/search?type=data&status=active&id=40713&sort=runs,3772.0,29.0,0.0,3772.0,0.0,0.0,0.0,116.0,29.0,AUSGESCHIEDEN: zu wenige Zeilen (116 < 3000),0|1
+1002,930099,dna,multiclass,40670.0,https://www.openml.org/search?type=data&status=active&id=40670&sort=runs,3186.0,180.0,0.0,3186.0,0.0,0.0,0.0,1534.0,180.0,AUSGESCHIEDEN: zu wenige Zeilen (1534 < 3000),1|3
+1002,930100,drug_consumption,multiclass,,https://archive.ics.uci.edu/dataset/373/drug+consumption+quantified,1884.0,12.0,0.0,1884.0,0.0,4.0,1.0,1010.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (1010 < 3000),5|6
+1002,930101,dry_bean_dataset,multiclass,,https://archive.ics.uci.edu/dataset/602/dry+bean+dataset,13611.0,16.0,0.0,13611.0,0.0,0.0,0.0,5272.0,16.0,ok,3|6
+1002,930102,eeg-eye-state,binclass,1471.0,https://www.openml.org/search?type=data&status=active&id=1471&sort=runs,14980.0,14.0,0.0,14980.0,0.0,0.0,0.0,13446.0,14.0,ok,1|2
+1002,930103,electricity,binclass,151.0,https://www.openml.org/search?type=data&status=active&id=151&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920063,elevators,regression,216.0,https://www.openml.org/search?type=data&status=active&id=216&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930104,estimation_of_obesity_levels,multiclass,,https://archive.ics.uci.edu/dataset/544/estimation+of+obesity+levels+based+on+eating+habits+and+physical+condition,2111.0,16.0,0.0,2111.0,0.0,0.0,0.0,648.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (648 < 3000),2|4
+1002,930105,eucalyptus,multiclass,188.0,https://www.openml.org/search?type=data&status=active&id=188,736.0,19.0,0.0,641.0,0.0,4.0,1.0,256.0,15.0,AUSGESCHIEDEN: zu wenige Zeilen (256 < 3000),0|2
+1002,930106,eye_movements,multiclass,1044.0,https://www.openml.org/search?type=data&status=active&id=1044&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930107,eye_movements_bin,binclass,44130.0,https://www.openml.org/search?type=data&status=active&id=44130&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920064,fifa,regression,44026.0,https://www.openml.org/search?type=data&status=active&id=44026&sort=runs,18063.0,5.0,0.0,18063.0,0.0,0.0,0.0,18063.0,5.0,ok,
+1002,930108,first-order-theorem-proving,multiclass,1475.0,https://www.openml.org/search?type=data&status=active&id=1475&sort=runs,6118.0,51.0,0.0,6118.0,0.0,0.0,0.0,2178.0,51.0,AUSGESCHIEDEN: zu wenige Zeilen (2178 < 3000),1|6
+1001,920065,fried,regression,564.0,https://www.openml.org/search?type=data&status=active&id=564&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920066,garments_worker_productivity,regression,,https://archive.ics.uci.edu/dataset/597/productivity+prediction+of+garment+employees,1197.0,13.0,0.0,1197.0,1.0,2.0,0.0,1197.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (1197 < 3000),
+1002,930109,gas-drift,multiclass,1476.0,https://www.openml.org/search?type=data&status=active&id=1476&sort=runs,13910.0,128.0,0.0,13910.0,0.0,0.0,0.0,5852.0,128.0,ok,2|5
+1001,920067,gas_turbine_CO_and_NOx_emission,regression,,https://archive.ics.uci.edu/dataset/551/gas+turbine+co+and+nox+emission+data+set,36733.0,10.0,0.0,36733.0,0.0,0.0,0.0,36733.0,10.0,ok,
+1002,930110,golf_play_dataset_extended,binclass,,https://www.kaggle.com/datasets/samybaladram/golf-play-extended,1095.0,9.0,0.0,1095.0,0.0,0.0,0.0,458.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (458 < 3000),0|1
+1001,920068,healthcare_insurance_expenses,regression,,https://www.kaggle.com/datasets/arunjangir245/healthcare-insurance-expenses/,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930111,helena,multiclass,41169.0,https://www.openml.org/search?type=data&status=active&id=41169,65196.0,27.0,0.0,65196.0,0.0,0.0,0.0,6126.0,27.0,ok,51|76
+1002,930112,heloc,binclass,45023.0,https://www.openml.org/search?type=data&status=active&id=45023&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930113,hill-valley,binclass,1479.0,https://www.openml.org/search?type=data&status=active&id=1479&sort=runs,1212.0,100.0,0.0,1212.0,0.0,0.0,0.0,1212.0,100.0,AUSGESCHIEDEN: zu wenige Zeilen (1212 < 3000),0|1
+1002,930114,house_16H,binclass,44123.0,https://www.openml.org/search?type=data&status=active&id=44123&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920069,house_16H_reg,regression,574.0,https://www.openml.org/search?type=data&status=active&id=574&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920070,house_8L,regression,218.0,https://www.openml.org/search?type=data&status=active&id=218&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920071,house_prices_nominal,regression,42563.0,https://www.openml.org/search?type=data&status=any&id=42563,1460.0,79.0,0.0,1121.0,1.0,12.0,0.0,1121.0,66.0,AUSGESCHIEDEN: zu wenige Zeilen (1121 < 3000),
+1001,920072,house_sales_reduced,regression,42635.0,https://www.openml.org/search?type=data&status=active&id=42635&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1001,920073,houses,regression,537.0,https://www.openml.org/search?type=data&status=active&id=537&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920074,housing_price_prediction,regression,,https://www.kaggle.com/datasets/harishkumardatalab/housing-price-prediction,545.0,12.0,0.0,545.0,0.0,4.0,0.0,545.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (545 < 3000),
+1002,930115,htru,binclass,,https://archive.ics.uci.edu/dataset/372/htru2,17898.0,8.0,0.0,17898.0,0.0,0.0,0.0,3278.0,8.0,ok,0|1
+1002,930116,ibm-employee-performance,binclass,43895.0,https://www.openml.org/search?type=data&status=active&id=43895&sort=runs,1470.0,30.0,0.0,1470.0,0.0,9.0,0.0,452.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (452 < 3000),3|4
+1002,930117,in_vehicle_coupon_recommendation,binclass,,https://archive.ics.uci.edu/dataset/603/in+vehicle+coupon+recommendation,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930118,internet_firewall,multiclass,,https://archive.ics.uci.edu/dataset/542/internet+firewall+data,65532.0,7.0,0.0,65532.0,0.0,0.0,0.0,29974.0,7.0,ok,0|1
+1002,930119,internet_usage,multiclass,372.0,https://www.openml.org/search?type=data&status=active&id=372&sort=runs,10108.0,70.0,0.0,6845.0,3.0,0.0,0.0,2556.0,67.0,AUSGESCHIEDEN: zu wenige Zeilen (2556 < 3000),College_Student|Other
+1002,930120,jasmine,binclass,41143.0,https://www.openml.org/search?type=data&status=active&id=41143,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930121,jm1,binclass,1053.0,https://www.openml.org/search?type=data&status=active&id=1053&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930122,jungle_chess_2pcs_raw_endgame_complete,multiclass,41027.0,https://www.openml.org/search?type=data&status=active&id=41027&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930123,kc1,binclass,1067.0,https://www.openml.org/search?type=data&status=active&id=1067&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930124,kdd_ipums_la_97-small,binclass,44124.0,https://www.openml.org/search?type=data&status=active&id=44124&sort=runs,5188.0,20.0,0.0,5188.0,0.0,0.0,0.0,5188.0,20.0,ok,N|P
+1001,920075,kin8nm,regression,189.0,https://www.openml.org/search?type=data&status=active&id=189&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930125,kr-vs-k,multiclass,1481.0,https://www.openml.org/search?type=data&status=active&id=1481&sort=runs,28056.0,6.0,0.0,28056.0,0.0,3.0,0.0,8388.0,3.0,AUSGESCHIEDEN: zu wenige Merkmale (3 < 4),16|6
+1002,930126,kr-vs-kp,binclass,3.0,https://www.openml.org/search?type=data&status=active&id=3,3196.0,36.0,0.0,3196.0,0.0,0.0,0.0,3054.0,36.0,ok,0|1
+1002,930127,kropt,multiclass,184.0,https://www.openml.org/search?type=data&status=active&id=184&sort=runs,28056.0,6.0,0.0,28056.0,0.0,0.0,0.0,8388.0,6.0,ok,fourteen|thirteen
+1002,930128,law-school-admission-bianry,binclass,43889.0,https://www.openml.org/search?type=data&status=active&id=43889&sort=runs,20800.0,11.0,0.0,20800.0,0.0,1.0,1.0,13388.0,10.0,ok,0|1
+1002,930129,led24,multiclass,40677.0,https://www.openml.org/search?type=data&status=active&id=40677&sort=runs,3200.0,24.0,0.0,3200.0,0.0,0.0,0.0,670.0,24.0,AUSGESCHIEDEN: zu wenige Zeilen (670 < 3000),3|6
+1002,930130,led7,multiclass,40678.0,https://www.openml.org/search?type=data&status=active&id=40678&sort=runs,3200.0,7.0,0.0,3200.0,0.0,0.0,0.0,672.0,7.0,AUSGESCHIEDEN: zu wenige Zeilen (672 < 3000),4|6
+1002,930131,letter,multiclass,6.0,https://www.openml.org/search?type=data&status=active&id=6&sort=runs,20000.0,15.0,0.0,20000.0,0.0,3.0,0.0,1610.0,12.0,AUSGESCHIEDEN: zu wenige Zeilen (1610 < 3000),D|U
+1002,930132,madeline,binclass,41144.0,https://www.openml.org/search?type=data&status=active&id=41144&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930133,mammography,binclass,310.0,https://www.openml.org/search?type=data&status=active&id=310&sort=runs,11183.0,6.0,0.0,11183.0,0.0,0.0,0.0,520.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (520 < 3000),-1|1
+1002,930134,maternal_health_risk,multiclass,,https://archive.ics.uci.edu/dataset/863/maternal+health+risk,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920076,mauna-loa-atmospheric-co2,regression,41187.0,https://www.openml.org/search?type=data&status=active&id=41187&sort=runs,2225.0,6.0,0.0,2225.0,0.0,2.0,0.0,2225.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (2225 < 3000),
+1002,930135,mfeat-factors,multiclass,12.0,https://www.openml.org/search?type=data&status=active&id=12&sort=runs,2000.0,216.0,0.0,2000.0,0.0,3.0,0.0,400.0,213.0,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),10|8
+1002,930136,mfeat-fourier,multiclass,14.0,https://www.openml.org/search?type=data&status=active&id=14&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930137,mfeat-karhunen,multiclass,16.0,https://www.openml.org/search?type=data&status=active&id=16&sort=runs,2000.0,64.0,0.0,2000.0,0.0,0.0,0.0,400.0,64.0,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),10|8
+1002,930138,mfeat-morphological,multiclass,18.0,https://www.openml.org/search?type=data&status=active&id=18&sort=runs,2000.0,6.0,0.0,2000.0,0.0,2.0,1.0,400.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),10|8
+1002,930139,mfeat-pixel,multiclass,20.0,https://www.openml.org/search?type=data&status=active&id=20&sort=runs,2000.0,240.0,0.0,2000.0,0.0,0.0,0.0,400.0,240.0,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),10|8
+1002,930140,mfeat-zernike,multiclass,22.0,https://www.openml.org/search?type=data&status=active&id=22&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930141,mice_protein_expression,multiclass,,https://archive.ics.uci.edu/dataset/342/mice+protein+expression,1080.0,75.0,0.0,657.0,0.0,0.0,0.0,180.0,75.0,AUSGESCHIEDEN: zu wenige Zeilen (180 < 3000),0|7
+1002,930142,microaggregation2,multiclass,41671.0,https://www.openml.org/search?type=data&status=active&id=41671&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930143,mobile_c36_oversampling,binclass,,https://archive.ics.uci.edu/dataset/755/accelerometer+gyro+mobile+phone+dataset,51760.0,6.0,0.0,51760.0,0.0,0.0,0.0,40680.0,6.0,ok,0|1
+1002,930144,mozilla4,binclass,1046.0,https://www.openml.org/search?type=data&status=active&id=1046&sort=runs,15545.0,4.0,0.0,15545.0,0.0,0.0,1.0,10216.0,4.0,ok,0|1
+1001,920077,mv,regression,344.0,https://www.openml.org/search?type=data&status=active&id=344&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930145,naticusdroid+android+permissions+dataset,binclass,,https://archive.ics.uci.edu/dataset/722/naticusdroid+android+permissions+dataset,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930146,national-longitudinal-survey-binary,binclass,43892.0,https://www.openml.org/search?type=data&status=active&id=43892&sort=runs,4908.0,16.0,0.0,4908.0,1.0,2.0,1.0,3706.0,13.0,ok,0|1
+1002,930147,okcupid_stem,multiclass,45067.0,https://www.openml.org/search?type=data&status=active&id=45067&sort=runs,26677.0,13.0,0.0,26677.0,4.0,0.0,0.0,9308.0,9.0,ok,non_stem|stem
+1002,930148,one-hundred-plants-margin,multiclass,1491.0,https://www.openml.org/search?type=data&status=active&id=1491&sort=runs,1600.0,64.0,0.0,1600.0,0.0,23.0,0.0,32.0,41.0,AUSGESCHIEDEN: zu wenige Zeilen (32 < 3000),45|84
+1002,930149,one-hundred-plants-shape,multiclass,1492.0,https://www.openml.org/search?type=data&status=active&id=1492&sort=runs,1600.0,64.0,0.0,1600.0,0.0,0.0,0.0,32.0,64.0,AUSGESCHIEDEN: zu wenige Zeilen (32 < 3000),45|84
+1002,930150,one-hundred-plants-texture,multiclass,1493.0,https://www.openml.org/search?type=data&status=active&id=1493&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930151,online_shoppers,binclass,45060.0,https://www.openml.org/search?type=data&status=active&id=45060&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930152,optdigits,multiclass,28.0,https://www.openml.org/search?type=data&status=active&id=28&sort=runs,5620.0,64.0,0.0,5620.0,0.0,15.0,2.0,1142.0,49.0,AUSGESCHIEDEN: zu wenige Zeilen (1142 < 3000),1|3
+1002,930153,ozone-level-8hr,binclass,1487.0,https://www.openml.org/search?type=data&status=active&id=1487&sort=runs,2534.0,72.0,0.0,2534.0,0.0,0.0,0.0,320.0,72.0,AUSGESCHIEDEN: zu wenige Zeilen (320 < 3000),1|2
+1002,930154,ozone_level,binclass,301.0,https://www.openml.org/search?type=data&status=active&id=301&sort=runs,2536.0,36.0,0.0,2007.0,35.0,0.0,0.0,122.0,1.0,AUSGESCHIEDEN: zu wenige Merkmale (1 < 4),0|1
+1002,930155,page-blocks,multiclass,30.0,https://www.openml.org/search?type=data&status=active&id=30&sort=runs,5473.0,10.0,0.0,5473.0,0.0,0.0,0.0,658.0,10.0,AUSGESCHIEDEN: zu wenige Zeilen (658 < 3000),1|2
+1002,930156,pc1,binclass,1068.0,https://www.openml.org/search?type=data&status=active&id=1068&sort=runs,1109.0,21.0,0.0,1109.0,0.0,0.0,0.0,154.0,21.0,AUSGESCHIEDEN: zu wenige Zeilen (154 < 3000),False|True
+1002,930157,pc3,binclass,1050.0,https://www.openml.org/search?type=data&status=active&id=1050&sort=runs,1563.0,37.0,0.0,1563.0,0.0,1.0,0.0,320.0,36.0,AUSGESCHIEDEN: zu wenige Zeilen (320 < 3000),False|True
+1002,930158,pc4,binclass,1049.0,https://www.openml.org/search?type=data&status=active&id=1049&sort=runs,1458.0,37.0,0.0,1458.0,0.0,2.0,1.0,356.0,35.0,AUSGESCHIEDEN: zu wenige Zeilen (356 < 3000),False|True
+1002,930159,pendigits,multiclass,32.0,https://www.openml.org/search?type=data&status=active&id=32&sort=runs,10992.0,16.0,0.0,10992.0,0.0,0.0,0.0,2288.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (2288 < 3000),2|4
+1002,930160,philippine,binclass,41145.0,https://www.openml.org/search?type=data&status=active&id=41145,5832.0,308.0,0.0,5832.0,0.0,0.0,0.0,5832.0,308.0,ok,0|1
+1002,930161,phoneme,binclass,1489.0,https://www.openml.org/search?type=data&status=active&id=1489&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930162,pol,binclass,44122.0,https://www.openml.org/search?type=data&status=active&id=44122&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920078,pol_reg,regression,201.0,https://www.openml.org/search?type=data&status=active&id=201&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920079,pole,regression,,,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930163,predict_students_dropout_and_academic_success,multiclass,,https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success,4424.0,34.0,0.0,4424.0,10.0,1.0,0.0,2842.0,23.0,AUSGESCHIEDEN: zu wenige Zeilen (2842 < 3000),0|2
+1001,920080,puma32H,regression,308.0,https://www.openml.org/search?type=data&status=active&id=308&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920081,puma8NH,regression,225.0,https://www.openml.org/search?type=data&status=active&id=225&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920082,qsar_aquatic_toxicity,regression,,https://archive.ics.uci.edu/dataset/505/qsar+aquatic+toxicity,546.0,8.0,0.0,546.0,0.0,2.0,0.0,546.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (546 < 3000),
+1001,920083,qsar_fish_toxicity,regression,,https://archive.ics.uci.edu/dataset/504/qsar+fish+toxicity,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930164,rice_cammeo_and_osmancik,binclass,,https://archive.ics.uci.edu/dataset/545/rice+cammeo+and+osmancik,3810.0,7.0,0.0,3810.0,0.0,0.0,0.0,3260.0,7.0,ok,0|1
+1002,930165,ringnorm,binclass,1496.0,https://www.openml.org/search?type=data&status=active&id=1496&sort=runs,7400.0,20.0,0.0,7400.0,0.0,0.0,0.0,7328.0,20.0,ok,1|2
+1002,930166,rl,binclass,44160.0,https://www.openml.org/search?type=data&status=active&id=44160&sort=runs,4970.0,12.0,0.0,4970.0,0.0,0.0,0.0,4970.0,12.0,ok,0|1
+1001,920084,satellite_image,regression,294.0,https://www.openml.org/search?type=data&status=active&id=294&sort=runs,6435.0,36.0,0.0,6435.0,0.0,0.0,0.0,6435.0,36.0,ok,
+1002,930167,satimage,multiclass,182.0,https://www.openml.org/search?type=data&status=active&id=182&sort=runs,6430.0,36.0,0.0,6430.0,0.0,0.0,0.0,3016.0,36.0,ok,1.|7.
+1002,930168,segment,multiclass,36.0,https://www.openml.org/search?type=data&status=active&id=36&sort=runs,2310.0,17.0,0.0,2310.0,0.0,3.0,0.0,660.0,14.0,AUSGESCHIEDEN: zu wenige Zeilen (660 < 3000),brickface|cement
+1002,930169,seismic+bumps,binclass,,https://archive.ics.uci.edu/dataset/266/seismic+bumps,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930170,semeion,multiclass,1501.0,https://www.openml.org/search?type=data&status=active&id=1501&sort=runs,1593.0,256.0,0.0,1593.0,0.0,1.0,255.0,322.0,255.0,AUSGESCHIEDEN: zu wenige Zeilen (322 < 3000),1|3
+1001,920085,sensory,regression,546.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&qualities.NumberOfClasses=lte_1&id=546,576.0,11.0,0.0,576.0,0.0,0.0,0.0,576.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (576 < 3000),
+1002,930171,shill-bidding,binclass,42889.0,https://www.openml.org/search?type=data&status=active&id=42889&sort=runs,6321.0,3.0,0.0,6321.0,0.0,1.0,0.0,1350.0,2.0,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),0|1
+1002,930172,shrutime,binclass,45062.0,https://www.openml.org/search?type=data&status=active&id=45062&sort=runs,,,,,,,,,,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,
+1002,930173,shuttle,multiclass,40685.0,https://www.openml.org/search?type=data&status=active&id=40685&sort=runs,58000.0,9.0,0.0,58000.0,0.0,0.0,0.0,17806.0,9.0,ok,1|4
+1001,920086,socmob,regression,541.0,https://www.openml.org/search?type=data&status=active&id=541&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920087,space_ga,regression,507.0,https://www.openml.org/search?type=data&status=active&id=507&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930174,spambase,binclass,44.0,https://www.openml.org/search?type=data&status=active&id=44&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930175,splice,multiclass,46.0,https://www.openml.org/search?type=data&status=active&id=46&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930176,sports_articles_for_objectivity_analysis,binclass,,https://archive.ics.uci.edu/dataset/450/sports+articles+for+objectivity+analysis,1000.0,59.0,0.0,1000.0,0.0,8.0,1.0,730.0,51.0,AUSGESCHIEDEN: zu wenige Zeilen (730 < 3000),0|1
+1002,930177,statlog,binclass,,https://archive.ics.uci.edu/dataset/144/statlog+german+credit+data,1000.0,20.0,0.0,1000.0,0.0,3.0,1.0,600.0,17.0,AUSGESCHIEDEN: zu wenige Zeilen (600 < 3000),0|1
+1001,920088,steel_industry_energy_consumption,regression,,https://archive.ics.uci.edu/dataset/851/steel+industry+energy+consumption,35040.0,10.0,0.0,35040.0,0.0,1.0,0.0,35040.0,9.0,ok,
+1002,930178,steel_plates_faults,multiclass,,https://archive.ics.uci.edu/dataset/198/steel+plates+faults,1941.0,27.0,0.0,1941.0,0.0,1.0,0.0,804.0,26.0,AUSGESCHIEDEN: zu wenige Zeilen (804 < 3000),5|6
+1001,920089,stock,regression,223.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&qualities.NumberOfClasses=lte_1&id=223,950.0,9.0,0.0,950.0,0.0,0.0,0.0,950.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (950 < 3000),
+1001,920090,stock_fardamento02,regression,42545.0,https://www.openml.org/search?type=data&status=active&id=42545&sort=runs,6277.0,6.0,0.0,6277.0,1.0,0.0,0.0,6277.0,5.0,ok,
+1001,920091,sulfur,regression,23515.0,https://www.openml.org/search?type=data&status=active&id=23515&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930179,svmguide3,binclass,1589.0,https://www.openml.org/search?type=data&status=active&id=1589&sort=runs,1243.0,22.0,0.0,1243.0,0.0,4.0,0.0,592.0,18.0,AUSGESCHIEDEN: zu wenige Zeilen (592 < 3000),-1.0|1.0
+1002,930180,sylvine,binclass,41146.0,https://www.openml.org/search?type=data&status=active&id=41146&sort=runs,5124.0,20.0,0.0,5124.0,0.0,0.0,0.0,5124.0,20.0,ok,0|1
+1002,930181,taiwanese_bankruptcy_prediction,binclass,,https://archive.ics.uci.edu/dataset/572/taiwanese+bankruptcy+prediction,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930182,telco-customer-churn,binclass,42178.0,https://www.openml.org/search?type=data&status=active&id=42178&sort=runs,7043.0,18.0,0.0,7043.0,0.0,0.0,1.0,3738.0,18.0,ok,No|Yes
+1002,930183,texture,multiclass,40499.0,https://www.openml.org/search?type=data&status=active&id=40499&sort=runs,5500.0,40.0,0.0,5500.0,0.0,0.0,0.0,1000.0,40.0,AUSGESCHIEDEN: zu wenige Zeilen (1000 < 3000),3|6
+1002,930184,thyroid,multiclass,,https://archive.ics.uci.edu/dataset/102/thyroid+disease,7200.0,21.0,0.0,7200.0,0.0,15.0,0.0,736.0,6.0,AUSGESCHIEDEN: zu wenige Zeilen (736 < 3000),1|2
+1002,930185,thyroid-ann,multiclass,40497.0,https://www.openml.org/search?type=data&status=active&id=40497&sort=runs,3772.0,21.0,0.0,3772.0,0.0,2.0,13.0,382.0,19.0,AUSGESCHIEDEN: zu wenige Zeilen (382 < 3000),2|3
+1002,930186,thyroid-dis,multiclass,40478.0,https://www.openml.org/search?type=data&status=active&id=40478&sort=runs,2800.0,26.0,0.0,2800.0,0.0,0.0,0.0,1542.0,26.0,AUSGESCHIEDEN: zu wenige Zeilen (1542 < 3000),1|5
+1001,920092,topo_2_1,regression,422.0,https://www.openml.org/search?type=data&status=any&sort=runs&order=desc&qualities.NumberOfClasses=lte_1&id=422,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920093,treasury,regression,42367.0,https://www.openml.org/search?type=data&status=active&id=42367&sort=runs,1049.0,15.0,0.0,1049.0,0.0,0.0,0.0,1049.0,15.0,AUSGESCHIEDEN: zu wenige Zeilen (1049 < 3000),
+1002,930187,turiye_student_evaluation,multiclass,,https://archive.ics.uci.edu/dataset/262/turkiye+student+evaluation,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930188,twonorm,binclass,1507.0,https://www.openml.org/search?type=data&status=active&id=1507&sort=runs,7400.0,20.0,0.0,7400.0,0.0,0.0,0.0,7394.0,20.0,ok,1|2
+1001,920094,us_crime,regression,42730.0,https://www.openml.org/search?type=data&status=active&id=42730,1994.0,126.0,24.0,1993.0,0.0,1.0,0.0,1993.0,101.0,AUSGESCHIEDEN: zu wenige Zeilen (1993 < 3000),
+1002,930189,vehicle,multiclass,54.0,https://www.openml.org/search?type=data&status=active&id=54&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920095,volume,regression,,https://archive.ics.uci.edu/dataset/363/facebook+comment+volume+dataset,50993.0,53.0,0.0,50993.0,0.0,1.0,14.0,50993.0,52.0,ok,
+1002,930190,walking-activity,multiclass,1509.0,https://www.openml.org/search?type=data&status=active&id=1509&sort=runs,149332.0,4.0,0.0,149332.0,0.0,0.0,0.0,41516.0,4.0,ok,21|22
+1002,930191,wall-robot-navigation,multiclass,1497.0,https://www.openml.org/search?type=data&status=active&id=1497&sort=runs,5456.0,24.0,0.0,5456.0,0.0,0.0,0.0,4194.0,24.0,ok,1|2
+1002,930192,water_quality,binclass,,https://www.kaggle.com/datasets/mssmartypants/water-quality,7996.0,20.0,0.0,7996.0,0.0,4.0,16.0,1824.0,16.0,AUSGESCHIEDEN: zu wenige Zeilen (1824 < 3000),0|1
+1002,930193,waveform-5000,multiclass,60.0,https://www.openml.org/search?type=data&status=active&id=60&sort=runs,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930194,waveform_database_generator_version_1,multiclass,,https://archive.ics.uci.edu/dataset/107/waveform+database+generator+version+1,5000.0,21.0,0.0,5000.0,0.0,0.0,0.0,3314.0,21.0,ok,0|2
+1001,920096,weather_izmir,regression,42369.0,https://www.openml.org/search?type=data&status=active&id=42369&sort=runs,1461.0,9.0,0.0,1461.0,0.0,0.0,0.0,1461.0,9.0,AUSGESCHIEDEN: zu wenige Zeilen (1461 < 3000),
+1002,930195,website_phishing,multiclass,,https://archive.ics.uci.edu/dataset/379/website+phishing,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1001,920097,wind,regression,503.0,https://www.openml.org/search?type=data&status=active&id=503&sort=runs,6574.0,14.0,0.0,6574.0,0.0,0.0,0.0,6574.0,14.0,ok,
+1002,930196,wine,binclass,44091.0,https://www.openml.org/search?type=data&status=active&id=44091&sort=runs,2554.0,4.0,0.0,2554.0,0.0,0.0,0.0,2554.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (2554 < 3000),False|True
+1001,920098,wine+quality,regression,,https://archive.ics.uci.edu/dataset/186/wine+quality,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),
+1002,930197,wine-quality-red,multiclass,40691.0,https://www.openml.org/search?type=data&status=active&id=40691&sort=runs,1599.0,4.0,0.0,1599.0,0.0,0.0,0.0,1276.0,4.0,AUSGESCHIEDEN: zu wenige Zeilen (1276 < 3000),5|6
+1002,930198,wine-quality-white,multiclass,40498.0,https://www.openml.org/search?type=data&status=active&id=40498&sort=runs,4898.0,11.0,0.0,4898.0,0.0,0.0,0.0,2914.0,11.0,AUSGESCHIEDEN: zu wenige Zeilen (2914 < 3000),3|4
+1002,930199,yeast,multiclass,181.0,https://www.openml.org/search?type=data&status=active&id=181&sort=runs,1484.0,8.0,0.0,1484.0,0.0,0.0,2.0,858.0,8.0,AUSGESCHIEDEN: zu wenige Zeilen (858 < 3000),CYT|NUC
+1001,920099,yprop_4_1,regression,416.0,https://www.openml.org/search?type=data&status=active&id=416,,,,,,,,,,UEBERSPRUNGEN: Name schon vorhanden (Duplikat),

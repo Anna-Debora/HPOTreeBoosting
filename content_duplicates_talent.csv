@@ -1,0 +1,132 @@
+suite_id,task_id,talent,urteil,pruefbare_spalten_a,vergleich_mit,art,ziel_gleich,zugeordnete_spalten,pruefbare_spalten_b,anteil_spalten_a,anteil_spalten_b,zeilen_a_in_b,zeilen_b_in_a,spalten
+1001,920002,3D_Estimation_using_RSSI_of_WLAN_dataset,nicht pruefbar,0.0,,,,,,,,,,
+1001,920003,3D_Estimation_using_RSSI_of_WLAN_dataset_complete_1_target,nicht pruefbar,0.0,,,,,,,,,,
+1001,920003,3D_Estimation_using_RSSI_of_WLAN_dataset_complete_1_target,Name aehnlich,,"3D_Estimation_using_RSSI_of_WLAN_dataset (1001, 920002)",TALENT,,,,,,,,
+1001,920004,Abalone_reg,identisch,7.0,"abalone (335, 361288)",alt,,7.0,7.0,1.0,1.0,1.0,1.0,N6=Shell_weight; N5=Viscera_weight; N4=Shucked_weight; N3=Whole_weight; N2=Height; N1=Diameter; N0=Length
+1001,920004,Abalone_reg,Name aehnlich,,"abalone (335, 361288)",alt,,,,,,,,
+1001,920004,Abalone_reg,identisch,7.0,"abalone (336, 361280)",alt,,7.0,7.0,1.0,1.0,1.0,1.0,N6=Shell_weight; N5=Viscera_weight; N4=Shucked_weight; N3=Whole_weight; N2=Height; N1=Diameter; N0=Length
+1001,920004,Abalone_reg,Name aehnlich,,"abalone (336, 361280)",alt,,,,,,,,
+1002,930005,BNG(tic-tac-toe),nicht pruefbar,0.0,,,,,,,,,,
+1002,930006,Bank_Customer_Churn_Dataset,identisch,4.0,"Bank_Customer_Churn (1002, 363619)",neu,,4.0,4.0,1.0,1.0,0.4074,1.0,N5=estimated_salary; N3=balance; N1=age; N0=credit_score
+1002,930006,Bank_Customer_Churn_Dataset,Name aehnlich,,"Bank_Customer_Churn (1002, 363619)",neu,,,,,,,,
+1001,920012,Bias_correction_r_2,Variante,18.0,"Bias_correction_r (1001, 920011)",TALENT,False,17.0,18.0,0.9444444444444444,0.9444444444444444,1.0,1.0,N9=N9; N8=N8; N7=N7; N6=N6; N5=N5; N4=N4; N3=N3; N20=N20
+1001,920012,Bias_correction_r_2,Name aehnlich,,"Bias_correction_r (1001, 920011)",TALENT,,,,,,,,
+1001,920013,Brazilian_houses_reproduced,identisch,6.0,"Brazilian_houses (335, 361098)",alt,True,6.0,6.0,1.0,1.0,1.0,1.0,rent_amount_(BRL)=rent_amount_(BRL); property_tax_(BRL)=property_tax_(BRL); hoa_(BRL)=hoa_(BRL); fire_insurance_(BRL)=fire_insurance_(BRL); area=area; __ziel__=__ziel__
+1001,920013,Brazilian_houses_reproduced,Name aehnlich,,"Brazilian_houses (335, 361098)",alt,,,,,,,,
+1001,920013,Brazilian_houses_reproduced,identisch,6.0,"Brazilian_houses (336, 361081)",alt,True,6.0,6.0,1.0,1.0,1.0,1.0,rent_amount_(BRL)=rent_amount_(BRL); property_tax_(BRL)=property_tax_(BRL); hoa_(BRL)=hoa_(BRL); fire_insurance_(BRL)=fire_insurance_(BRL); area=area; __ziel__=__ziel__
+1001,920013,Brazilian_houses_reproduced,Name aehnlich,,"Brazilian_houses (336, 361081)",alt,,,,,,,,
+1002,930008,California-Housing-Classification,Variante,8.0,"houses (336, 361078)",alt,,8.0,9.0,1.0,0.8888888888888888,1.0,1.0,totalRooms=total_rooms; totalBedrooms=total_bedrooms; population=population; medianIncome=median_income; longitude=longitude; latitude=latitude; housingMedianAge=housing_median_age; households=households
+1002,930008,California-Housing-Classification,Name aehnlich,,"california (337, 361277)",alt,,,,,,,,
+1002,930009,Cardiovascular-Disease-dataset,Variante,5.0,"heloc (337, 361278)",alt,,2.0,12.0,0.4,0.16666666666666666,0.6286428571428572,0.2124,height=MSinceOldestTradeOpen; weight=ExternalRiskEstimate
+1001,920016,CookbookReviews,Variante,5.0,"road-safety (334, 361285)",alt,,3.0,11.0,0.6,0.2727272727272727,0.5079749202507975,0.24905602977756303,upvotes=2nd_Road_Number; rec_no=Age_of_Vehicle; downvotes=1st_Road_Number
+1001,920016,CookbookReviews,Variante,5.0,"Brazilian_houses (335, 361098)",alt,,2.0,6.0,0.4,0.3333333333333333,0.7173578264217357,0.16601197156752712,upvotes=property_tax_(BRL); rec_no=fire_insurance_(BRL)
+1001,920016,CookbookReviews,Variante,5.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.4,0.4,0.6179188208117918,0.01492,upvotes=total_amount; rec_no=lpep_pickup_datetime_minute
+1001,920016,CookbookReviews,Variante,5.0,"elevators (336, 361074)",alt,,2.0,9.0,0.4,0.2222222222222222,0.7599824001759983,0.005964214711729622,upvotes=climbRate; downvotes=Sgz
+1001,920016,CookbookReviews,Variante,5.0,"Brazilian_houses (336, 361081)",alt,,2.0,6.0,0.4,0.3333333333333333,0.7173578264217357,0.16601197156752712,upvotes=property_tax_(BRL); rec_no=fire_insurance_(BRL)
+1001,920016,CookbookReviews,Variante,5.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.4,0.4,0.6179188208117918,0.01492,upvotes=total_amount; rec_no=lpep_pickup_datetime_minute
+1001,920016,CookbookReviews,Variante,5.0,"pol (337, 361062)",alt,,3.0,22.0,0.6,0.13636363636363635,0.5705092949070509,0.04552668121404483,upvotes=f18; rec_no=f25; downvotes=f17
+1001,920016,CookbookReviews,Variante,5.0,"online_shoppers_intention (1002, 363691)",neu,,2.0,7.0,0.4,0.2857142857142857,0.8805961940380597,0.31236897274633124,upvotes=ProductRelated; downvotes=Administrative_Duration
+1001,920016,CookbookReviews,Variante,5.0,"jm1 (1002, 363712)",neu,,3.0,20.0,0.6,0.15,0.7272027279727202,0.14550641940085593,upvotes=total_Opnd; rec_no=loc; downvotes=uniq_Opnd
+1001,920016,CookbookReviews,Variante,5.0,"Brazilian_houses_reproduced (1001, 920013)",TALENT,,2.0,6.0,0.4,0.3333333333333333,0.7173578264217357,0.16601197156752712,upvotes=property_tax_(BRL); rec_no=fire_insurance_(BRL)
+1002,930016,Credit_c,Variante,9.0,"albert (334, 361282)",alt,,2.0,19.0,0.2222222222222222,0.10526315789473684,0.53758,0.4776488360914647,N7=V8; N13=V9
+1002,930016,Credit_c,Variante,9.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.2222222222222222,0.4,0.03747,0.55633,N7=lpep_pickup_datetime_minute; N13=lpep_dropoff_datetime_minute
+1002,930016,Credit_c,Variante,9.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.2222222222222222,0.4,0.03747,0.55633,N7=lpep_pickup_datetime_minute; N13=lpep_dropoff_datetime_minute
+1002,930016,Credit_c,Name aehnlich,,"credit (337, 361055)",alt,,,,,,,,
+1002,930016,Credit_c,Variante,9.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.2222222222222222,1.0,0.03144,0.5833872555915037,N13=num_medications; N7=num_lab_procedures
+1002,930016,Credit_c,Variante,9.0,"heloc (337, 361278)",alt,,2.0,12.0,0.2222222222222222,0.16666666666666666,0.14283,0.7481,N13=AverageMInFile; N7=NumTotalTrades
+1001,920017,Data_Science_Salaries,nicht pruefbar,1.0,,,,,,,,,,
+1002,930020,Employee,nicht pruefbar,0.0,,,,,,,,,,
+1002,930021,FICO-HELOC-cleaned,Variante,12.0,"wine_quality (336, 361076)",alt,,2.0,11.0,0.16666666666666666,0.18181818181818182,0.5374328842062608,0.11420655687240265,NumSatisfactoryTrades=free.sulfur.dioxide; PercentTradesNeverDelq=total.sulfur.dioxide
+1002,930021,FICO-HELOC-cleaned,Variante,12.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.16666666666666666,1.0,0.542903454563874,0.6347306231537487,NetFractionRevolvingBurden=num_medications; PercentInstallTrades=num_lab_procedures
+1002,930021,FICO-HELOC-cleaned,Variante,12.0,"income (1002, 910062)",neu,,2.0,4.0,0.16666666666666666,0.5,0.2802147705399656,0.7125406107862248,PercentInstallTrades=0; NetFractionRevolvingBurden=10
+1002,930021,FICO-HELOC-cleaned,Variante,12.0,"Cardiovascular-Disease-dataset (1002, 930009)",TALENT,,2.0,5.0,0.16666666666666666,0.4,0.2253064532468848,0.6399857142857143,MSinceOldestTradeOpen=height; ExternalRiskEstimate=weight
+1002,930021,FICO-HELOC-cleaned,Variante,12.0,"Credit_c (1002, 930016)",TALENT,,2.0,9.0,0.16666666666666666,0.2222222222222222,0.7891804275149428,0.14489,AverageMInFile=N13; NumTotalTrades=N7
+1001,920019,Facebook_Comment_Volume,Variante,36.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.05555555555555555,1.0,0.26586729834672396,0.5815445210296807,__ziel__=num_medications; N36=num_lab_procedures
+1001,920019,Facebook_Comment_Volume,Variante,36.0,"medium-app-reviews-from-google-play-store (1002, 910071)",neu,,2.0,2.0,0.05555555555555555,1.0,0.2866004053823048,0.8996498687007628,N35=2; N33=1
+1001,920019,Facebook_Comment_Volume,Variante,36.0,"CookbookReviews (1001, 920016)",TALENT,,3.0,5.0,0.08333333333333333,0.6,0.09060050306478791,0.7974920250797493,__ziel__=upvotes; N36=rec_no; N35=downvotes
+1002,930031,Firm-Teacher_Clave-Direction_Classification,nicht pruefbar,0.0,,,,,,,,,,
+1002,930039,INNHotelsGroup,Variante,3.0,"jm1 (1002, 363712)",neu,,2.0,20.0,0.6666666666666666,0.1,0.34012405237767057,0.6293390394674275,N8=uniq_Opnd; N5=ev(g)
+1002,930041,Insurance,Variante,3.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.6666666666666666,1.0,0.6154662816375064,0.26007877338584895,Upper_Age=num_lab_procedures; Lower_Age=num_medications
+1002,930046,KDDCup09_upselling,Variante,28.0,"covertype (334, 361113)",alt,,2.0,10.0,0.07142857142857142,0.2,0.9182917316692668,0.023483333333333332,Var73=Vertical_Distance_To_Hydrology; Var85=Aspect
+1001,920024,Kaggle_bike_sharing_demand_challange,nicht pruefbar,2.0,,,,,,,,,,
+1001,920024,Kaggle_bike_sharing_demand_challange,Variante,2.0,"Bike_Sharing_Demand (335, 361099)",alt,True,2.0,4.0,1.0,0.5,1.0,0.8104033603774671,atemp=feel_temp; __ziel__=__ziel__
+1001,920024,Kaggle_bike_sharing_demand_challange,Variante,2.0,"Bike_Sharing_Demand (336, 361082)",alt,True,2.0,4.0,1.0,0.5,1.0,0.8104033603774671,atemp=feel_temp; __ziel__=__ziel__
+1001,920025,Laptop_Prices_Dataset,nicht pruefbar,1.0,,,,,,,,,,
+1001,920035,OnlineNewsPopularity,Variante,38.0,"spambase (1002, 910096)",neu,,2.0,54.0,0.05263157894736842,0.037037037037037035,0.642947230350116,0.29343629343629346,N6=feature_56; N7=feature_55
+1001,920035,OnlineNewsPopularity,Variante,38.0,"INNHotelsGroup (1002, 930039)",TALENT,,2.0,3.0,0.05263157894736842,0.6666666666666666,0.9536878216123499,0.4191592005513439,N9=N5; N8=N8
+1002,930054,PhishingWebsites,nicht pruefbar,0.0,,,,,,,,,,
+1001,920038,Physicochemical_r,identisch,10.0,"physiochemical_protein (1001, 363693)",neu,True,10.0,10.0,1.0,1.0,1.0,1.0,__ziel__=__ziel__; N8=SpatialDistNK; N7=SecondaryStructurePenalty; N6=EuclideanDistance; N5=AvgDeviationExposedArea; N4=MassWeightedExposedArea; N3=FracExposedNonPolarPart; N2=FracExposedNonPolarResidue
+1002,930060,Rain_in_Australia,Variante,8.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.25,0.4,0.26097896328887665,0.7713933333333334,N7=lpep_pickup_datetime_minute; N6=lpep_dropoff_datetime_minute
+1002,930060,Rain_in_Australia,Variante,8.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.25,0.4,0.26097896328887665,0.7713933333333334,N7=lpep_pickup_datetime_minute; N6=lpep_dropoff_datetime_minute
+1002,930060,Rain_in_Australia,Variante,8.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.25,1.0,0.44682386910490857,0.8571810381206921,N7=num_medications; N6=num_lab_procedures
+1002,930060,Rain_in_Australia,Variante,8.0,"income (1002, 910062)",neu,,2.0,4.0,0.25,0.5,0.20107245978275815,0.8746588693957115,N7=10; N6=0
+1002,930060,Rain_in_Australia,Variante,8.0,"Credit_c (1002, 930016)",TALENT,,2.0,9.0,0.25,0.2222222222222222,0.5095902653650488,0.14514,N3=N13; N7=N7
+1002,930062,Shipping,nicht pruefbar,2.0,,,,,,,,,,
+1002,930062,Shipping,Variante,2.0,"E-CommereShippingData (1002, 363632)",neu,,2.0,3.0,1.0,0.6666666666666666,0.8308937176106919,1.0,Weight_in_gms=Weight_in_gms; Discount_offered=Discount_offered
+1001,920041,Superconductivty,identisch,80.0,"superconduct (336, 361088)",alt,True,80.0,80.0,1.0,1.0,1.0,1.0,__ziel__=__ziel__; N9=std_atomic_mass; N80=wtd_std_Valence; N8=wtd_range_atomic_mass; N79=std_Valence; N78=wtd_range_Valence; N76=wtd_entropy_Valence; N75=entropy_Valence
+1001,920041,Superconductivty,Name aehnlich,,"superconduct (336, 361088)",alt,,,,,,,,
+1001,920043,Wine_Quality_white,Variante,11.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.18181818181818182,0.4,0.5496120865659453,0.06845,N0=total_amount; N5=lpep_pickup_datetime_minute
+1001,920043,Wine_Quality_white,Variante,11.0,"wine_quality (336, 361076)",alt,,11.0,11.0,1.0,1.0,1.0,0.754348160689549,N9=sulphates; N8=pH; N7=density; N6=total.sulfur.dioxide; N5=free.sulfur.dioxide; N4=chlorides; N3=residual.sugar; N2=citric.acid
+1001,920043,Wine_Quality_white,Name aehnlich,,"wine_quality (336, 361076)",alt,,,,,,,,
+1001,920043,Wine_Quality_white,Variante,11.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.18181818181818182,0.4,0.5496120865659453,0.06845,N0=total_amount; N5=lpep_pickup_datetime_minute
+1002,930074,adult,Variante,5.0,"road-safety (334, 361285)",alt,,2.0,11.0,0.4,0.18181818181818182,0.18576225379796077,0.5658721211145112,N5=Age_of_Vehicle; N0=Age_of_Driver
+1002,930074,adult,Variante,5.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.4,1.0,0.6187912042913886,0.5233366155577437,N5=num_medications; N0=num_lab_procedures
+1002,930074,adult,Variante,5.0,"heloc (337, 361278)",alt,,2.0,12.0,0.4,0.16666666666666666,0.7252160026206953,0.4267,N5=NetFractionRevolvingBurden; N0=PercentInstallTrades
+1002,930074,adult,identisch,5.0,"income (1002, 910062)",neu,,4.0,4.0,0.8,1.0,0.9020719872241104,1.0,N5=10; N4=9; N3=8; N0=0
+1002,930074,adult,Variante,5.0,"FICO-HELOC-cleaned (1002, 930021)",TALENT,,2.0,12.0,0.4,0.16666666666666666,0.7322591212481061,0.4522338162293587,N5=NetFractionRevolvingBurden; N0=PercentInstallTrades
+1002,930082,bank,identisch,4.0,"bank-marketing (337, 361066)",alt,,4.0,4.0,1.0,1.0,0.23596027515427662,1.0,N5=V14; N3=V12; N1=V6; N0=V1
+1002,930082,bank,Name aehnlich,,"bank-marketing (337, 361066)",alt,,,,,,,,
+1002,930082,bank,Name aehnlich,,"Bank_Customer_Churn (1002, 363619)",neu,,,,,,,,
+1002,930082,bank,Name aehnlich,,"bankadditionalfullcsv (1002, 910031)",neu,,,,,,,,
+1002,930082,bank,Variante,4.0,"medium-app-reviews-from-google-play-store (1002, 910071)",neu,,2.0,2.0,0.5,1.0,0.07380947114640242,0.7584406652494685,N3=2; N1=1
+1002,930082,bank,Name aehnlich,,"Bank_Customer_Churn_Dataset (1002, 930006)",TALENT,,,,,,,,
+1001,920050,bank32nh,Name aehnlich,,"bank (1002, 930082)",TALENT,,,,,,,,
+1001,920051,bank8FM,Name aehnlich,,"bank (1002, 930082)",TALENT,,,,,,,,
+1002,930090,connect-4,nicht pruefbar,0.0,,,,,,,,,,
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.4,0.4,0.7380264528427962,0.044853333333333335,N3=total_amount; N1=lpep_pickup_datetime_minute
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.4,0.4,0.7380264528427962,0.044853333333333335,N3=total_amount; N1=lpep_pickup_datetime_minute
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.4,1.0,0.9963936874791187,1.0,N3=num_medications; N1=num_lab_procedures
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"heloc (337, 361278)",alt,,2.0,12.0,0.4,0.16666666666666666,0.24076803647583672,0.5176,N3=NetFractionRevolvingBurden; N1=ExternalRiskEstimate
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,2.0,4.0,0.4,0.5,0.721007016095749,0.2399453971504138,N3=DepartureDelayinMinutes; N1=ArrivalDelayinMinutes
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"jm1 (1002, 363712)",neu,,2.0,20.0,0.4,0.1,0.4195016017137354,0.6904422253922967,N3=uniq_Opnd; N1=total_Opnd
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"Gender_Gap_in_Spanish_WP (1002, 910005)",neu,,2.0,10.0,0.4,0.2,0.3047678006406855,0.5128044971892567,N3=feature_7; N1=feature_2
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"Credit_c (1002, 930016)",TALENT,,2.0,9.0,0.4,0.2222222222222222,0.5841047108071458,0.03309,N3=N13; N1=N7
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"FICO-HELOC-cleaned (1002, 930021)",TALENT,,2.0,12.0,0.4,0.16666666666666666,0.6370103963995833,0.5607334616553541,N3=NetFractionRevolvingBurden; N1=PercentInstallTrades
+1002,930095,dabetes_130-us_hospitals,Variante,5.0,"Rain_in_Australia (1002, 930060)",TALENT,,2.0,8.0,0.4,0.25,0.8561602106794017,0.4947820706723498,N3=N7; N1=N6
+1002,930097,delta_ailerons,Variante,4.0,"delta_elevators (1001, 900025)",neu,,2.0,3.0,0.5,0.6666666666666666,0.611025389255155,0.32846485236944417,PitchRate=RollRate; currRoll=curRoll
+1002,930118,internet_firewall,Variante,7.0,"Insurance (1002, 930041)",TALENT,,2.0,3.0,0.2857142857142857,0.6666666666666666,0.01634316059329793,0.5124851367419738,N6=Upper_Age; N5=Lower_Age
+1002,930118,internet_firewall,Variante,7.0,"KDDCup09_upselling (1002, 930046)",TALENT,,2.0,28.0,0.2857142857142857,0.07142857142857142,0.05739180858206678,0.546801872074883,N4=Var73; N6=Var85
+1002,930126,kr-vs-kp,nicht pruefbar,0.0,,,,,,,,,,
+1002,930127,kropt,nicht pruefbar,0.0,,,,,,,,,,
+1002,930128,law-school-admission-bianry,nicht pruefbar,2.0,,,,,,,,,,
+1002,930145,naticusdroid+android+permissions+dataset,nicht pruefbar,0.0,,,,,,,,,,
+1002,930145,naticusdroid+android+permissions+dataset,Name aehnlich,,"NATICUSdroid (1002, 363689)",neu,,,,,,,,
+1002,930147,okcupid_stem,nicht pruefbar,1.0,,,,,,,,,,
+1002,930151,online_shoppers,Variante,4.0,"online_shoppers_intention (1002, 363691)",neu,,4.0,7.0,1.0,0.5714285714285714,0.5158150851581509,1.0,ProductRelated=ProductRelated; PageValues=PageValues; ExitRates=ExitRates; BounceRates=BounceRates
+1002,930151,online_shoppers,Name aehnlich,,"online_shoppers_intention (1002, 363691)",neu,,,,,,,,
+1002,930160,philippine,Variante,307.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.006514657980456026,1.0,0.7109053497942387,0.16345477563651709,N9=num_medications; N267=num_lab_procedures
+1002,930160,philippine,Variante,307.0,"Credit_c (1002, 930016)",TALENT,,2.0,9.0,0.006514657980456026,0.2222222222222222,0.5354938271604939,0.13123,N307=N13; N9=N7
+1002,930160,philippine,Variante,307.0,"dabetes_130-us_hospitals (1002, 930095)",TALENT,,2.0,5.0,0.006514657980456026,0.4,0.7340534979423868,0.16439675333608475,N9=N3; N267=N1
+1001,920079,pole,Variante,22.0,"pol (336, 361073)",alt,,22.0,22.0,1.0,1.0,0.16662221629550605,0.8698666666666667,N9=f29; N8=f28; N7=f27; N6=f26; N5=f25; N4=f9; N3=f8; N21=f22
+1001,920079,pole,Variante,22.0,"Ailerons (336, 361077)",alt,,2.0,24.0,0.09090909090909091,0.08333333333333333,0.5050673423123083,0.0061818181818181816,N9=climbRate; N21=Sgz
+1001,920079,pole,Variante,22.0,"pol (337, 361062)",alt,,22.0,22.0,1.0,1.0,0.16242165622082944,0.8838524102360643,N9=f29; N8=f28; N7=f27; N6=f26; N5=f25; N4=f9; N3=f8; N21=f22
+1001,920079,pole,Variante,22.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,3.0,4.0,0.13636363636363635,0.75,0.19635951460194692,0.5190342120979439,N9=DepartureDelayinMinutes; N8=ArrivalDelayinMinutes; N7=Age
+1001,920079,pole,Variante,22.0,"online_shoppers_intention (1002, 363691)",neu,,3.0,7.0,0.13636363636363635,0.42857142857142855,0.7770369382584345,0.3739517819706499,N9=ProductRelated; N14=Administrative_Duration; N21=Informational_Duration
+1001,920079,pole,Variante,22.0,"medium-app-reviews-from-google-play-store (1002, 910071)",neu,,2.0,2.0,0.09090909090909091,1.0,0.9595946126150153,0.0404214080280105,N17=2; N19=1
+1001,920079,pole,Variante,22.0,"CookbookReviews (1001, 920016)",TALENT,,3.0,5.0,0.13636363636363635,0.6,0.18362448326443526,0.7728522714772852,N9=upvotes; N8=rec_no; N6=downvotes
+1002,930166,rl,Variante,5.0,"spambase (1002, 910096)",neu,,2.0,54.0,0.4,0.037037037037037035,0.5637826961770623,0.2523441809156095,V6=feature_56; V5=feature_55
+1001,920084,satellite_image,Variante,36.0,"Rain_in_Australia (1002, 930060)",TALENT,,2.0,8.0,0.05555555555555555,0.25,0.9975135975135975,0.08957789082909391,attr33=N7; attr29=N6
+1002,930172,shrutime,identisch,4.0,"Bank_Customer_Churn (1002, 363619)",neu,,4.0,4.0,1.0,1.0,0.4074,1.0,EstimatedSalary=estimated_salary; CreditScore=credit_score; Balance=balance; Age=age
+1002,930172,shrutime,identisch,4.0,"Bank_Customer_Churn_Dataset (1002, 930006)",TALENT,,4.0,4.0,1.0,1.0,1.0,1.0,EstimatedSalary=N5; CreditScore=N0; Balance=N3; Age=N1
+1002,930173,shuttle,Variante,9.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.2222222222222222,0.4,0.6201206896551724,0.33789,A7=lpep_pickup_datetime_minute; A6=lpep_dropoff_datetime_minute
+1002,930173,shuttle,Variante,9.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.2222222222222222,0.4,0.6201206896551724,0.33789,A7=lpep_pickup_datetime_minute; A6=lpep_dropoff_datetime_minute
+1002,930173,shuttle,Variante,9.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.2222222222222222,1.0,0.7556896551724138,0.0695034463356309,A7=num_medications; A1=num_lab_procedures
+1002,930173,shuttle,Variante,9.0,"dabetes_130-us_hospitals (1002, 930095)",TALENT,,2.0,5.0,0.2222222222222222,0.4,0.7868793103448276,0.0710748187017275,A1=N1; A7=N3
+1001,920090,stock_fardamento02,Variante,3.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,False,2.0,5.0,0.6666666666666666,0.4,0.5795762306834475,0.020886666666666668,TEMP=total_amount; __ziel__=lpep_pickup_datetime_minute
+1001,920090,stock_fardamento02,Variante,3.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,False,2.0,5.0,0.6666666666666666,0.4,0.5795762306834475,0.020886666666666668,TEMP=total_amount; __ziel__=lpep_pickup_datetime_minute
+1002,930180,sylvine,Variante,19.0,"Credit_c (1002, 930016)",TALENT,,2.0,9.0,0.10526315789473684,0.2222222222222222,0.5630366900858704,0.12849,V3=N13; V2=N7
+1002,930182,telco-customer-churn,nicht pruefbar,2.0,,,,,,,,,,
+1001,920095,volume,Variante,38.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.05263157894736842,1.0,0.2844115859039476,0.6807708538472359,__ziel__=num_medications; N36=num_lab_procedures
+1001,920095,volume,Variante,38.0,"medium-app-reviews-from-google-play-store (1002, 910071)",neu,,2.0,2.0,0.05263157894736842,1.0,0.2776459514050948,0.9165311991996999,N35=2; N33=1
+1001,920095,volume,Variante,38.0,"Facebook_Comment_Volume (1001, 920019)",TALENT,True,36.0,36.0,0.9473684210526315,1.0,0.8052673896417155,1.0,__ziel__=__ziel__; N8=N8; N7=N7; N5=N5; N4=N4; N36=N36; N35=N35; N34=N34
+1001,920095,volume,Variante,38.0,"INNHotelsGroup (1002, 930039)",TALENT,,2.0,3.0,0.05263157894736842,0.6666666666666666,0.5304649657796168,0.9953411440385941,__ziel__=N8; N35=N5

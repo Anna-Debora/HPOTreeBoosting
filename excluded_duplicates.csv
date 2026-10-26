@@ -9,3 +9,17 @@ suite_id,task_id,name,entsprechende_alte_aufgabe,grund,sicherheit
 1002,910104,wine-quality-dataset-balanced-classification,wine_quality (336),"abgeleitet von wine_quality (336), kuenstlich vervielfachte Zeilen",sicher
 1002,910019,amazon-survey-coupon-recommendation-dataset,in_vehicle_coupon_recommendation (OpenML 363681),"gleicher Datensatz wie in_vehicle_coupon_recommendation (OpenML 363681), BCCO hat Kategorien als Zahlen",sicher
 1001,900001,2dplanes,,"kuenstlich erzeugt, Grinsztajn schliesst synthetische Daten aus",sicher
+1001,920004,Abalone_reg,"abalone (335, 361288)","TALENT, Inhaltsvergleich: 7 Spalten gleich, 100% der Zeilen gleich",sicher
+1002,930006,Bank_Customer_Churn_Dataset,"Bank_Customer_Churn (1002, 363619)","TALENT, Inhaltsvergleich: 4 Spalten gleich, 100% der Zeilen gleich",sicher
+1001,920013,Brazilian_houses_reproduced,"Brazilian_houses (335, 361098)","TALENT, Inhaltsvergleich: 6 Spalten gleich, 100% der Zeilen gleich",sicher
+1001,920038,Physicochemical_r,"physiochemical_protein (1001, 363693)","TALENT, Inhaltsvergleich: 10 Spalten gleich, 100% der Zeilen gleich",sicher
+1001,920041,Superconductivty,"superconduct (336, 361088)","TALENT, Inhaltsvergleich: 80 Spalten gleich, 100% der Zeilen gleich",sicher
+1002,930074,adult,"income (1002, 910062)","TALENT, Inhaltsvergleich: 4 Spalten gleich, 100% der Zeilen gleich",sicher
+1002,930082,bank,"bank-marketing (337, 361066)","TALENT, Inhaltsvergleich: 4 Spalten gleich, 100% der Zeilen gleich",sicher
+1002,930172,shrutime,"Bank_Customer_Churn (1002, 363619)","TALENT, Inhaltsvergleich: 4 Spalten gleich, 100% der Zeilen gleich",sicher
+1002,930008,California-Housing-Classification,"california (337, 361277)","TALENT, von Hand geprueft: gleiche 20640 Zeilen wie houses (336) und california (337), gleiche Klassifikation des Hauspreises; Merkmale als Summen statt Durchschnitte",sicher
+1001,920079,pole,"pol (336, 361073; 337, 361062)","TALENT, von Hand geprueft: gleicher Datensatz (pol), alle 22 pruefbaren Spalten zugeordnet, Ziel gleich verteilt, 87 % der Zeilen exakt gleich",sicher
+1002,930145,naticusdroid+android+permissions+dataset,"NATICUSdroid (1002, 363689)","TALENT, von Hand geprueft: gleicher UCI-Datensatz 722 (nur 0/1-Merkmale, daher nicht ueber Werte vergleichbar)",sicher
+1002,930151,online_shoppers,"online_shoppers_intention (1002, 363691)","TALENT, von Hand geprueft: gleicher UCI-Datensatz (12330 Zeilen), TALENT-Version ohne die *_Duration-Spalten",sicher
+1002,930062,Shipping,"E-CommereShippingData (1002, 363632)","TALENT, von Hand geprueft: gleicher Kaggle-Datensatz (10999 Zeilen, gleiche Spalten)",sicher
+1002,930095,dabetes_130-us_hospitals,"Diabetes130US (337, 361273)","TALENT, von Hand geprueft: gleicher UCI-Datensatz 296 (gleiche Zeilen und Ziel), alte Version mit weniger Merkmalen",sicher

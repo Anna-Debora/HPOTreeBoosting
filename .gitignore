@@ -86,3 +86,10 @@ make_mini_results.py
 plot_compare_test.py
 plot_runtime_test.py
 test_maxbin_timing.py
+
+# TALENT-Rohdaten, Euler-Setup und Reproduktions-Testlauf
+talent_raw/
+setup_logs/
+Results_repro/
+jobs_repro/logs/*
+!jobs_repro/logs/.gitkeep
