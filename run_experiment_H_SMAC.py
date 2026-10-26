@@ -3,6 +3,7 @@
 By default this iterates over all tasks listed in suite_<id>_tasks.txt and runs
 both Hyperband and SMAC. Use --task_id to run one task only and --only to run
 just one of the two methods (e.g. one Slurm job per task/seed/library).
+Use --strategy to run only one of the three search spaces (default: all three).
 """
 
 import argparse
@@ -22,6 +23,7 @@ STRATEGIES = (
     dict(try_num_leaves=True, try_max_depth=False, joint_tuning_depth_leaves=False),
     dict(try_num_leaves=False, try_max_depth=False, joint_tuning_depth_leaves=True),
 )
+STRATEGY_NAMES = ("max_depth", "num_leaves", "joint")
 
 
 def _save(frame, task_id, suite_id, path, first):
@@ -47,6 +49,8 @@ def main(args):
         os.makedirs(os.path.join(args.result_folder_H, seed_folder, args.library), exist_ok=True)
     seed = int(args.seed)
     suite_id = int(args.suite_id)
+    strategy = getattr(args, "strategy", None)
+    strategies = [STRATEGIES[STRATEGY_NAMES.index(strategy)]] if strategy else list(STRATEGIES)
     if single_task is not None:
         tasks = [single_task]
     else:
@@ -60,13 +64,13 @@ def main(args):
         file_path_SMAC = f"seed_{args.seed}/{args.library}/{args.suite_id}_{task_id}.csv"
         file_path_H = f"seed_{args.seed}/{args.library}/{args.suite_id}_{task_id}.csv"
         if run_hyperband:
-            for index, flags in enumerate(STRATEGIES):
+            for index, flags in enumerate(strategies):
                 obj = ParameterOptimization(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id,
                                             try_num_iter=False, seed=seed, library=args.library, **flags)
                 _save(obj.run_hyperband(), task_id, suite_id,
                       os.path.join(args.result_folder_H, file_path_H), index == 0)
         if run_smac:
-            for index, flags in enumerate(STRATEGIES):
+            for index, flags in enumerate(strategies):
                 obj = ParameterOptimizationSMAC(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=suite_id,
                                                 try_num_iter=False, seed=seed, library=args.library, **flags)
                 _save(obj.method_smac(), task_id, suite_id,
@@ -82,5 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--result_folder_SMAC')
     parser.add_argument('--result_folder_H')
     parser.add_argument('--library', default='gpboost')
+    parser.add_argument('--strategy', choices=STRATEGY_NAMES, default=None,
+                        help="run only this search space (default: max_depth, num_leaves and joint)")
     args = parser.parse_args()
     main(args)
