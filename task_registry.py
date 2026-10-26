@@ -24,3 +24,19 @@ def register_tasks(suite, tasks, directory="task_indices"):
     with open(names_file, "w") as f:
         json.dump([entries[i] for i in ids], f)
     return len(ids)
+
+
+def unregister_range(suite, first, stop, directory="task_indices"):
+    """Entfernt alle Eintraege mit first <= task_id < stop (z. B. um eine Quelle neu aufzubauen)."""
+    ids_file = os.path.join(directory, f"{suite}_task_indices.npy")
+    names_file = os.path.join(directory, f"{suite}_task_names.json")
+    if not (os.path.exists(ids_file) and os.path.exists(names_file)):
+        return 0
+    with open(names_file) as f:
+        entries = dict(zip(np.load(ids_file).tolist(), json.load(f)))
+    kept = {t: n for t, n in entries.items() if not first <= t < stop}
+    ids = sorted(kept)
+    np.save(ids_file, np.array(ids, dtype=int))
+    with open(names_file, "w") as f:
+        json.dump([kept[i] for i in ids], f)
+    return len(entries) - len(kept)

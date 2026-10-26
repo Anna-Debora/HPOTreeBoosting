@@ -3,6 +3,7 @@ und legt sie im Format ab, das run_experiments.py erwartet:
     data/{suite}_{task}/{suite}_{task}_X.csv, _y.csv, _categorical_indicator.npy
 Ausserdem: task_indices/{suite}_task_indices.npy und _task_names.json (fuer Bericht und Plots)
 und preprocessing_report.csv (was pro Aufgabe weggefallen ist).
+Aufgaben aus excluded_duplicates.csv (Duplikate alter Aufgaben) werden uebersprungen und nicht registriert.
 
 Aufruf:  python prepare_new_datasets.py new_tasks.csv            (alle)
          python prepare_new_datasets.py new_tasks.csv --limit 3   (nur die ersten 3 zum Testen)
@@ -18,9 +19,18 @@ from preprocess_tabular import preprocess, selection_problem
 from task_registry import register_tasks
 
 
+def excluded_tasks():
+    """(suite_id, task_id) aus excluded_duplicates.csv."""
+    if not os.path.exists("excluded_duplicates.csv"):
+        return set()
+    excluded = pd.read_csv("excluded_duplicates.csv")
+    return {(int(s), int(t)) for s, t in zip(excluded["suite_id"], excluded["task_id"])}
+
+
 def main(tasks_csv, limit=None, balance=True):
     import openml
     tasks = pd.read_csv(tasks_csv)
+    excluded = excluded_tasks()
     if limit:
         tasks = tasks.head(limit)
     os.makedirs("task_indices", exist_ok=True)
@@ -28,6 +38,12 @@ def main(tasks_csv, limit=None, balance=True):
     for _, row in tasks.iterrows():
         suite, task_id, name = int(row["suite_id"]), int(row["task_id"]), row["name"]
         print(f"[{suite}_{task_id}] {name} ...", flush=True)
+        if (suite, task_id) in excluded:
+            info = {"suite_id": suite, "task_id": task_id, "name": name,
+                    "status": "UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen"}
+            print("   ", info, flush=True)
+            report.append(info)
+            continue
         try:
             task = openml.tasks.get_task(task_id, download_splits=False)
             dataset = task.get_dataset()
