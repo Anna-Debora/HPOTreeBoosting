@@ -181,9 +181,13 @@ def create_scores_dict(filepath, classification=False, rmse=False, logloss = Fal
             res['Default'][:,k,m] = data_default.loc[data_default['fold'] == m, metric].values
         for l, seed in enumerate(seeds):
             data_main = pd.read_csv(_path('Results', seed, suite_id, task_id))
+            # SMAC: seit dem Bibliotheksordner Results_SMAC/seed_x/<library>/, aeltere Laeufe ohne
+            path_smac = _path('Results_SMAC', seed, suite_id, task_id)
+            if not os.path.exists(path_smac):
+                path_smac = _path('Results_SMAC', seed, suite_id, task_id, with_library=False)
             frames = [data_main,
                       pd.read_csv(_path('Results_Hyperband_2007', seed, suite_id, task_id)),
-                      pd.read_csv(_path('Results_SMAC', seed, suite_id, task_id, with_library=False))]
+                      pd.read_csv(path_smac)]
             # Legacy separate num_iter run; skipped if the main file already has num_iter rows
             path_iter = _path('Results_NUM_ITER', seed, suite_id, task_id)
             if not data_main['try_num_iter'].astype(bool).any() and os.path.exists(path_iter):
