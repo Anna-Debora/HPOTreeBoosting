@@ -81,8 +81,9 @@ def sbatch_script(job_count, out):
 #SBATCH --output={logs}/%x_%A_%a.out
 #SBATCH --error={logs}/%x_%A_%a.err
 #SBATCH --export=ALL
-# Reproduktions-Testlauf (siehe REPRO_PLAN.md). Abschicken aus ~/HPOTreeBoosting:
-#   cd ~/HPOTreeBoosting && sbatch {out}/run_repro_array.sbatch
+# Reproduktions-Testlauf (siehe REPRO_PLAN.md). Vorher einmal: bash euler_prepare_repro_data.sh
+# Abschicken aus ~/HPOTreeBoosting:
+#   cd ~/HPOTreeBoosting && sbatch {out}/run_repro_array.sbatch   (Probe nur Teiljob 0: sbatch --array=0 ...)
 # (die Pfade oben sind relativ zu diesem Ordner)
 
 set -eo pipefail     # -u erst nach "module load" und "activate"
@@ -96,6 +97,13 @@ set -u
 JOB_LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" {shlex.quote(out)}/jobs.tsv)
 IFS=$'\\t' read -r KIND SUITE_ID TASK_ID SEED NAME <<< "$JOB_LINE"
 echo "Job $SLURM_ARRAY_TASK_ID: $KIND $SUITE_ID $TASK_ID seed=$SEED ($NAME)"
+
+# data/ ist nicht im Git: ohne die Daten sofort mit klarer Meldung abbrechen
+DATA_X="data/${{SUITE_ID}}_${{TASK_ID}}/${{SUITE_ID}}_${{TASK_ID}}_X.csv"
+if [ ! -s "$DATA_X" ]; then
+    echo "ABBRUCH: $DATA_X fehlt oder ist leer. Zuerst auf Euler ausfuehren: bash euler_prepare_repro_data.sh" >&2
+    exit 2
+fi
 
 case "$KIND" in
   main)

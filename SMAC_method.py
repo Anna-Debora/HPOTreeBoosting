@@ -6,6 +6,7 @@ and only adds the SMAC search (`method_smac`, `run_smac`).
 
 Author: Floris Koster (https://github.com/fl0risk)
 """
+import os
 import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -112,7 +113,10 @@ class ParameterOptimizationSMAC(ParameterOptimization):
             
             return score
         
-        scenario = Scenario(param,deterministic=True, n_trials=270, seed = self.seed)
+        # Eigener Ausgabeordner pro Slurm-Job: sonst teilen sich gleichzeitige Jobs mit gleichem Seed und Suchraum
+        # smac3_output/<hash>/<seed> und loeschen sich wegen overwrite=True gegenseitig die Dateien.
+        run_name = f"job_{os.environ['SLURM_JOB_ID']}" if os.environ.get('SLURM_JOB_ID') else None
+        scenario = Scenario(param,deterministic=True, n_trials=270, seed = self.seed, name=run_name)
         smac = HPOFacade(scenario,objective_opt,overwrite=True)
         #incumbent = smac.optimize()
         _ = smac.optimize()

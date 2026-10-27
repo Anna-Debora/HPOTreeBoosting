@@ -13,7 +13,8 @@
 #   3. Daten der neuen Suiten 1001/1002 neu erzeugen (data/ ist nicht im Git):
 #        prepare_new_datasets.py (OpenML), prepare_bcco.py (Hugging Face), prepare_talent.py (TALENT, Google Drive)
 #      Sie lesen new_tasks.csv, excluded_duplicates.csv usw. aus dem Git.
-#   4. Daten der Aufgaben fuer den Reproduktions-Testlauf (alte Suiten) holen
+#   4. Daten der Aufgaben fuer den Reproduktions-Testlauf (alte Suiten) holen (euler_prepare_repro_data.sh;
+#      fuer den Testlauf allein reicht dieses Skript, das ganze Setup ist dafuer nicht noetig)
 #   5. pruefen: Task-Listen identisch mit dem Git-Stand, zu jeder Aufgabe ein Datenordner
 #   6. Job-Dateien fuer den Reproduktions-Testlauf erzeugen (jobs_repro/), aber nicht abschicken
 # Dauer: grob 30-90 Minuten (vor allem Downloads). Wenn die Verbindung abbrechen koennte, vorher `tmux` starten.
@@ -80,12 +81,7 @@ tail -1 "$SETUP_LOGS/prepare_talent.log"
 
 step "4. Daten fuer den Reproduktions-Testlauf (alte Suiten)"
 python make_repro_jobs.py --out jobs_repro > /dev/null
-cut -f2,3 jobs_repro/jobs.tsv | sort -u | while read -r SUITE TASK; do
-    if [ ! -d "data/${SUITE}_${TASK}" ]; then
-        python prepare_one_dataset.py --suite_id "$SUITE" --task_id "$TASK" > "$SETUP_LOGS/prepare_${SUITE}_${TASK}.log" 2>&1
-    fi
-    echo "data/${SUITE}_${TASK}: $(ls "data/${SUITE}_${TASK}" | wc -l) Dateien"
-done
+bash euler_prepare_repro_data.sh
 
 step "5. Kontrolle"
 for f in preprocessing_report.csv preprocessing_report_bcco.csv preprocessing_report_talent.csv; do

@@ -61,7 +61,26 @@ houses. Nicht genommen, weil der Name in zwei Suiten vorkommt: z. B. abalone, di
   `Results/seed_*/gpboost/<suite>_<task>__num_leaves.csv`, `Results_SMAC/seed_*/gpboost/…`,
   `Results_Default_Run/gpboost/…`. Logs in `jobs_repro/logs/`.
 
-Starten (erst wenn gewollt, auf Euler): `cd ~/HPOTreeBoosting && sbatch jobs_repro/run_repro_array.sbatch`
+### Starten auf Euler (Reihenfolge)
+
+`data/` ist nicht im Git. Der erste Versuch (Job 18448979) brach deshalb in allen 35 Teiljobs nach etwa
+20 s mit `FileNotFoundError: data/336_361076/336_361076_X.csv` ab. Vor dem Start müssen die Daten der
+7 Aufgaben auf Euler erzeugt werden:
+
+```
+cd ~/HPOTreeBoosting
+git pull origin xgboost-catboost
+bash euler_prepare_repro_data.sh                          # prüft Pakete, lädt die 7 Aufgaben, Kontrolle am Ende
+sbatch --array=0 jobs_repro/run_repro_array.sbatch        # Probe: nur Teiljob 0 (Default, wine_quality, < 1 min)
+sbatch jobs_repro/run_repro_array.sbatch                  # erst wenn die Probe in Ordnung ist: alle 35 Teiljobs
+```
+
+`euler_prepare_repro_data.sh` lädt nur fehlende oder unvollständige Ordner nach und darf mehrfach laufen.
+Fehlen die Daten trotzdem, bricht jeder Teiljob jetzt sofort mit
+`ABBRUCH: data/<suite>_<task>/<suite>_<task>_X.csv fehlt oder ist leer` ab (Exit-Code 2).
+Jeder SMAC-Teiljob schreibt seine SMAC-Zwischendateien nach `smac3_output/job_<Slurm-Job-ID>/`. Vorher
+hätten sich gleichzeitige SMAC-Jobs mit gleichem Seed und Suchraum denselben Ordner geteilt und ihn
+gegenseitig gelöscht (`overwrite=True`).
 
 ## Vergleich mit dem Paper
 
