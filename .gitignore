@@ -97,3 +97,6 @@ Results_ablation/
 jobs_ablation/logs/*
 !jobs_ablation/logs/.gitkeep
 ablation_vergleich.*
+repro_figures/
+repro_abbildungen.pdf
+repro_vergleich.pdf
