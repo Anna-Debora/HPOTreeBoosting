@@ -1,0 +1,12 @@
+A	random_search	27225	336	361076	135	--no_lambda_l1
+A	random_search	32244	336	361076	135	--no_lambda_l1
+A	tpe	27225	336	361076	135	--no_lambda_l1
+A	tpe	32244	336	361076	135	--no_lambda_l1
+A	SMAC	27225	336	361076	135	--no_lambda_l1
+A	SMAC	32244	336	361076	135	--no_lambda_l1
+B	random_search	27225	336	361076	135	
+B	random_search	32244	336	361076	135	
+B	tpe	27225	336	361076	135	
+B	tpe	32244	336	361076	135	
+B	SMAC	27225	336	361076	135	
+B	SMAC	32244	336	361076	135	

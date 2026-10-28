@@ -93,3 +93,7 @@ setup_logs/
 Results_repro/
 jobs_repro/logs/*
 !jobs_repro/logs/.gitkeep
+Results_ablation/
+jobs_ablation/logs/*
+!jobs_ablation/logs/.gitkeep
+ablation_vergleich.*
