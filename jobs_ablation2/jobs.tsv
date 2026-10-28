@@ -1,0 +1,10 @@
+A	grid_search	27225	336	361076	135	--paper_grid
+A	grid_search	32244	336	361076	135	--paper_grid
+A	gp_bo	27225	336	361076	135	--no_lambda_l1
+A	gp_bo	32244	336	361076	135	--no_lambda_l1
+B	gp_bo	27225	336	361076	135	
+B	gp_bo	32244	336	361076	135	
+A	hyperband	27225	336	361076	135	--no_lambda_l1
+A	hyperband	32244	336	361076	135	--no_lambda_l1
+B	hyperband	27225	336	361076	135	
+B	hyperband	32244	336	361076	135	
