@@ -1,73 +1,73 @@
-rows_before,cols_before,dropped_missing_columns,rows_after_missing,dropped_categorical,dropped_numeric,numeric_to_categorical,rows_after,cols_after,suite_id,task_id,name,status,classes_kept
-1538,7,0,1538,0,2,0,1538,5,1001,363615,Another-Dataset-on-used-Fiat-500,AUSGESCHIEDEN: zu wenige Zeilen (1538 < 3000),
-45451,9,0,45451,1,0,0,45451,8,1001,363672,Food_Delivery_Time,ok,
-5742,1024,0,5742,0,0,1024,5742,1024,1001,363697,QSAR-TID-11,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.178 >= 0.1),
-907,6,0,907,0,2,0,907,4,1001,363698,QSAR_fish_toxicity,AUSGESCHIEDEN: zu wenige Zeilen (907 < 3000),
-1503,5,0,1503,1,2,0,1503,2,1001,363612,airfoil_self_noise,AUSGESCHIEDEN: zu wenige Merkmale (2 < 4),
-1030,8,0,1030,0,0,0,1030,8,1001,363625,concrete_compressive_strength,AUSGESCHIEDEN: zu wenige Zeilen (1030 < 3000),
-1338,6,0,1338,0,1,0,1338,5,1001,363675,healthcare_insurance_expenses,AUSGESCHIEDEN: zu wenige Zeilen (1338 < 3000),
-13776,15,0,13776,0,1,0,13776,14,1001,363686,miami_housing,ok,
-45730,9,0,45730,0,0,0,45730,9,1001,363693,physiochemical_protein,ok,
-21263,81,0,21263,0,2,0,21263,79,1001,363705,superconductivity,ok,
-76000,170,8,26535,0,13,1,490,149,1002,363616,APSFailure,AUSGESCHIEDEN: zu wenige Zeilen (490 < 3000),neg|pos
-32769,9,0,32769,9,0,0,3794,0,1002,363613,Amazon_employee_access,AUSGESCHIEDEN: nach der Bereinigung bleibt nichts uebrig,No|Yes
-690,14,0,690,0,0,0,614,14,1002,146818,Australian,AUSGESCHIEDEN: zu wenige Zeilen (614 < 3000),0|1
-10000,10,0,10000,0,1,0,4074,9,1002,363619,Bank_Customer_Churn,ok,No|Yes
-10999,10,0,10999,0,3,0,8872,7,1002,363632,E-CommereShippingData,ok,No|Yes
-1500,6,0,1480,0,0,0,898,6,1002,363671,Fitness_Club,AUSGESCHIEDEN: zu wenige Zeilen (898 < 3000),No|Yes
-9873,32,0,9873,0,0,0,5482,32,1002,14969,GesturePhaseSegmentationProcessed,ok,D|S
-150000,10,0,120269,0,1,0,16714,9,1002,363673,GiveMeSomeCredit,ok,No|Yes
-19158,12,0,19093,1,0,0,9508,11,1002,363679,HR_Analytics_Job_Change_of_Data_Scientists,ok,No|Yes
-1723,13,0,1723,0,0,0,392,13,1002,363682,Is-this-a-good-customer,AUSGESCHIEDEN: zu wenige Zeilen (392 < 3000),No|Yes
-1699,111,3,844,0,5,1,46,103,1002,363711,MIC,AUSGESCHIEDEN: zu wenige Zeilen (46 < 3000),alive|myocardial_rupture
-2240,25,0,2216,0,2,0,666,23,1002,363684,Marketing_Campaign,AUSGESCHIEDEN: zu wenige Zeilen (666 < 3000),No|Yes
-7491,86,0,7491,0,0,0,5248,86,1002,363689,NATICUSdroid,ok,No|Yes
-78053,11,0,78053,2,1,0,32892,8,1002,363699,SDSS17,ok,GALAXY|STAR
-8378,120,1,4859,1,7,1,1630,111,1002,146607,SpeedDating,AUSGESCHIEDEN: zu wenige Zeilen (1630 < 3000),0|1
-4562,48,0,4562,0,2,40,2264,46,1002,3896,ada_agnostic,AUSGESCHIEDEN: zu wenige Zeilen (2264 < 3000),-1|1
-539383,7,0,539383,2,0,0,480528,5,1002,189354,airlines,ok,0|1
-898,38,0,898,0,3,0,198,35,1002,363614,anneal,AUSGESCHIEDEN: zu wenige Zeilen (198 < 3000),2|3
-10218,7,0,10218,0,1,0,2396,6,1002,14964,artificial-characters,AUSGESCHIEDEN: zu wenige Zeilen (2396 < 3000),3|8
-226,69,1,146,0,0,0,62,68,1002,7,audiology,AUSGESCHIEDEN: zu wenige Zeilen (62 < 3000),cochlear_age|cochlear_unknown
-625,4,0,625,0,4,0,576,0,1002,11,balance-scale,AUSGESCHIEDEN: nach der Bereinigung bleibt nichts uebrig,L|R
-748,4,0,748,0,0,0,356,4,1002,363621,blood-transfusion-service-center,AUSGESCHIEDEN: zu wenige Zeilen (356 < 3000),No|Yes
-5000,19,0,5000,1,0,0,1414,18,1002,363623,churn,AUSGESCHIEDEN: zu wenige Zeilen (1414 < 3000),No|Yes
-1080,856,0,1080,0,596,260,240,260,1002,9981,cnae-9,AUSGESCHIEDEN: zu wenige Zeilen (240 < 3000),1|2
-9822,85,0,9822,1,47,12,1172,37,1002,363624,coil2000_insurance_policies,AUSGESCHIEDEN: zu wenige Zeilen (1172 < 3000),No|Yes
-368,26,3,61,1,0,0,54,22,1002,25,colic,AUSGESCHIEDEN: zu wenige Zeilen (54 < 3000),1|2
-690,15,0,653,0,0,0,592,15,1002,29,credit-approval,AUSGESCHIEDEN: zu wenige Zeilen (592 < 3000),+|-
-1000,20,0,1000,0,3,1,600,17,1002,363626,credit-g,AUSGESCHIEDEN: zu wenige Zeilen (600 < 3000),bad|good
-30000,23,0,30000,0,0,0,13272,23,1002,363627,credit_card_clients_default,ok,No|Yes
-129880,21,0,129487,0,1,0,117210,20,1002,363628,customer_satisfaction_in_airline,ok,dissatisfied|satisfied
-768,8,0,768,0,0,0,536,8,1002,363629,diabetes,AUSGESCHIEDEN: zu wenige Zeilen (536 < 3000),No|Yes
-16599,18,0,16599,0,2,0,10260,16,1002,3711,elevators,ok,N|P
-20000,4296,0,20000,0,16,1,16006,4280,1002,168337,guillermo,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.267 >= 0.1),0|1
-2400,30,0,2400,0,0,0,2400,30,1002,363674,hazelnut-spread-contaminant-detection,AUSGESCHIEDEN: zu wenige Zeilen (2400 < 3000),0|1
-294,13,3,261,0,1,0,196,9,1002,50,heart-h,AUSGESCHIEDEN: zu wenige Zeilen (196 < 3000),<50|>50_1
-3845,1617,0,3845,0,0,0,186,1617,1002,363677,hiva_agnostic,AUSGESCHIEDEN: zu wenige Zeilen (186 < 3000),CI|CM
-12684,24,0,12684,1,3,0,10948,20,1002,363681,in_vehicle_coupon_recommendation,ok,No|Yes
-2984,144,0,2984,0,0,0,2984,144,1002,168911,jasmine,AUSGESCHIEDEN: zu wenige Zeilen (2984 < 3000),0|1
-10885,21,0,10880,0,0,0,4206,21,1002,363712,jm1,ok,False|True
-44819,6,0,44819,0,6,0,34844,0,1002,167119,jungle_chess_2pcs_raw_endgame_complete,AUSGESCHIEDEN: nach der Bereinigung bleibt nichts uebrig,b|w
-2109,21,0,2109,0,1,0,652,20,1002,3917,kc1,AUSGESCHIEDEN: zu wenige Zeilen (652 < 3000),False|True
-50000,212,133,19388,16,9,1,812,54,1002,363683,kddcup09_appetency,AUSGESCHIEDEN: zu wenige Zeilen (812 < 3000),-1|1
-148,18,0,148,0,2,1,122,16,1002,10,lymph,AUSGESCHIEDEN: zu wenige Zeilen (122 < 3000),malign_lymph|metastases
-1014,6,0,1014,0,1,0,672,5,1002,363685,maternal_health_risk,AUSGESCHIEDEN: zu wenige Zeilen (672 < 3000),low risk|mid risk
-2000,76,0,2000,0,0,0,400,76,1002,14,mfeat-fourier,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),1|2
-2000,47,0,2000,0,0,0,400,47,1002,22,mfeat-zernike,AUSGESCHIEDEN: zu wenige Zeilen (400 < 3000),1|2
-601,6,0,601,0,0,0,412,6,1002,146065,monks-problems-2,AUSGESCHIEDEN: zu wenige Zeilen (412 < 3000),0|1
-34465,118,0,34465,0,15,0,19688,103,1002,9977,nomao,ok,1|2
-1599,64,0,1599,0,25,3,32,39,1002,9956,one-hundred-plants-texture,AUSGESCHIEDEN: zu wenige Zeilen (32 < 3000),48|62
-12330,17,0,12330,0,1,1,3816,16,1002,363691,online_shoppers_intention,ok,False|True
-5404,5,0,5404,0,0,0,3172,5,1002,9952,phoneme,ok,1|2
-1025009,10,0,1025009,0,5,0,866194,5,1002,9890,poker-hand,ok,1|2
-5910,64,0,3031,0,0,0,204,64,1002,363694,polish_companies_bankruptcy,AUSGESCHIEDEN: zu wenige Zeilen (204 < 3000),No|Yes
-672,9,2,672,2,1,0,448,4,1002,3561,profb,AUSGESCHIEDEN: zu wenige Zeilen (448 < 3000),at_home|away
-1054,41,0,1054,0,7,1,710,34,1002,363696,qsar-biodeg,AUSGESCHIEDEN: zu wenige Zeilen (710 < 3000),No|Yes
-2584,15,0,2584,0,4,1,340,11,1002,363700,seismic-bumps,AUSGESCHIEDEN: zu wenige Zeilen (340 < 3000),No|Yes
-1156,5,0,1156,0,0,0,512,5,1002,3797,socmob,AUSGESCHIEDEN: zu wenige Zeilen (512 < 3000),N|P
-3190,60,0,3190,0,0,0,1536,60,1002,363702,splice,AUSGESCHIEDEN: zu wenige Zeilen (1536 < 3000),IE|N
-4424,36,0,4424,4,3,0,2842,29,1002,363704,students_dropout_and_academic_success,AUSGESCHIEDEN: zu wenige Zeilen (2842 < 3000),Dropout|Graduate
-6819,94,0,6819,0,0,1,440,94,1002,363706,taiwanese_bankruptcy_prediction,AUSGESCHIEDEN: zu wenige Zeilen (440 < 3000),No|Yes
-846,18,0,846,0,0,0,434,18,1002,53,vehicle,AUSGESCHIEDEN: zu wenige Zeilen (434 < 3000),bus|saab
-1353,9,0,1353,0,0,0,1096,9,1002,363707,website_phishing,AUSGESCHIEDEN: zu wenige Zeilen (1096 < 3000),Legitimate|Phishy
+rows_before,cols_before,dropped_missing_columns,rows_after_missing,dropped_constant,numeric_to_categorical,rows_after,cols_after,n_categorical,max_levels,suite_id,task_id,name,status,min_class_rows,classes_kept
+1538.0,7.0,0.0,1538.0,0.0,0.0,1538.0,7.0,1.0,3.0,1001,363615,Another-Dataset-on-used-Fiat-500,ok,,
+45451.0,9.0,0.0,45451.0,0.0,0.0,45451.0,9.0,3.0,1320.0,1001,363672,Food_Delivery_Time,ok,,
+5742.0,1024.0,0.0,5742.0,0.0,1024.0,5742.0,1024.0,1024.0,2.0,1001,363697,QSAR-TID-11,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.178 >= 0.1),,
+907.0,6.0,0.0,907.0,0.0,0.0,907.0,6.0,0.0,0.0,1001,363698,QSAR_fish_toxicity,ok,,
+1503.0,5.0,0.0,1503.0,0.0,0.0,1503.0,5.0,1.0,27.0,1001,363612,airfoil_self_noise,ok,,
+1030.0,8.0,0.0,1030.0,0.0,0.0,1030.0,8.0,0.0,0.0,1001,363625,concrete_compressive_strength,ok,,
+1338.0,6.0,0.0,1338.0,0.0,0.0,1338.0,6.0,3.0,4.0,1001,363675,healthcare_insurance_expenses,ok,,
+,,,,,,,,,,1001,363686,miami_housing,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,,
+45730.0,9.0,0.0,45730.0,0.0,0.0,45730.0,9.0,0.0,0.0,1001,363693,physiochemical_protein,ok,,
+,,,,,,,,,,1001,363705,superconductivity,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,,
+76000.0,170.0,8.0,26535.0,4.0,1.0,490.0,158.0,1.0,2.0,1002,363616,APSFailure,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.322 >= 0.1),245.0,neg|pos
+32769.0,9.0,0.0,32769.0,0.0,0.0,3794.0,9.0,9.0,1971.0,1002,363613,Amazon_employee_access,ok,1897.0,No|Yes
+690.0,14.0,0.0,690.0,0.0,0.0,614.0,14.0,8.0,14.0,1002,146818,Australian,ok,307.0,0|1
+10000.0,10.0,0.0,10000.0,0.0,0.0,4074.0,10.0,4.0,3.0,1002,363619,Bank_Customer_Churn,ok,2037.0,No|Yes
+10999.0,10.0,0.0,10999.0,0.0,0.0,8872.0,10.0,4.0,5.0,1002,363632,E-CommereShippingData,ok,4436.0,No|Yes
+1500.0,6.0,0.0,1480.0,0.0,0.0,898.0,6.0,3.0,7.0,1002,363671,Fitness_Club,ok,449.0,No|Yes
+9873.0,32.0,0.0,9873.0,0.0,0.0,5482.0,32.0,0.0,0.0,1002,14969,GesturePhaseSegmentationProcessed,ok,2741.0,D|S
+,,,,,,,,,,1002,363673,GiveMeSomeCredit,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,,
+19158.0,12.0,0.0,19093.0,0.0,0.0,9508.0,12.0,9.0,121.0,1002,363679,HR_Analytics_Job_Change_of_Data_Scientists,ok,4754.0,No|Yes
+1723.0,13.0,0.0,1723.0,0.0,0.0,392.0,13.0,8.0,17.0,1002,363682,Is-this-a-good-customer,ok,196.0,No|Yes
+1699.0,111.0,3.0,844.0,22.0,1.0,46.0,86.0,73.0,10.0,1002,363711,MIC,AUSGESCHIEDEN: zu wenige Zeilen (46 < 100),23.0,alive|myocardial_rupture
+2240.0,25.0,0.0,2216.0,0.0,0.0,666.0,25.0,8.0,8.0,1002,363684,Marketing_Campaign,ok,333.0,No|Yes
+7491.0,86.0,0.0,7491.0,0.0,0.0,5248.0,86.0,86.0,2.0,1002,363689,NATICUSdroid,ok,2624.0,No|Yes
+78053.0,11.0,0.0,78053.0,0.0,0.0,32892.0,11.0,2.0,5905.0,1002,363699,SDSS17,ok,16446.0,GALAXY|STAR
+8378.0,120.0,1.0,4859.0,0.0,1.0,1630.0,119.0,62.0,217.0,1002,146607,SpeedDating,ok,815.0,0|1
+4562.0,48.0,0.0,4562.0,2.0,40.0,2264.0,46.0,40.0,2.0,1002,3896,ada_agnostic,ok,1132.0,-1|1
+539383.0,7.0,0.0,539383.0,0.0,0.0,480528.0,7.0,4.0,293.0,1002,189354,airlines,ok,240264.0,0|1
+898.0,38.0,0.0,898.0,12.0,0.0,198.0,26.0,20.0,7.0,1002,363614,anneal,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.131 >= 0.1),99.0,2|3
+10218.0,7.0,0.0,10218.0,0.0,0.0,2396.0,7.0,0.0,0.0,1002,14964,artificial-characters,ok,1198.0,3|8
+226.0,69.0,1.0,146.0,33.0,0.0,62.0,35.0,35.0,6.0,1002,7,audiology,AUSGESCHIEDEN: zu wenige Zeilen (62 < 100),31.0,cochlear_age|cochlear_unknown
+625.0,4.0,0.0,625.0,0.0,0.0,576.0,4.0,0.0,0.0,1002,11,balance-scale,ok,288.0,L|R
+748.0,4.0,0.0,748.0,0.0,0.0,356.0,4.0,0.0,0.0,1002,363621,blood-transfusion-service-center,ok,178.0,No|Yes
+5000.0,19.0,0.0,5000.0,0.0,0.0,1414.0,19.0,4.0,51.0,1002,363623,churn,ok,707.0,No|Yes
+1080.0,856.0,0.0,1080.0,574.0,260.0,240.0,282.0,260.0,2.0,1002,9981,cnae-9,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 1.175 >= 0.1),120.0,1|2
+9822.0,85.0,0.0,9822.0,2.0,12.0,1172.0,83.0,15.0,37.0,1002,363624,coil2000_insurance_policies,ok,586.0,No|Yes
+368.0,26.0,3.0,61.0,1.0,0.0,54.0,22.0,17.0,28.0,1002,25,colic,AUSGESCHIEDEN: zu wenige Zeilen (54 < 100),27.0,1|2
+690.0,15.0,0.0,653.0,0.0,0.0,592.0,15.0,9.0,14.0,1002,29,credit-approval,ok,296.0,+|-
+1000.0,20.0,0.0,1000.0,0.0,1.0,600.0,20.0,14.0,10.0,1002,363626,credit-g,ok,300.0,bad|good
+,,,,,,,,,,1002,363627,credit_card_clients_default,UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen,,
+129880.0,21.0,0.0,129487.0,0.0,0.0,117210.0,21.0,16.0,6.0,1002,363628,customer_satisfaction_in_airline,ok,58605.0,dissatisfied|satisfied
+768.0,8.0,0.0,768.0,0.0,0.0,536.0,8.0,0.0,0.0,1002,363629,diabetes,ok,268.0,No|Yes
+16599.0,18.0,0.0,16599.0,0.0,0.0,10260.0,18.0,0.0,0.0,1002,3711,elevators,ok,5130.0,N|P
+20000.0,4296.0,0.0,20000.0,15.0,1.0,16006.0,4281.0,1.0,2.0,1002,168337,guillermo,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.267 >= 0.1),8003.0,0|1
+2400.0,30.0,0.0,2400.0,0.0,0.0,2400.0,30.0,0.0,0.0,1002,363674,hazelnut-spread-contaminant-detection,ok,1200.0,0|1
+294.0,13.0,3.0,261.0,0.0,0.0,196.0,10.0,5.0,4.0,1002,50,heart-h,ok,98.0,<50|>50_1
+3845.0,1617.0,0.0,3845.0,74.0,0.0,186.0,1543.0,1543.0,2.0,1002,363677,hiva_agnostic,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 8.296 >= 0.1),93.0,CI|CM
+12684.0,24.0,0.0,12684.0,0.0,0.0,10948.0,24.0,21.0,25.0,1002,363681,in_vehicle_coupon_recommendation,ok,5474.0,No|Yes
+2984.0,144.0,0.0,2984.0,0.0,0.0,2984.0,144.0,136.0,2.0,1002,168911,jasmine,ok,1492.0,0|1
+10885.0,21.0,0.0,10880.0,0.0,0.0,4206.0,21.0,0.0,0.0,1002,363712,jm1,ok,2103.0,False|True
+44819.0,6.0,0.0,44819.0,0.0,0.0,34844.0,6.0,0.0,0.0,1002,167119,jungle_chess_2pcs_raw_endgame_complete,ok,17422.0,b|w
+2109.0,21.0,0.0,2109.0,0.0,0.0,652.0,21.0,0.0,0.0,1002,3917,kc1,ok,326.0,False|True
+50000.0,212.0,133.0,19388.0,4.0,1.0,812.0,75.0,35.0,645.0,1002,363683,kddcup09_appetency,ok,406.0,-1|1
+148.0,18.0,0.0,148.0,0.0,1.0,122.0,18.0,16.0,8.0,1002,10,lymph,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.148 >= 0.1),61.0,malign_lymph|metastases
+1014.0,6.0,0.0,1014.0,0.0,0.0,672.0,6.0,0.0,0.0,1002,363685,maternal_health_risk,ok,336.0,low risk|mid risk
+2000.0,76.0,0.0,2000.0,0.0,0.0,400.0,76.0,0.0,0.0,1002,14,mfeat-fourier,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.190 >= 0.1),200.0,1|2
+2000.0,47.0,0.0,2000.0,0.0,0.0,400.0,47.0,0.0,0.0,1002,22,mfeat-zernike,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.117 >= 0.1),200.0,1|2
+601.0,6.0,0.0,601.0,0.0,0.0,412.0,6.0,6.0,4.0,1002,146065,monks-problems-2,ok,206.0,0|1
+34465.0,118.0,0.0,34465.0,0.0,0.0,19688.0,118.0,29.0,3.0,1002,9977,nomao,ok,9844.0,1|2
+1599.0,64.0,0.0,1599.0,5.0,3.0,32.0,59.0,3.0,2.0,1002,9956,one-hundred-plants-texture,AUSGESCHIEDEN: zu wenige Zeilen (32 < 100),16.0,48|62
+12330.0,17.0,0.0,12330.0,0.0,1.0,3816.0,17.0,7.0,18.0,1002,363691,online_shoppers_intention,ok,1908.0,False|True
+5404.0,5.0,0.0,5404.0,0.0,0.0,3172.0,5.0,0.0,0.0,1002,9952,phoneme,ok,1586.0,1|2
+1025009.0,10.0,0.0,1025009.0,0.0,0.0,866194.0,10.0,0.0,0.0,1002,9890,poker-hand,ok,433097.0,1|2
+5910.0,64.0,0.0,3031.0,0.0,0.0,204.0,64.0,0.0,0.0,1002,363694,polish_companies_bankruptcy,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.314 >= 0.1),102.0,No|Yes
+672.0,9.0,2.0,672.0,0.0,0.0,448.0,7.0,2.0,28.0,1002,3561,profb,ok,224.0,at_home|away
+1054.0,41.0,0.0,1054.0,0.0,1.0,710.0,41.0,6.0,10.0,1002,363696,qsar-biodeg,ok,355.0,No|Yes
+2584.0,15.0,0.0,2584.0,0.0,1.0,340.0,15.0,4.0,3.0,1002,363700,seismic-bumps,ok,170.0,No|Yes
+1156.0,5.0,0.0,1156.0,0.0,0.0,512.0,5.0,4.0,17.0,1002,3797,socmob,ok,256.0,N|P
+3190.0,60.0,0.0,3190.0,0.0,0.0,1536.0,60.0,60.0,5.0,1002,363702,splice,ok,768.0,IE|N
+4424.0,36.0,0.0,4424.0,0.0,0.0,2842.0,36.0,17.0,38.0,1002,363704,students_dropout_and_academic_success,ok,1421.0,Dropout|Graduate
+6819.0,94.0,0.0,6819.0,0.0,1.0,440.0,94.0,1.0,2.0,1002,363706,taiwanese_bankruptcy_prediction,AUSGESCHIEDEN: zu hochdimensional (Merkmale/Zeilen = 0.214 >= 0.1),220.0,No|Yes
+846.0,18.0,0.0,846.0,0.0,0.0,434.0,18.0,0.0,0.0,1002,53,vehicle,ok,217.0,bus|saab
+1353.0,9.0,0.0,1353.0,0.0,0.0,1096.0,9.0,9.0,3.0,1002,363707,website_phishing,ok,548.0,Legitimate|Phishy

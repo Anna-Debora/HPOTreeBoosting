@@ -31,6 +31,12 @@ Bei zwei identischen TALENT-Kandidaten bleibt der alphabetisch erste.
 
 Aufruf:  python check_content_duplicates.py --talent-root talent_raw/data [--apply]
 Ausgabe: content_duplicates_talent.csv
+
+Zweite Betriebsart (--new-since REV): Kandidaten sind alle Aufgaben in task_indices/1001 und 1002, die im
+Git-Stand REV noch nicht registriert waren (aus allen Quellen, vorbereitete Daten aus data/). Verglichen wird
+mit den alten Suiten, den schon in REV registrierten Aufgaben und untereinander. So werden die Datensaetze
+geprueft, die erst durch gelockerte Kriterien dazukommen.
+Aufruf:  python check_content_duplicates.py --new-since HEAD [--apply] [--out content_duplicates_neu.csv]
 """
 import argparse
 import json
@@ -200,9 +206,45 @@ def load_talent(root):
     return profiles
 
 
-def main(talent_root, apply=False, out="content_duplicates_talent.csv"):
-    candidates = load_talent(talent_root)
-    existing = [("alt", p) for p in load_old()] + [("neu", p) for p in load_registered()]
+def registered_in(rev):
+    """{(suite, task_id)} aus task_indices im Git-Stand rev."""
+    import io
+    import subprocess
+    ids = set()
+    for suite in (1001, 1002):
+        raw = subprocess.check_output(["git", "show", f"{rev}:task_indices/{suite}_task_indices.npy"])
+        ids |= {(suite, int(t)) for t in np.load(io.BytesIO(raw))}
+    return ids
+
+
+def load_split_by(previous):
+    """Registrierte Aufgaben: (schon in previous, neu dazugekommen)."""
+    old, new = [], []
+    for suite in (1001, 1002):
+        ids = np.load(f"task_indices/{suite}_task_indices.npy").tolist()
+        names = json.load(open(f"task_indices/{suite}_task_names.json"))
+        for task_id, name in zip(ids, names):
+            path = f"data/{suite}_{task_id}/{suite}_{task_id}"
+            X = pd.read_csv(f"{path}_X.csv")
+            X["__ziel__"] = pd.read_csv(f"{path}_y.csv").iloc[:, 0]
+            p = profile(f"{name} ({suite}, {task_id})", X, suite == 1002, name)
+            p.update(suite_id=suite, task_id=int(task_id), folder=name)
+            (old if (suite, task_id) in previous else new).append(p)
+    print(f"registriert: {len(old)} schon vorher, {len(new)} neu", flush=True)
+    return old, new
+
+
+def source_of(task_id):
+    return "TALENT" if task_id >= 920000 else "BCCO" if task_id >= 900000 else "OpenML"
+
+
+def main(talent_root, apply=False, out="content_duplicates_talent.csv", new_since=None):
+    if new_since:
+        before, candidates = load_split_by(registered_in(new_since))
+        existing = [("alt", p) for p in load_old()] + [("neu", p) for p in before]
+    else:
+        candidates = load_talent(talent_root)
+        existing = [("alt", p) for p in load_old()] + [("neu", p) for p in load_registered()]
     rows = []
     for i, c in enumerate(candidates):
         base = {"suite_id": c["suite_id"], "task_id": c["task_id"], "talent": c["folder"]}
@@ -228,7 +270,7 @@ def main(talent_root, apply=False, out="content_duplicates_talent.csv"):
         known = set(zip(excluded["suite_id"], excluded["task_id"]))
         new = [{"suite_id": r.suite_id, "task_id": r.task_id, "name": r.talent,
                 "entsprechende_alte_aufgabe": r.vergleich_mit,
-                "grund": f"TALENT, Inhaltsvergleich: {int(r.zugeordnete_spalten)} Spalten gleich, "
+                "grund": f"{source_of(r.task_id)}, Inhaltsvergleich: {int(r.zugeordnete_spalten)} Spalten gleich, "
                          f"{max(r.zeilen_a_in_b, r.zeilen_b_in_a):.0%} der Zeilen gleich",
                 "sicherheit": "sicher"} for r in identical.itertuples() if (r.suite_id, r.task_id) not in known]
         if new:
@@ -238,7 +280,11 @@ def main(talent_root, apply=False, out="content_duplicates_talent.csv"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--talent-root", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--talent-root")
+    mode.add_argument("--new-since", help="Git-Stand, gegen den neu registrierte Aufgaben bestimmt werden")
     parser.add_argument("--apply", action="store_true", help="identische Treffer in excluded_duplicates.csv eintragen")
+    parser.add_argument("--out", default=None)
     args = parser.parse_args()
-    main(args.talent_root, args.apply)
+    main(args.talent_root, args.apply, args.out or ("content_duplicates_neu.csv" if args.new_since
+                                                    else "content_duplicates_talent.csv"), args.new_since)

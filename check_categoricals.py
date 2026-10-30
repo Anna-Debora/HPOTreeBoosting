@@ -18,7 +18,7 @@ def summarize(X, categorical_indicator, y=None, task_type=""):
         "n_categorical": len(cat_cols),
         "share_categorical": round(len(cat_cols) / n_feat, 3) if n_feat else 0.0,
         "max_cardinality": max(card) if card else 0,
-        "total_onehot_columns": int(sum(card)),
+        "total_levels": int(sum(card)),
         "task_type": task_type,
         "n_classes": int(y.nunique()) if (y is not None and "classif" in task_type.lower()) else 0,
     }

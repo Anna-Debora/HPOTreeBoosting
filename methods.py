@@ -22,7 +22,7 @@ import optuna
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, log_loss, r2_score, root_mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.preprocessing import LabelEncoder
 from skopt import gp_minimize
 from skopt.space import Real, Integer, Categorical
 from skopt.utils import use_named_args
@@ -252,10 +252,10 @@ class ParameterOptimization:
             return y_pred, bst.best_iteration
 
         if library == "xgboost":
-            xgb_train = xgb.DMatrix(X_train, label=y_train)
+            xgb_train = xgb.DMatrix(X_train, label=y_train, enable_categorical=True)
             xgb_valid = None
             if X_valid is not None:
-                xgb_valid = xgb.DMatrix(X_valid, label=y_valid)
+                xgb_valid = xgb.DMatrix(X_valid, label=y_valid, enable_categorical=True)
 
             xgb_options = dict(train_options)
             params = xgb_options.pop("params", {}).copy()
@@ -314,7 +314,7 @@ class ParameterOptimization:
                 xgb_train_options["early_stopping_rounds"] = early_stopping_rounds
 
             bst = xgb.train(**xgb_train_options)
-            y_pred = bst.predict(xgb.DMatrix(X_predict))
+            y_pred = bst.predict(xgb.DMatrix(X_predict, enable_categorical=True))
             best_iter = getattr(bst, "best_iteration", bst.num_boosted_rounds() - 1)
             return y_pred, best_iter
 
@@ -963,28 +963,25 @@ class ParameterOptimization:
     
 
     def _preprocess_features(self):
-        """This function converts the categorical features of the data into numeric types."""
+        """This function prepares the categorical features for native handling by the library (no one-hot encoding)."""
         # Extract the categorical columns in the DataFrame
-        categorical_columns = self.X.columns[self.categorical_indicator]
-        self.cat_feature_names = []
+        categorical_columns = self.X.columns[np.asarray(self.categorical_indicator, dtype=bool)]
+        self.cat_feature_names = list(categorical_columns)
+        self.X.reset_index(drop=True, inplace=True)
 
         if self.library == "catboost":
-            # CatBoost verarbeitet Kategorien nativ: keine One-Hot-Kodierung.
-            # Kategoriale Spalten werden als Strings uebergeben (fehlende Werte = eigene Kategorie).
-            self.X.reset_index(drop=True, inplace=True)
+            # CatBoost: Kategorien nativ ueber cat_features, als Strings (fehlende Werte = eigene Kategorie).
             for column in categorical_columns:
                 values = self.X[column].astype(object)
                 self.X[column] = values.where(values.notna(), "__missing__").astype(str)
-            self.cat_feature_names = list(categorical_columns)
         else:
-            # Fit the OneHotEncoder
-            enc = OneHotEncoder()
-            encoded_columns = enc.fit_transform(self.X[categorical_columns])
-
-            # Format the DataFrame with the encoded columns
-            encoded_df = pd.DataFrame(encoded_columns.toarray(), columns=enc.get_feature_names_out(categorical_columns))
-            self.X.reset_index(drop=True, inplace=True)
-            self.X = pd.concat([self.X.drop(columns=categorical_columns), encoded_df], axis=1)
+            # GPBoost (LightGBM) und XGBoost: Kategorien nativ ueber den pandas-Typ "category".
+            # Die Stufen werden einmal auf allen Zeilen festgelegt, damit Train, Validierung und Test dieselbe
+            # Kodierung haben; Stufen, die nur im Test vorkommen, hat das Modell nie gesehen (eigener Zweig
+            # wie bei fehlenden Werten). Fehlende Werte bleiben NaN.
+            for column in categorical_columns:
+                values = self.X[column]
+                self.X[column] = values.astype(str).where(values.notna()).astype("category")
 
         # Convert the target variable into numeric type
         if is_classification(self.suite_id):

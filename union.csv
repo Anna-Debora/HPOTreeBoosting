@@ -1,4 +1,4 @@
-n_rows,n_features,n_categorical,max_cardinality,total_onehot_columns,task_type,n_classes,dataset_id,dataset,quellen,tasks,brauchbar
+n_rows,n_features,n_categorical,max_cardinality,total_levels,task_type,n_classes,dataset_id,dataset,quellen,tasks,brauchbar
 38474,8,1,7,7,classification,2,44156,electricity,alt,334:361110,True
 7608,23,3,2,6,classification,2,44157,eye_movements,alt,334:361111,True
 423680,54,44,2,83,classification,2,44159,covertype,alt,334:361113,True

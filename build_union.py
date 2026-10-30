@@ -19,7 +19,7 @@ def summarize(X, cat, y, task_type):
     t = task_type.lower()
     return {
         "n_rows": X.shape[0], "n_features": X.shape[1], "n_categorical": len(cols),
-        "max_cardinality": max(card) if card else 0, "total_onehot_columns": int(sum(card)),
+        "max_cardinality": max(card) if card else 0, "total_levels": int(sum(card)),
         "task_type": "regression" if "regression" in t else "classification",
         "n_classes": int(y.nunique()) if "classif" in t else 0,
     }
@@ -68,7 +68,7 @@ def main(out):
     print(ok[ok["brauchbar"]]["quellen"].value_counts().to_string())
     big = ok[ok["brauchbar"] & (ok["max_cardinality"] > 50)]
     print("brauchbar, aber Merkmal mit > 50 Kategorien:")
-    print(big[["dataset", "max_cardinality", "total_onehot_columns", "n_rows"]].to_string(index=False))
+    print(big[["dataset", "max_cardinality", "total_levels", "n_rows"]].to_string(index=False))
     dup_names = ok[ok.duplicated("dataset", keep=False)]
     if len(dup_names):
         print("Gleicher Name, verschiedene OpenML-ID (pruefen!):")

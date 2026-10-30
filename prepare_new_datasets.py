@@ -1,4 +1,5 @@
-"""Laedt die neuen Aufgaben aus new_tasks.csv von OpenML, verarbeitet sie wie Grinsztajn et al. (inkl. Auswahlkriterien: >= 4 Merkmale, >= 3000 Zeilen, Merkmale/Zeilen < 1/10)
+"""Laedt die neuen Aufgaben aus new_tasks.csv von OpenML, verarbeitet sie wie Grinsztajn et al. (inkl. Auswahlkriterien: >= 4 Merkmale, Merkmale/Zeilen < 1/10;
+statt >= 3000 Zeilen nur die technische Untergrenze aus preprocess_tabular.py)
 und legt sie im Format ab, das run_experiments.py erwartet:
     data/{suite}_{task}/{suite}_{task}_X.csv, _y.csv, _categorical_indicator.npy
 Ausserdem: task_indices/{suite}_task_indices.npy und _task_names.json (fuer Bericht und Plots)

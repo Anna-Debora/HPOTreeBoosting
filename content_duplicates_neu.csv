@@ -1,0 +1,149 @@
+suite_id,task_id,talent,urteil,pruefbare_spalten_a,vergleich_mit,art,ziel_gleich,zugeordnete_spalten,pruefbare_spalten_b,anteil_spalten_a,anteil_spalten_b,zeilen_a_in_b,zeilen_b_in_a,spalten
+1001,363612,airfoil_self_noise,nicht pruefbar,2.0,,,,,,,,,,
+1001,363675,healthcare_insurance_expenses,nicht pruefbar,2.0,,,,,,,,,,
+1001,900000,1000-Cameras-Dataset,Variante,5.0,"covertype (334, 361113)",alt,,2.0,10.0,0.4,0.2,0.7847490347490348,0.035833333333333335,Zoom_tele_(T)=Vertical_Distance_To_Hydrology; Dimensions=Hillshade_3pm
+1001,900019,cars,nicht pruefbar,2.0,,,,,,,,,,
+1001,900027,energy_efficiency,nicht pruefbar,1.0,,,,,,,,,,
+1001,900046,student_performance_por,nicht pruefbar,0.0,,,,,,,,,,
+1001,920006,Another-Dataset-on-used-Fiat-500-(1538-rows),identisch,5.0,"Another-Dataset-on-used-Fiat-500 (1001, 363615)",TALENT,True,5.0,5.0,1.0,1.0,1.0,1.0,lon=lon; lat=lat; km=km; age_in_days=age_in_days; __ziel__=__ziel__
+1001,920006,Another-Dataset-on-used-Fiat-500-(1538-rows),Name aehnlich,,"Another-Dataset-on-used-Fiat-500 (1001, 363615)",TALENT,,,,,,,,
+1001,920021,Goodreads-Computer-Books,Variante,5.0,"covertype (334, 361113)",alt,,2.0,10.0,0.4,0.2,0.6191247974068071,0.12043333333333334,ratings_count=Slope; Reviews=Vertical_Distance_To_Hydrology
+1001,920021,Goodreads-Computer-Books,Variante,5.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,False,2.0,5.0,0.4,0.4,0.7163695299837926,0.052623333333333334,ratings_count=lpep_pickup_datetime_minute; Reviews=lpep_dropoff_datetime_minute
+1001,920021,Goodreads-Computer-Books,Variante,5.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,False,2.0,5.0,0.4,0.4,0.7163695299837926,0.052623333333333334,ratings_count=lpep_pickup_datetime_minute; Reviews=lpep_dropoff_datetime_minute
+1001,920031,Mobile_Phone_Market_in_Ghana,nicht pruefbar,2.0,,,,,,,,,,
+1001,920046,archive2,Variante,12.0,"albert (334, 361282)",alt,,2.0,19.0,0.16666666666666666,0.10526315789473684,0.6692913385826772,0.05318272333997116,N6=V9; N5=V75
+1001,920046,archive2,Variante,12.0,"wine_quality (336, 361076)",alt,,11.0,11.0,0.9166666666666666,1.0,1.0,0.1911651531476066,N9=sulphates; N8=pH; N7=density; N6=total.sulfur.dioxide; N5=free.sulfur.dioxide; N4=chlorides; N3=residual.sugar; N2=citric.acid
+1001,920046,archive2,Variante,12.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.16666666666666666,1.0,0.9002624671916011,0.2885637923758616,N5=num_medications; N6=num_lab_procedures
+1001,920046,archive2,Variante,12.0,"Facebook_Comment_Volume (1001, 920019)",neu,False,2.0,36.0,0.16666666666666666,0.05555555555555555,0.594925634295713,0.030867664656035555,N6=N36; N5=__ziel__
+1001,920046,archive2,Variante,12.0,"internet_firewall (1002, 930118)",neu,,2.0,7.0,0.16666666666666666,0.2857142857142857,0.5083114610673666,0.05221191699472876,N6=N4; N5=N6
+1001,920047,archive_r56_Portuguese,nicht pruefbar,0.0,,,,,,,,,,
+1001,920048,auction_verification,nicht pruefbar,1.0,,,,,,,,,,
+1001,920053,chscase_foot,nicht pruefbar,1.0,,,,,,,,,,
+1001,920071,house_prices_nominal,Variante,19.0,"road-safety (334, 361285)",alt,,2.0,11.0,0.10526315789473684,0.18181818181818182,0.9295272078501338,0.24947656627476245,N31=1st_Road_Number; N29=2nd_Road_Number
+1001,920071,house_prices_nominal,Variante,19.0,"Brazilian_houses (335, 361098)",alt,False,2.0,6.0,0.10526315789473684,0.3333333333333333,0.8849241748438894,0.11541339319117097,N31=property_tax_(BRL); N1=area
+1001,920071,house_prices_nominal,Variante,19.0,"Brazilian_houses (336, 361081)",alt,False,2.0,6.0,0.10526315789473684,0.3333333333333333,0.8849241748438894,0.11541339319117097,N31=property_tax_(BRL); N1=area
+1001,920074,housing_price_prediction,nicht pruefbar,2.0,,,,,,,,,,
+1001,920076,mauna-loa-atmospheric-co2,nicht pruefbar,1.0,,,,,,,,,,
+1001,920085,sensory,nicht pruefbar,0.0,,,,,,,,,,
+1001,920089,stock,Name aehnlich,,"stock_fardamento02 (1001, 920090)",neu,,,,,,,,
+1001,920094,us_crime,identisch,98.0,"communities_and_crime (1001, 920056)",TALENT,True,97.0,98.0,0.9897959183673469,0.9897959183673469,1.0,1.0,__ziel__=__ziel__; N99=N97; N98=N96; N97=N95; N96=N94; N95=N93; N94=N92; N93=N99
+1002,11,balance-scale,nicht pruefbar,0.0,,,,,,,,,,
+1002,29,credit-approval,Name aehnlich,,"credit (337, 361055)",alt,,,,,,,,
+1002,50,heart-h,nicht pruefbar,2.0,,,,,,,,,,
+1002,50,heart-h,Variante,2.0,"covertype (334, 361113)",alt,,2.0,10.0,1.0,0.2,0.5,0.0005666666666666667,thalach=Vertical_Distance_To_Hydrology; chol=Aspect
+1002,3561,profb,nicht pruefbar,0.0,,,,,,,,,,
+1002,3797,socmob,nicht pruefbar,1.0,,,,,,,,,,
+1002,3917,kc1,Variante,12.0,"Rain_in_Australia (1002, 930060)",neu,,2.0,10.0,0.16666666666666666,0.2,0.8174846625766872,0.03405411886965906,uniq_Opnd=N7; total_Opnd=N6
+1002,14964,artificial-characters,Variante,4.0,"albert (334, 361282)",alt,,2.0,19.0,0.5,0.10526315789473684,0.6924040066777963,0.08387694843095517,V5=V9; V3=V75
+1002,14964,artificial-characters,Variante,4.0,"road-safety (334, 361285)",alt,,2.0,11.0,0.5,0.18181818181818182,0.5400667779632721,0.3970669816216603,V5=Age_of_Casualty; V3=2nd_Road_Number
+1002,14964,artificial-characters,Variante,4.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.5,0.4,0.8276293823038398,0.00652,V5=total_amount; V3=lpep_pickup_datetime_minute
+1002,14964,artificial-characters,Variante,4.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.5,0.4,0.8276293823038398,0.00652,V5=total_amount; V3=lpep_pickup_datetime_minute
+1002,14964,artificial-characters,Variante,4.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.5,1.0,0.6072621035058431,0.059881839921226615,V5=num_medications; V3=num_lab_procedures
+1002,14964,artificial-characters,Variante,4.0,"heloc (337, 361278)",alt,,2.0,12.0,0.5,0.16666666666666666,0.6569282136894825,0.1697,V5=PercentInstallTrades; V3=NumTotalTrades
+1002,14964,artificial-characters,Variante,4.0,"Facebook_Comment_Volume (1001, 920019)",neu,,2.0,36.0,0.5,0.05555555555555555,0.5371452420701168,0.0901120906493443,V5=__ziel__; V3=N35
+1002,14964,artificial-characters,Variante,4.0,"OnlineNewsPopularity (1001, 920035)",neu,,2.0,38.0,0.5,0.05263157894736842,0.7362270450751253,0.12107759055594794,V5=N8; V3=N6
+1002,14964,artificial-characters,Variante,4.0,"volume (1001, 920095)",neu,,2.0,38.0,0.5,0.05263157894736842,0.7082637729549248,0.1546682878042084,V5=__ziel__; V3=N7
+1002,14964,artificial-characters,Variante,4.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,2.0,4.0,0.5,0.5,0.9853923205342237,0.1796177800528965,V5=DepartureDelayinMinutes; V3=ArrivalDelayinMinutes
+1002,14964,artificial-characters,Variante,4.0,"Gender_Gap_in_Spanish_WP (1002, 910005)",neu,,2.0,10.0,0.5,0.2,0.5020868113522537,0.1580262336039975,V5=feature_9; V3=feature_4
+1002,14964,artificial-characters,Variante,4.0,"FICO-HELOC-cleaned (1002, 930021)",neu,,2.0,12.0,0.5,0.16666666666666666,0.6556761268781303,0.18035902851108765,V5=PercentInstallTrades; V3=NumTotalTrades
+1002,14964,artificial-characters,Variante,4.0,"philippine (1002, 930160)",neu,,2.0,307.0,0.5,0.006514657980456026,0.5646911519198664,0.06155692729766804,V5=N9; V3=N67
+1002,146065,monks-problems-2,nicht pruefbar,0.0,,,,,,,,,,
+1002,167119,jungle_chess_2pcs_raw_endgame_complete,nicht pruefbar,0.0,,,,,,,,,,
+1002,363621,blood-transfusion-service-center,nicht pruefbar,1.0,,,,,,,,,,
+1002,363624,coil2000_insurance_policies,nicht pruefbar,0.0,,,,,,,,,,
+1002,363626,credit-g,nicht pruefbar,2.0,,,,,,,,,,
+1002,363626,credit-g,Name aehnlich,,"credit (337, 361055)",alt,,,,,,,,
+1002,363629,diabetes,Variante,6.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.3333333333333333,1.0,0.5615671641791045,0.05787030524687017,Age=num_lab_procedures; SkinThickness=num_medications
+1002,363629,diabetes,Name aehnlich,,"Diabetes130US (337, 361273)",alt,,,,,,,,
+1002,363671,Fitness_Club,nicht pruefbar,2.0,,,,,,,,,,
+1002,363685,maternal_health_risk,nicht pruefbar,0.0,,,,,,,,,,
+1002,363702,splice,nicht pruefbar,0.0,,,,,,,,,,
+1002,363707,website_phishing,nicht pruefbar,0.0,,,,,,,,,,
+1002,910001,CPMP-2015-runtime-classification,Variante,7.0,"CPMP-2015-regression (1001, 900008)",TALENT,,7.0,9.0,1.0,0.7777777777777778,1.0,0.5958254269449715,top.good.stdev=top.good.stdev; top.good.mean=top.good.mean; tier.weighted.groups=tier.weighted.groups; overstowage.pct=overstowage.pct; left.density=left.density; group.same.stdev=group.same.stdev; avg.l1.top.left.lg.group=avg.l1.top.left.lg.group
+1002,910003,Fitness_Club_c,nicht pruefbar,2.0,,,,,,,,,,
+1002,910003,Fitness_Club_c,Name aehnlich,,"Fitness_Club (1002, 363671)",TALENT,,,,,,,,
+1002,910004,GAMETES_Epistasis_2-Way_20atts_0.1H_EDM-1_1,nicht pruefbar,0.0,,,,,,,,,,
+1002,910008,LED-display-domain-7digit,nicht pruefbar,0.0,,,,,,,,,,
+1002,910011,National_Health_and_Nutrition_Health_Survey,Variante,4.0,"NHANES_age_prediction (1001, 920034)",TALENT,,4.0,5.0,1.0,0.8,0.9986263736263736,0.31927975406236275,feature_6=N3; feature_5=N2; feature_3=N1; feature_2=N0
+1002,910013,PopularKids,nicht pruefbar,0.0,,,,,,,,,,
+1002,910016,ad-click-prediction-dataset,nicht pruefbar,1.0,,,,,,,,,,
+1002,910018,airlines_seed_0_nrows_2000_nclasses_10_ncols_100_stratify_True,identisch,5.0,"airlines (1002, 189354)",neu,,3.0,3.0,0.6,1.0,0.9657687991021324,0.05128,feature_2=Length; feature_1=Time; feature_0=Flight
+1002,910018,airlines_seed_0_nrows_2000_nclasses_10_ncols_100_stratify_True,Name aehnlich,,"airlines (1002, 189354)",neu,,,,,,,,
+1002,910023,analcatdata_dmft,nicht pruefbar,0.0,,,,,,,,,,
+1002,910025,analcatdata_germangss,nicht pruefbar,1.0,,,,,,,,,,
+1002,910026,arsenic-female-bladder,nicht pruefbar,1.0,,,,,,,,,,
+1002,910027,autoMpg,Variante,4.0,"covertype (334, 361113)",alt,,2.0,10.0,0.5,0.2,0.7405405405405405,0.00169,horsepower=Vertical_Distance_To_Hydrology; displacement=Aspect
+1002,910042,consultant-job-placement-data-2023,nicht pruefbar,1.0,,,,,,,,,,
+1002,910043,coupons,nicht pruefbar,0.0,,,,,,,,,,
+1002,910049,employees-attrition-analysis,nicht pruefbar,1.0,,,,,,,,,,
+1002,910049,employees-attrition-analysis,Name aehnlich,,"Employee (1002, 930020)",neu,,,,,,,,
+1002,910052,fictional-character-battle-outcome-prediction,nicht pruefbar,0.0,,,,,,,,,,
+1002,910055,glioma_grading_clinical_and_mutation_features_dataset,nicht pruefbar,1.0,,,,,,,,,,
+1002,910056,golf_play_dataset_extended,Variante,3.0,"Rain_in_Australia (1002, 930060)",neu,,2.0,10.0,0.6666666666666666,0.2,0.9017467248908297,0.028118629841320596,feature_1=N7; feature_0=N0
+1002,910065,liver-disorders,Variante,7.0,"covertype (334, 361113)",alt,,2.0,10.0,0.2857142857142857,0.2,0.9696969696969697,0.009213333333333334,0=Vertical_Distance_To_Hydrology; 5=Aspect
+1002,910065,liver-disorders,Variante,7.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,2.0,4.0,0.2857142857142857,0.5,0.6515151515151515,0.012609845576316014,0=DepartureDelayinMinutes; 5=ArrivalDelayinMinutes
+1002,910077,orange-quality,nicht pruefbar,2.0,,,,,,,,,,
+1002,910078,pbc,Variante,9.0,"covertype (334, 361113)",alt,,2.0,10.0,0.2222222222222222,0.2,0.6937984496124031,0.0019533333333333334,Z14=Vertical_Distance_To_Hydrology; Z11=Aspect
+1002,910084,predict-customer-purchase-behavior-dataset,nicht pruefbar,1.0,,,,,,,,,,
+1002,910085,predict_students_dropout_and_academic_success,nicht pruefbar,2.0,,,,,,,,,,
+1002,910085,predict_students_dropout_and_academic_success,Variante,2.0,"students_dropout_and_academic_success (1002, 363704)",TALENT,,2.0,4.0,1.0,0.5,0.9046446164672766,0.9060520760028149,feature_0=Previous_qualification_grade; feature_1=Admission_grade
+1002,910089,retail-chain-salespeople-engagement,nicht pruefbar,1.0,,,,,,,,,,
+1002,910092,sentiment-analysis,nicht pruefbar,0.0,,,,,,,,,,
+1002,910094,simple-diabetes-dataset,Variante,6.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.3333333333333333,0.4,0.6902985074626866,0.0024666666666666665,7=total_amount; 3=lpep_pickup_datetime_minute
+1002,910094,simple-diabetes-dataset,Variante,6.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.3333333333333333,0.4,0.6902985074626866,0.0024666666666666665,7=total_amount; 3=lpep_pickup_datetime_minute
+1002,910094,simple-diabetes-dataset,Variante,6.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.3333333333333333,1.0,0.5615671641791045,0.06137290758193839,7=num_lab_procedures; 3=num_medications
+1002,910094,simple-diabetes-dataset,Variante,6.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,2.0,4.0,0.3333333333333333,0.5,0.8376865671641791,0.02743793191707192,7=DepartureDelayinMinutes; 3=ArrivalDelayinMinutes
+1002,910094,simple-diabetes-dataset,Variante,6.0,"diabetes (1002, 363629)",TALENT,,5.0,6.0,0.8333333333333334,0.8333333333333334,0.7742537313432836,0.7742537313432836,3=SkinThickness; 1=Glucose; 7=Age; 5=BMI; 4=Insulin
+1002,910097,statlog,nicht pruefbar,2.0,,,,,,,,,,
+1002,910098,tabletpc-priceclassification,Variante,6.0,"Credit_c (1002, 930016)",neu,,2.0,10.0,0.3333333333333333,0.2,0.646,0.05661312710688082,8=N13; 6=N7
+1002,910105,wine-quality-red,Variante,4.0,"wine_quality (336, 361076)",alt,,4.0,11.0,1.0,0.36363636363636365,1.0,0.1990149299676774,feature_3=alcohol; feature_2=sulphates; feature_1=pH; feature_0=density
+1002,910105,wine-quality-red,Name aehnlich,,"wine_quality (336, 361076)",alt,,,,,,,,
+1002,910105,wine-quality-red,Variante,4.0,"archive2 (1001, 920046)",TALENT,,4.0,12.0,1.0,0.3333333333333333,0.7829153605015674,0.8083989501312336,feature_1=N8; feature_3=N10; feature_2=N9; feature_0=N7
+1002,930011,Contaminant-detection-in-packaged-cocoa-hazelnut-spread-jars-using-Microwaves-Sensing-and-Machine-Learning-10.0GHz(Urbinati),identisch,30.0,"hazelnut-spread-contaminant-detection (1002, 363674)",TALENT,,30.0,30.0,1.0,1.0,1.0,1.0,s65=s65; s64=s64; s63=s63; s62=s62; s61=s61; s56=s56; s54=s54; s53=s53
+1002,930017,Customer_Personality_Analysis,Variante,9.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.2222222222222222,1.0,0.5165165165165165,0.12235194823463216,N4=num_medications; N0=num_lab_procedures
+1002,930018,Diabetic_Retinopathy_Debrecen,Variante,16.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.125,1.0,0.687037037037037,0.041173160782107185,N5=num_lab_procedures; N4=num_medications
+1002,930034,GAMETES_Heterogeneity_20atts_1600_Het_0.4_0.2_50_EDM-2_001,nicht pruefbar,0.0,,,,,,,,,,
+1002,930038,Heart-Disease-Dataset-(Comprehensive),Variante,5.0,"Cardiovascular-Disease-dataset (1002, 930009)",neu,,2.0,5.0,0.4,0.4,0.679144385026738,0.35005288887618285,age=weight; resting_bp_s=ap_hi
+1002,930038,Heart-Disease-Dataset-(Comprehensive),Variante,5.0,"Rain_in_Australia (1002, 930060)",neu,,2.0,10.0,0.4,0.2,0.5249554367201426,0.00777409169031536,oldpeak=N0; age=N7
+1002,930038,Heart-Disease-Dataset-(Comprehensive),Variante,5.0,"national-longitudinal-survey-binary (1002, 930146)",neu,,2.0,3.0,0.4,0.6666666666666666,0.535650623885918,0.1090124123043713,age=afqt89; resting_bp_s=weight
+1002,930038,Heart-Disease-Dataset-(Comprehensive),Variante,5.0,"heart-h (1002, 50)",TALENT,,2.0,2.0,0.4,1.0,0.1836007130124777,0.9591836734693877,max_heart_rate=thalach; cholesterol=chol
+1002,930051,Mobile_Price_Classification,Variante,6.0,"Credit_c (1002, 930016)",neu,,2.0,10.0,0.3333333333333333,0.2,0.622,0.05339083878643665,N5=N13; N3=N7
+1002,930056,Pima_Indians_Diabetes_Database,Variante,5.0,"covertype (334, 361113)",alt,,2.0,10.0,0.4,0.2,0.5354477611940298,0.00789,N3=Vertical_Distance_To_Hydrology; N1=Hillshade_9am
+1002,930056,Pima_Indians_Diabetes_Database,Variante,5.0,"Credit_c (1002, 930016)",neu,,2.0,10.0,0.4,0.2,0.5055970149253731,0.02572873289708507,N1=N13; N3=N7
+1002,930056,Pima_Indians_Diabetes_Database,Variante,5.0,"diabetes (1002, 363629)",TALENT,,4.0,6.0,0.8,0.6666666666666666,0.7761194029850746,0.7779850746268657,N3=SkinThickness; N1=Glucose; N5=BMI; N4=Insulin
+1002,930056,Pima_Indians_Diabetes_Database,Variante,5.0,"simple-diabetes-dataset (1002, 910094)",TALENT,,3.0,6.0,0.6,0.5,0.753731343283582,0.7555970149253731,N3=3; N1=1; N5=5
+1002,930059,QSAR_biodegradation,Variante,17.0,"qsar-biodeg (1002, 363696)",TALENT,,5.0,17.0,0.29411764705882354,0.29411764705882354,0.7690140845070422,0.7661971830985915,N16=Mean_Sanderson_Electronegativity; N17=Mean_Ionization_Potential; N21=Weighted_Normalized_SpectralPositiveSum_Burden_Matrix; N27=Intrinsic_State_Pseudoconnectivity; N7=Percentage_C_Atoms
+1002,930059,QSAR_biodegradation,Name aehnlich,,"qsar-biodeg (1002, 363696)",TALENT,,,,,,,,
+1002,930073,ada_prior,Variante,4.0,"road-safety (334, 361285)",alt,,2.0,11.0,0.5,0.18181818181818182,0.7146077547339946,0.007345967323419409,hoursPerWeek=2nd_Road_Number; age=Age_of_Driver
+1002,930073,ada_prior,Variante,4.0,"income (1002, 910062)",neu,,3.0,4.0,0.75,0.75,0.9355275022542832,0.7281351526965562,age=0; hoursPerWeek=10; capitalGain=8
+1002,930085,car-evaluation,nicht pruefbar,0.0,,,,,,,,,,
+1002,930087,cmc,nicht pruefbar,0.0,,,,,,,,,,
+1002,930091,contraceptive_method_choice,nicht pruefbar,0.0,,,,,,,,,,
+1002,930100,drug_consumption,nicht pruefbar,0.0,,,,,,,,,,
+1002,930119,internet_usage,nicht pruefbar,1.0,,,,,,,,,,
+1002,930125,kr-vs-k,nicht pruefbar,0.0,,,,,,,,,,
+1002,930125,kr-vs-k,Name aehnlich,,"kr-vs-kp (1002, 930126)",neu,,,,,,,,
+1002,930129,led24,nicht pruefbar,0.0,,,,,,,,,,
+1002,930130,led7,nicht pruefbar,0.0,,,,,,,,,,
+1002,930131,letter,nicht pruefbar,0.0,,,,,,,,,,
+1002,930152,optdigits,nicht pruefbar,0.0,,,,,,,,,,
+1002,930155,page-blocks,Variante,9.0,"covertype (334, 361113)",alt,,2.0,10.0,0.2222222222222222,0.2,0.5835866261398176,0.07252333333333333,lenght=Vertical_Distance_To_Hydrology; wb_trans=Slope
+1002,930155,page-blocks,Variante,9.0,"customer_satisfaction_in_airline (1002, 363628)",neu,,2.0,4.0,0.2222222222222222,0.5,0.5668693009118541,0.04262434945823735,lenght=Age; wb_trans=ArrivalDelayinMinutes
+1002,930176,sports_articles_for_objectivity_analysis,Variante,25.0,"Diabetes130US (337, 361273)",alt,,2.0,2.0,0.08,1.0,0.626027397260274,0.08120692080461386,N52=num_medications; N26=num_lab_procedures
+1002,930185,thyroid-ann,Name aehnlich,,"thyroid (1002, 930184)",TALENT,,,,,,,,
+1002,930186,thyroid-dis,Name aehnlich,,"thyroid (1002, 930184)",TALENT,,,,,,,,
+1002,930192,water_quality,nicht pruefbar,0.0,,,,,,,,,,
+1002,930192,water_quality,Name aehnlich,,"Water_Quality_and_Potability (1002, 930066)",TALENT,,,,,,,,
+1002,930196,wine,Variante,4.0,"wine_quality (336, 361076)",alt,,4.0,11.0,1.0,0.36363636363636365,1.0,0.45605664152685854,sulphates=sulphates; pH=pH; density=density; alcohol=alcohol
+1002,930196,wine,Name aehnlich,,"wine_quality (336, 361076)",alt,,,,,,,,
+1002,930196,wine,Variante,4.0,"Wine_Quality_white (1001, 920043)",neu,,4.0,11.0,1.0,0.36363636363636365,0.7858261550509006,0.47427521437321357,alcohol=N10; sulphates=N9; pH=N8; density=N7
+1002,930196,wine,Name aehnlich,,"Wine_Quality_white (1001, 920043)",neu,,,,,,,,
+1002,930196,wine,Name aehnlich,,"wine-quality-red (1002, 910105)",TALENT,,,,,,,,
+1002,930198,wine-quality-white,Variante,11.0,"nyc-taxi-green-dec-2016 (335, 361101)",alt,,2.0,5.0,0.18181818181818182,0.4,0.5356897735072066,0.05627,V1=total_amount; V6=lpep_pickup_datetime_minute
+1002,930198,wine-quality-white,Variante,11.0,"wine_quality (336, 361076)",alt,,11.0,11.0,1.0,1.0,1.0,0.47668154532861323,V9=pH; V8=density; V7=total.sulfur.dioxide; V6=free.sulfur.dioxide; V5=chlorides; V4=residual.sugar; V3=citric.acid; V2=volatile.acidity
+1002,930198,wine-quality-white,Name aehnlich,,"wine_quality (336, 361076)",alt,,,,,,,,
+1002,930198,wine-quality-white,Variante,11.0,"nyc-taxi-green-dec-2016 (336, 361083)",alt,,2.0,5.0,0.18181818181818182,0.4,0.5356897735072066,0.05627,V1=total_amount; V6=lpep_pickup_datetime_minute
+1002,930198,wine-quality-white,Variante,11.0,"Wine_Quality_white (1001, 920043)",neu,,11.0,11.0,1.0,1.0,1.0,0.6320947325438955,V9=N8; V8=N7; V7=N6; V6=N5; V5=N4; V4=N3; V3=N2; V2=N1
+1002,930198,wine-quality-white,Name aehnlich,,"Wine_Quality_white (1001, 920043)",neu,,,,,,,,
+1002,930198,wine-quality-white,Variante,11.0,"wine (1002, 930196)",TALENT,,2.0,4.0,0.18181818181818182,0.5,0.7347288949897048,0.6350822239624119,V10=sulphates; V9=pH
+1002,930198,wine-quality-white,Name aehnlich,,"wine (1002, 930196)",TALENT,,,,,,,,
