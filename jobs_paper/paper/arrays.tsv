@@ -1,0 +1,12 @@
+array	partition	stunden	mem_gb	n
+normal.120h_4G_0	normal.120h	30	4	240
+normal.24h_4G_0	normal.24h	21	4	1000
+normal.24h_4G_1	normal.24h	21	4	1000
+normal.24h_4G_2	normal.24h	21	4	200
+normal.24h_8G_0	normal.24h	18	8	480
+normal.4h_4G_0	normal.4h	4	4	1000
+normal.4h_4G_1	normal.4h	4	4	1000
+normal.4h_4G_2	normal.4h	4	4	1000
+normal.4h_4G_3	normal.4h	4	4	1000
+normal.4h_4G_4	normal.4h	4	4	215
+normal.4h_8G_0	normal.4h	1	8	4

@@ -30,11 +30,15 @@ Wie die Einstellungen ohne Codeaenderung greifen (nur in diesem Prozess):
                     das 135er-Gitter des Paper-Codes (bagging_fraction = 1). Das aendert auch best_iter, das fuer
                     die Test-Refits aller Gitterpunkte gilt; deshalb reicht die Teilmenge des Testlaufs nicht.
 SMAC schreibt seine Zwischendateien unter <result_folder>/smac3_output statt ins Arbeitsverzeichnis.
-Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3).
+Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3), ausser mit --resume:
+  vollstaendige Datei (alle Folds)  -> nichts tun, Exit-Code 0
+  angefangene Datei (Zeitlimit)     -> fertige Folds behalten, ab dem ersten fehlenden Fold weiterrechnen.
+  Das ergibt dieselben Zahlen wie ein Lauf am Stueck: jede Methode setzt ihren Sampler pro Fold neu mit dem
+  Seed auf (TPESampler, gp_minimize, SMAC-Scenario, RandomState) und min_score/best_iter pro Aufruf zurueck.
 
 Aufruf:  python run_ablation.py --method {random_search,tpe,SMAC,gp_bo,hyperband,grid_search} --seed 27225 \
              --result_folder Results_ablation/A [--trials 135] [--no_lambda_l1] [--paper_grid] [--folds 5] \
-             [--suite_id 336 --task_id 361076] [--hyperband_R 2150]
+             [--suite_id 336 --task_id 361076] [--hyperband_R 2150] [--resume]
 Ausgabe: <result_folder>/<method>/seed_<seed>/gpboost/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
          nach jedem Fold angehaengt, damit ein Abbruch durch das Zeitlimit die fertigen Folds behaelt.
 """
@@ -122,6 +126,36 @@ def run_fold(obj, method, trials, train_index, test_index, hyperband_R):
     return obj.run_smac(**data)
 
 
+def expected_rows(method, trials, paper_grid):
+    """Zeilen pro fertigem Fold; None, wo die Zahl nicht vorab feststeht (Hyperband, SMAC)."""
+    if method in ("random_search", "tpe", "gp_bo"):
+        return trials
+    if method == "grid_search":
+        return 135 if paper_grid else 270
+    return None
+
+
+def finished_folds(output, n_rows):
+    """Folds, die in output vollstaendig stehen. Eine unvollstaendige oder unlesbare Datei wird auf die
+    vollstaendigen Folds gekuerzt bzw. geloescht."""
+    try:
+        old = pd.read_csv(output)
+        sizes = old.groupby("fold").size()
+    except Exception as error:
+        print(f"  {output} unlesbar ({error}), wird neu gerechnet", flush=True)
+        output.unlink()
+        return set()
+    if n_rows is None:          # Hyperband, SMAC: ein halb geschriebener Fold ist kuerzer als die anderen
+        n_rows = sizes.max()
+    done = {int(f) for f, n in sizes.items() if n == n_rows}
+    if len(done) < len(sizes):
+        old[old["fold"].isin(done)].to_csv(output, index=False)
+        print(f"  unvollstaendige Folds {sorted(set(sizes.index) - done)} verworfen", flush=True)
+    if not done:
+        output.unlink()
+    return done
+
+
 def main(args):
     path = f"data/{args.suite_id}_{args.task_id}"
     data_x = os.path.join(path, f"{args.suite_id}_{args.task_id}_X.csv")
@@ -129,9 +163,17 @@ def main(args):
         sys.exit(f"ABBRUCH: {data_x} fehlt oder ist leer")
     folder = Path(args.result_folder) / args.method / f"seed_{args.seed}" / LIBRARY
     output = folder / f"{args.suite_id}_{args.task_id}__num_leaves.csv"
+    done = set()
     if output.exists():
-        print(f"ABBRUCH: {output} existiert schon und wird nicht ueberschrieben", file=sys.stderr)
-        sys.exit(3)
+        if not args.resume:
+            print(f"ABBRUCH: {output} existiert schon und wird nicht ueberschrieben", file=sys.stderr)
+            sys.exit(3)
+        done = finished_folds(output, expected_rows(args.method, args.trials, args.paper_grid))
+        if len(done) >= args.folds:
+            print(f"SCHON FERTIG: {output} ({len(done)} Folds)", flush=True)
+            return
+        if done:
+            print(f"WEITER: {output} hat die Folds {sorted(done)}", flush=True)
     folder.mkdir(parents=True, exist_ok=True)
     apply_settings(args.method, args.trials, args.no_lambda_l1, args.paper_grid,
                    Path(args.result_folder) / "smac3_output")
@@ -144,6 +186,8 @@ def main(args):
     print(f"{args.method} seed={args.seed} trials={args.trials} lambda_l1={'aus' if args.no_lambda_l1 else 'an'} "
           f"{'Paper-Gitter ' if args.paper_grid else ''}-> {output}", flush=True)
     for fold, (train_index, test_index) in enumerate(list(obj.splits)[:args.folds]):
+        if fold in done:
+            continue
         results = run_fold(obj, args.method, args.trials, train_index, test_index,
                            args.hyperband_R).reset_index(drop=True)
         results.insert(0, "iter", results.index)
@@ -157,7 +201,8 @@ def main(args):
         results["library"] = LIBRARY
         results["classification"] = 1 if is_classification(int(args.suite_id)) else 0
         results = results.reindex(columns=[*RESULT_COLUMNS, *[c for c in results.columns if c not in RESULT_COLUMNS]])
-        results.to_csv(output, index=False, mode="w" if fold == 0 else "a", header=fold == 0)
+        first = not output.exists()
+        results.to_csv(output, index=False, mode="w" if first else "a", header=first)
         print(f"  Fold {fold}: {len(results)} Versuche, bester Test-Wert {results['test_score'].max():.4f}", flush=True)
 
 
@@ -173,6 +218,8 @@ if __name__ == "__main__":
                         help="deterministisches Gitter ohne bagging_fraction (135 Punkte wie im Paper-Code)")
     parser.add_argument("--folds", type=int, default=5, help="nur fuer lokale Proben kleiner als 5")
     parser.add_argument("--hyperband_R", type=int, default=2150, help="nur fuer lokale Proben kleiner als 2150")
+    parser.add_argument("--resume", action="store_true",
+                        help="fertige Datei ueberspringen, angefangene ab dem ersten fehlenden Fold fortsetzen")
     parser.add_argument("--suite_id", default="336")
     parser.add_argument("--task_id", default="361076")
     main(parser.parse_args())

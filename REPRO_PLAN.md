@@ -121,3 +121,157 @@ Ergebnis von `compare_with_paper.py` (1 Aufgabe, 1 Seed, t = 135):
 Default und Gitter stimmen exakt mit dem Paper überein. Daten, Folds und Modell sind also dieselben, und
 die ausgelesenen Paper-Werte stimmen. Die adaptiven Methoden liegen innerhalb von etwa 0.4 %.
 Ob die Abweichungen bei TPE/SMAC System haben (z. B. wegen `lambda_l1`), zeigt erst der volle Testlauf.
+
+---
+
+# Grosse Läufe auf allen 59 Aufgaben (vorbereitet 30.10.2026)
+
+Zwei GPBoost-Läufe, gleichzeitig auf Euler, Strategie `num_leaves` (wie Table 5 und Abb. 1, 5–10), 20 Seeds des
+Papers, 5 Folds, alle 7 Methoden (Default, deterministisches Gitter, GP-BO, Hyperband, Zufallsgitter, SMAC, TPE),
+Kategorien nativ (kein One-Hot):
+
+| Lauf | Ordner | Versuche | lambda_l1 | deterministisches Gitter |
+|---|---|---|---|---|
+| `paper` | `Results_paper/` | 135 | nein (fest 0) | 135 Punkte wie im Paper-Code (`--paper_grid`) |
+| `l1_270` | `Results_l1_270/` | 270 | ja, linear (0, 100) | heutiges Gitter, 270 Punkte (bagging_fraction {0.5, 1}, ohne lambda_l1) |
+
+Beide nutzen `run_ablation.py` (Lauf `paper` = Einstellung „A“: `--trials 135 --no_lambda_l1 --paper_grid`, Lauf
+`l1_270` = `--trials 270`, also der heutige Code) und für Default `run_default.py`. Hyperband hat keine Versuchszahl
+(R = 2150, η = 2.8, 11 Ergebniszeilen je Fold) und ist in beiden Läufen bis auf lambda_l1 gleich; Default ist in
+beiden Läufen identisch.
+
+## Table 5: Definitionen
+
+Quellen: Paper Abschnitt 2.5 und 3 (S. 5–7) und der Paper-Code (Commit a19b4ff: `utils_plot_maker.create_scores_dict`,
+`get_statistics`, `normalize_scores`, `get_extremum`; `plot_maker.create_table`). Umgesetzt in `make_table5.py`,
+geprüft mit `test_make_table5.py` (von Hand gerechnete künstliche Daten).
+
+1. **Grundwert.** s[k,m,l,j,t] = Testwert (R², RMSE, Accuracy oder Log Loss) der bis Versuch t besten
+   Konfiguration nach Validierung (`current_best_test_*`), Aufgabe k, Methode m, Seed l, Fold j.
+   Dann Mittel über die 5 Folds: s[k,m,l,t]. Hyperband: eine Zeile je Rung, Endwert = letzte Zeile.
+   Default: ein Wert je Aufgabe (ohne Seeds).
+2. **Budget.** Table 5 nimmt den Endwert bei T = 135. Für `l1_270` zusätzlich T = 270; bei T = 135 ist das der
+   Stand nach den ersten 135 von 270 Versuchen (deterministisches Gitter: Zeile 135 des 270er-Gitters).
+3. **norm (ADTM, Grinsztajn et al.).** Pro Aufgabe ein Pool P_k aus allen s[k,m,l,t] mit t ≤ T der sechs HPO-Methoden
+   über alle Seeds, im Paper-Code zusätzlich der Default-Wert (je HPO-Methode und Strategie T-mal).
+   R², Accuracy: (s − Q10(P_k)) / (max P_k − Q10(P_k)), unten bei 0 abgeschnitten.
+   RMSE, Log Loss: (s − min P_k) / (Q90(P_k) − min P_k), oben bei 1 abgeschnitten.
+   Tabellenwert: Mittel über Aufgaben (36 Regression bzw. 23 Klassifikation) und Seeds des normalisierten Endwerts.
+4. **Rel. diff.** Pro Aufgabe: s[k,m] = Mittel über die Seeds des Endwerts (roh, nicht normalisiert);
+   best_k = bester Wert über die Methoden; δ[k,m] = |s[k,m] − best_k| / |best_k|. Tabellenwert: Mittel über Aufgaben.
+5. **Rank.** Pro Aufgabe Rang 1 (bester) bis 7 von s[k,m] unter den 7 Methoden; Mittel über Aufgaben.
+   Gleichstand wie im Paper-Code: stabile Sortierung in Spaltenreihenfolge, Default zuletzt.
+
+**Warum so, wo Text und Code auseinandergehen:**
+
+- *Rel. diff.:* `create_table` im Paper-Code rechnet (Mittel der normalisierten Werte − bestes Mittel) / bestes
+  Mittel. Das ergäbe für Default bei R² etwa (0.181 − 0.898)/0.898 = −0.80, nicht 0.046; so ist die Tabelle also
+  nicht entstanden. Probe mit den Werten pro Datensatz aus Abb. 5–10 (`paper_reference_values.csv`, t = 135, nur
+  die Datensätze mit eindeutigem Namen und allen 7 Methoden: 20 von 36 Regression, 15 von 23 Klassifikation):
+
+  | Default, Rel. diff. | pro Aufgabe (Text, gewählt) | aus Mittelwerten über Aufgaben | Paper |
+  |---|---|---|---|
+  | R² | 0.061 | 0.030 | 0.046 |
+  | RMSE | 0.121 | 0.007 | 0.154 |
+  | Log Loss | 0.131 | 0.105 | 0.222 |
+
+  Mit derselben Probe kommen die Ränge nahe an Table 5 (R²: 6.95 / 4.30 / 3.75 / 5.75 / 3.00 / 1.45 / 2.80 gegen
+  6.889 / 4.444 / 3.722 / 5.778 / 3.167 / 1.417 / 2.583).
+- *Pool der Normalisierung:* Der Text nennt nur die HPO-Methoden („m = 1, …, 6“), der Code nimmt Default dazu und
+  poolt über alle vier Strategien (num_leaves, max_depth, joint, num_iter). Wir rechnen nur num_leaves; Default im
+  Pool wie im Code (`--pool code`, Standard), die Variante nach dem Text mit `--pool text`.
+- *Hyperband:* Der Text spricht von 9 Rungs, Code und unsere Läufe haben 11 Ergebniszeilen je Fold
+  (R = 2150, η = 2.8). Für Table 5 zählt nur die letzte Zeile, im Pool alle.
+
+## Prüfungen vor dem Start (Mac, 30.10.2026)
+
+- `check_native_encoding.py` auf allen 59 Aufgaben: alle kategorialen Spalten kommen als pandas `category` an,
+  Merkmalszahl unverändert (kein One-Hot): 59 von 59 in Ordnung.
+- Gespeicherte Kennzahlen pro Versuch: `test_score` (R² bzw. Accuracy), `test_rmse` (Regression),
+  `test_log_loss` (Klassifikation), jeweils mit `current_best_*`. In allen Dateien von Results_repro und
+  Results_ablation/A vorhanden und ohne Lücken. Nichts zu ergänzen.
+- `test_run_ablation_resume.py`: ein abgebrochener und mit `--resume` fortgesetzter Job ergibt dieselben Zahlen wie
+  ein Lauf am Stück (Zufallsgitter, TPE, SMAC, Hyperband), halb geschriebene Folds werden neu gerechnet.
+- `test_make_table5.py`: 10 Tests mit künstlichen Daten (Normalisierung, Ränge, Rel. diff., Budget, unvollständige
+  Folds, beide Ergebnis-Layouts).
+- `make_table5.py` an Results_repro (7 Aufgaben, 2 Seeds) und Results_ablation/A, /B (wine_quality) ausgeführt.
+
+## Jobs, Kosten und Ablauf
+
+`python make_paper_jobs.py` erzeugt `jobs_paper/` (Job-Listen, Arrays, `run_paper_job.sbatch`, `submit.sh`,
+`zusammenfassung.txt`). Ein Job = (Aufgabe, Seed, Methode) auf 1 Kern; Default einmal je Aufgabe.
+**7139 Jobs je Lauf** (59 × 20 × 6 + 59), aufgeteilt in Arrays nach Partition und Speicher (höchstens 1000
+Teiljobs je Array, `--max_array`). Probe: wine_quality, Seed 27225, alle 7 Methoden (`arrays/probe.idx`).
+
+| Lauf | Jobs | geschätzte Kernstunden | Summe der Zeitlimits | teuerster Job | Jobs in normal.4h / 24h / 120h |
+|---|---|---|---|---|---|
+| paper | 7139 | ≈ 19'200 | ≈ 42'000 h | superconduct GP-BO, 14.5 h | 4219 / 2680 / 240 |
+| l1_270 | 7139 | ≈ 37'400 | ≈ 78'000 h | superconduct GP-BO, 29.8 h | 3059 / 3080 / 1000 |
+
+**Kostenmodell** (`make_paper_jobs.kosten`): Sekunden je Versuch inklusive Test-Refit, lokal gemessen (Mac,
+1 Thread, Fold 0, je 15 Versuche Zufallsgitter und TPE, das Maximum; `jobs_paper/zeitmessung_mac.tsv`, alle 59
+Aufgaben ohne Fehler), × 1.5 für Euler, × 5 Folds × Versuche. Gitter (Paper) und Hyperband × 0.6, GP-BO und SMAC
+plus Surrogat je Versuch (Euler-Testlauf: GP-BO 1.6 s bei 135 bzw. 3.6 s bei 270 Aufrufen, SMAC 0.9 bzw. 1.4 s).
+Abgleich: sulfur-Hauptjob des Testlaufs (Gitter, Zufall, TPE, GP-BO mit je 270 Versuchen) laut Modell ≈ 13 h für
+2 Folds, auf Euler nach 12 h Zeitlimit 2 Folds fertig. Die Kosten je Versuch schwanken stark mit den gezogenen
+Konfigurationen (15 Versuche sind eine kleine Stichprobe); deshalb Zeitlimit = 2 × Schätzung, und Jobs mit
+Zeitlimit lassen sich fortsetzen (`--resume`, `watch_paper.py --retry` gibt ihnen die nächstlängere Partition).
+Speicher: 4 GB, 8 GB für Rohdaten > 100 MB (gemessene Spitze beim Laden höchstens 2.0 GB, delays_zurich_transport).
+Speicherplatz auf Euler: Ergebnisse ≈ 1.2 GB (paper) + 2.4 GB (l1_270), dazu etwa 28'000 Log-Dateien und
+2'400 kleine SMAC-Ordner (≈ 110 KB je Job).
+
+Wanduhrzeit hängt davon ab, wie viele Kerne gleichzeitig laufen dürfen: bei 500 Kernen etwa
+57'000 / 500 ≈ 115 h ≈ 5 Tage für beide Läufe, bei 200 Kernen etwa 12 Tage (jeweils plus Warteschlange).
+
+## Befehle
+
+**Mac** (nach dem Commit, schon erledigt, wenn dieser Abschnitt im Git steht):
+```
+git push origin xgboost-catboost
+```
+
+**Euler** (einmal vorbereiten; nie von Euler pushen):
+```
+cd ~/HPOTreeBoosting
+git pull origin xgboost-catboost
+bash euler_prepare_repro_data.sh jobs_paper/aufgaben.tsv     # 59 Aufgaben laden + Kodierung prüfen (endet mit FERTIG)
+my_share_info                                                # Anteil/Gruppe des Gastaccounts
+sacctmgr show assoc user=$USER format=Account,Partition,GrpTRES,GrpJobs,MaxJobs,MaxSubmit,MaxWall -P
+sacctmgr show qos format=Name,MaxWall,MaxJobsPU,MaxSubmitPU,MaxTRESPU -P
+scontrol show config | grep -E "MaxArraySize|MaxJobCount"
+lquota                                                       # Speicher und Dateizahl in $HOME
+```
+Ist `MaxArraySize` kleiner als 1001 oder `MaxSubmit` kleiner als die Zahl der Teiljobs, auf dem **Mac**
+`python make_paper_jobs.py --max_array <n>` laufen lassen, committen, pushen und auf Euler `git pull`.
+
+**Euler, Probe** (1 Aufgabe, 1 Seed, alle 7 Methoden, beide Läufe; < 1 h):
+```
+bash jobs_paper/submit.sh paper probe
+bash jobs_paper/submit.sh l1_270 probe
+squeue -u $USER
+python watch_paper.py                                        # nach dem Ende: 7 von 7 Probe-Jobs je Lauf fertig?
+python make_table5.py --run Probe_paper=Results_paper:135 --run Probe_l1=Results_l1_270:135,270 --out table5_probe
+```
+
+**Euler, volle Läufe** (fertige Probe-Jobs enden sofort mit „SCHON FERTIG“):
+```
+THROTTLE=300 bash jobs_paper/submit.sh paper alle            # THROTTLE: höchstens 300 Teiljobs je Array gleichzeitig
+THROTTLE=300 bash jobs_paper/submit.sh l1_270 alle
+```
+
+**Euler, beobachten und Wiederholen:**
+```
+squeue -u $USER | tail -n +2 | wc -l                         # Jobs in der Warteschlange
+python watch_paper.py                                        # fertig/angefangen/fehlt, Slurm-Zustände, Kernstunden
+python watch_paper.py --retry && bash jobs_paper/submit.sh paper retry && bash jobs_paper/submit.sh l1_270 retry
+```
+
+**Table 5 erzeugen** (Euler oder Mac):
+```
+python make_table5.py                                        # Paper=Results_paper:135, L1_270=Results_l1_270:135,270 -> table5.csv/.md/.pdf
+```
+**Mac**, Ergebnisse holen statt auf Euler auszuwerten:
+```
+rsync -av andubach@euler.ethz.ch:HPOTreeBoosting/Results_paper andubach@euler.ethz.ch:HPOTreeBoosting/Results_l1_270 .
+python make_table5.py
+```

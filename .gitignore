@@ -102,3 +102,9 @@ ablation_vergleich.*
 repro_figures/
 repro_abbildungen.pdf
 repro_vergleich.pdf
+Results_paper/
+Results_l1_270/
+jobs_paper/logs/*
+!jobs_paper/logs/.gitkeep
+jobs_paper/*/submitted.tsv
+jobs_paper/*/arrays/retry_*.idx

@@ -1,0 +1,11 @@
+Lauf paper -> Results_paper/: 7139 Jobs, geschaetzt 19,230 Kernstunden (Zeitlimits zusammen 42,179 h)
+  je Methode: {'SMAC': 3790, 'default': 6, 'gp_bo': 3945, 'grid_search': 2154, 'hyperband': 2154, 'random_search': 3591, 'tpe': 3591}
+  Arrays: normal.120h_4G_0 (240 x 30 h, 4 GB), normal.24h_4G_0 (1000 x 21 h, 4 GB), normal.24h_4G_1 (1000 x 21 h, 4 GB), normal.24h_4G_2 (200 x 21 h, 4 GB), normal.24h_8G_0 (480 x 18 h, 8 GB), normal.4h_4G_0 (1000 x 4 h, 4 GB), normal.4h_4G_1 (1000 x 4 h, 4 GB), normal.4h_4G_2 (1000 x 4 h, 4 GB), normal.4h_4G_3 (1000 x 4 h, 4 GB), normal.4h_4G_4 (215 x 4 h, 4 GB), normal.4h_8G_0 (4 x 1 h, 8 GB)
+  teuerste Jobs: superconduct gp_bo 14.5 h, superconduct SMAC 14.4 h, superconduct random_search 14.2 h, superconduct tpe 14.2 h, Allstate_Claims_Severity gp_bo 13.7 h
+  Probe: 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
+
+Lauf l1_270 -> Results_l1_270/: 7139 Jobs, geschaetzt 37,406 Kernstunden (Zeitlimits zusammen 78,279 h)
+  je Methode: {'SMAC': 7801, 'default': 6, 'gp_bo': 8774, 'grid_search': 4309, 'hyperband': 2154, 'random_search': 7181, 'tpe': 7181}
+  Arrays: normal.120h_4G_0 (680 x 60 h, 4 GB), normal.120h_8G_0 (320 x 38 h, 8 GB), normal.24h_4G_0 (1000 x 24 h, 4 GB), normal.24h_4G_1 (1000 x 24 h, 4 GB), normal.24h_4G_2 (920 x 24 h, 4 GB), normal.24h_8G_0 (160 x 21 h, 8 GB), normal.4h_4G_0 (1000 x 4 h, 4 GB), normal.4h_4G_1 (1000 x 4 h, 4 GB), normal.4h_4G_2 (1000 x 4 h, 4 GB), normal.4h_4G_3 (55 x 4 h, 4 GB), normal.4h_8G_0 (4 x 1 h, 8 GB)
+  teuerste Jobs: superconduct gp_bo 29.8 h, superconduct SMAC 28.9 h, superconduct tpe 28.4 h, superconduct random_search 28.4 h, Allstate_Claims_Severity gp_bo 28.2 h
+  Probe: 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)

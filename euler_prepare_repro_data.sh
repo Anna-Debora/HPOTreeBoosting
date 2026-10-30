@@ -1,14 +1,19 @@
 #!/bin/bash
-# euler_prepare_repro_data.sh -- erzeugt auf Euler NUR die Daten der 7 Aufgaben des Reproduktions-Testlaufs
-# (REPRO_PLAN.md, Liste aus jobs_repro/jobs.tsv) und prueft die Pakete. Startet keine Jobs, committet nichts.
+# euler_prepare_repro_data.sh -- erzeugt auf Euler die Daten der alten Aufgaben (Suiten 334-337) und prueft die
+# Pakete und die native Kodierung der Kategorien (kein One-Hot). Startet keine Jobs, committet nichts.
 #
 # Aufruf auf Euler:
-#     cd ~/HPOTreeBoosting && bash euler_prepare_repro_data.sh
+#     cd ~/HPOTreeBoosting && bash euler_prepare_repro_data.sh                         # 7 Aufgaben des Testlaufs
+#     cd ~/HPOTreeBoosting && bash euler_prepare_repro_data.sh jobs_paper/aufgaben.tsv # alle 59 (grosse Laeufe)
+# Die Aufgabenliste ist eine TSV mit Kopfzeile und den Spalten suite, task (make_paper_jobs.py).
 #
 # data/ ist nicht im Git. Die alten Aufgaben (Suiten 334-337) holt prepare_one_dataset.py von OpenML
 # (bereits nach Grinsztajn aufbereitet) und legt sie als data/<suite>_<task>/<suite>_<task>_{X,y}.csv und
 # _categorical_indicator.npy ab. Schon vollstaendige Ordner werden nicht neu geladen; unvollstaendige
-# (z. B. abgebrochener Download) werden neu erzeugt. Dauer: wenige Minuten.
+# (z. B. abgebrochener Download) werden neu erzeugt. Dauer: wenige Minuten (alle 59: etwa 10-20 Minuten,
+# zusammen etwa 1.6 GB; Higgs und delays_zurich_transport sind die groessten).
+# Die Kodierung passiert erst beim Laden in methods.py (_preprocess_features); die Kontrolle am Ende laedt jede
+# Aufgabe genau so und prueft, dass die kategorialen Spalten als pandas "category" ankommen.
 
 set -eo pipefail     # -u erst nach "module load" und "activate", die vertragen es oft nicht
 module load stack/2024-06 gcc/12.2.0 python/3.9.18
@@ -46,12 +51,17 @@ print("OK: alle Pakete da")
 EOF
 
 echo
-echo "===== Daten der Testaufgaben ====="
+echo "===== Daten der Aufgaben ====="
 complete() {   # alle drei Dateien vorhanden und nicht leer
     local dir="data/$1_$2" stem="data/$1_$2/$1_$2"
     [ -s "${stem}_X.csv" ] && [ -s "${stem}_y.csv" ] && [ -s "${stem}_categorical_indicator.npy" ]
 }
-TASKS=$(cut -f2,3 jobs_repro/jobs.tsv | sort -u)
+if [ $# -ge 1 ]; then
+    TASKS=$(tail -n +2 "$1" | cut -f1,2 | sort -u)
+else
+    TASKS=$(cut -f2,3 jobs_repro/jobs.tsv | sort -u)
+fi
+EXPECTED=$(echo "$TASKS" | grep -c .)
 echo "$TASKS" | while read -r SUITE TASK; do
     if complete "$SUITE" "$TASK"; then
         echo "  vorhanden:  data/${SUITE}_${TASK}"
@@ -77,10 +87,18 @@ while read -r SUITE TASK; do
     fi
 done <<< "$TASKS"
 echo
-if [ "$N_OK" -eq "$N_ALL" ] && [ "$N_ALL" -eq 7 ]; then
-    echo "FERTIG: alle 7 Testaufgaben haben ihre Daten. Naechster Schritt (Probe):"
-    echo "    sbatch --array=0 jobs_repro/run_repro_array.sbatch"
-else
-    echo "NICHT FERTIG: $N_OK von $N_ALL Aufgaben vollstaendig (erwartet 7). Bitte die Meldungen oben pruefen."
+if [ "$N_OK" -ne "$N_ALL" ] || [ "$N_ALL" -ne "$EXPECTED" ]; then
+    echo "NICHT FERTIG: $N_OK von $N_ALL Aufgaben vollstaendig (erwartet $EXPECTED). Bitte die Meldungen oben pruefen."
     exit 1
+fi
+
+echo
+echo "===== Kodierung (wie beim Training: methods._preprocess_features, GPBoost) ====="
+echo "$TASKS" | python check_native_encoding.py
+echo
+echo "FERTIG: alle $N_ALL Aufgaben haben ihre Daten, Kategorien nativ."
+if [ $# -ge 1 ]; then
+    echo "Naechster Schritt (Probe): bash jobs_paper/submit.sh paper probe && bash jobs_paper/submit.sh l1_270 probe"
+else
+    echo "Naechster Schritt (Probe): sbatch --array=0 jobs_repro/run_repro_array.sbatch"
 fi
