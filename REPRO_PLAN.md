@@ -253,25 +253,37 @@ python watch_paper.py                                        # nach dem Ende: 7 
 python make_table5.py --run Probe_paper=Results_paper:135 --run Probe_l1=Results_l1_270:135,270 --out table5_probe
 ```
 
-**Euler, volle Läufe in Wellen** (seit 31.10.2026; `make_paper_jobs.py`): Welle 1 = Seeds 1–5 + Default,
-Welle 2 = Seeds 6–10, Welle 3 = 11–15, Welle 4 = 16–20, je alle 59 Aufgaben und alle Methoden. Jede Welle besteht
-aus eigenen Arrays (`welle<w>.<partition>_<mem>G_<k>`, Zeitlimit und Speicher wie bisher); in jedem Array liegen
-kleine Aufgaben zuerst (Slurm startet in Indexreihenfolge), die Probe-Jobs fehlen (schon gerechnet).
-Kosten je Welle: `jobs_paper/kosten_wellen.tsv` und `jobs_paper/zusammenfassung.txt`
-(paper ≈ 4'800 Kernstunden je Welle, ~3 Tage bei 64 Kernen; l1_270 ≈ 9'350, ~6 Tage; beide ≈ 14'150, ~9 Tage
-bei 64 bzw. ~5.4 Tage bei 110 Kernen; alle Wellen beider Läufe 14'264 Jobs < 17'000).
+**Euler, volle Läufe in Wellen** (Welle 1 = Seeds 1–5 + Default, 2 = 6–10, 3 = 11–15, 4 = 16–20; je alle
+59 Aufgaben und Methoden). Kosten je Welle: `jobs_paper/kosten_wellen.tsv` (paper ≈ 4'800 Kernstunden, ~3 Tage bei
+64 Kernen; l1_270 ≈ 9'350, ~6 Tage; beide ≈ 14'150, ~9 Tage bei 64 bzw. ~5.4 Tage bei 110 Kernen).
+
+Abschicken mit `refill.py` (seit 31.10.2026): der QOS erlaubt nur ~1000 eigene Jobs in der Schlange (jeder
+Array-Teiljob zählt; sonst `QOSMaxSubmitJobPerUserLimit`). refill.py füllt die Schlange bis `--limit` (940) auf,
+Welle 1 vor 2, schnelle Partitionen zuerst, je Partition zuerst `--reserve` (100) Plätze; schickt nie doppelt
+(Ergebnisdateien, submitted.tsv, sacct; unbekannte hpo-Jobs in der Schlange → Abbruch) und wiederholt
+beendete Jobs ohne Ergebnis (TIMEOUT → längere Partition, OUT_OF_MEMORY → nächste Speicherstufe), höchstens
+`--max_versuche` (3) Mal. Die Wellen-Arrays von `submit.sh` (arrays/welle*.idx, arrays.tsv) sind eingefroren.
 ```
-bash jobs_paper/submit.sh paper welle1                       # zuerst paper (früher abgeschickt = früher an der Reihe)
-bash jobs_paper/submit.sh l1_270 welle1
-DRY=1 bash jobs_paper/submit.sh paper welle2                 # nur anzeigen
+DRY=1 python refill.py --run beide          # Vorschau
+python refill.py --run beide                # nachfüllen; täglich 1-2x
+python refill.py --run beide --daemon       # oder: selbstfortsetzender Slurm-Job, alle 10 min
+python refill.py --stop                     # Daemon beenden
 ```
 
-**Euler, beobachten und Wiederholen:**
+**Speicher** (31.10.2026): MiniBooNE random_search scheiterte mit 4 GB an OUT_OF_MEMORY. Ursache: GPBoost legt je
+Blatt ein Histogramm an (num_leaves bis 1024 × Bins bis 10'000 je Merkmal × 16 Byte); bei vielen stetigen
+Merkmalen mehrere GB. `measure_memory.py` misst die Spitze je Aufgabe auf dem Mac (`jobs_paper/speicher_mac.tsv`;
+jannis 6.1, MiniBooNE 6.1, topo_2_1 4.6, superconduct 4.2, Higgs 4.0 GB), `make_paper_jobs.py` setzt
+Speicher = Stufe über 1.5 × Spitze + 1.5 GB: 12 GB für jannis, MiniBooNE, topo_2_1; 8 GB für superconduct, Higgs,
+covertype, delays_zurich_transport; sonst 4 GB (Default immer nach Dateigrösse). Auf Euler:
+`python watch_paper.py --speicher` (MaxRSS aus sacct je Aufgabe, schreibt `jobs_paper/speicher_euler.tsv`, das
+refill.py als Untergrenze nimmt).
+
+**Euler, beobachten:**
 ```
-squeue -u $USER | tail -n +2 | wc -l                         # Jobs in der Warteschlange
-python watch_paper.py                                        # je Welle fertig/laufend/wartend/fehlgeschlagen/fehlt
-python watch_paper.py --run paper --aufgaben                # je Aufgabe und Welle: ok oder fertig/alle
-python watch_paper.py --retry && bash jobs_paper/submit.sh paper retry && bash jobs_paper/submit.sh l1_270 retry
+python watch_paper.py                       # Schlange, je Welle fertig/laufend/wartend/fehlgeschlagen/fehlt/nachfüllen
+python watch_paper.py --run paper --aufgaben
+python watch_paper.py --speicher
 ```
 
 **Table 5 erzeugen** (Euler oder Mac):

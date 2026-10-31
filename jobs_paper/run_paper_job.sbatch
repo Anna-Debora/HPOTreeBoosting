@@ -5,7 +5,7 @@
 #SBATCH --error=jobs_paper/logs/%x_%A_%a.err
 #SBATCH --export=ALL
 # Ein Teiljob der grossen Laeufe (make_paper_jobs.py). Nicht direkt abschicken, sondern ueber
-#   bash jobs_paper/submit.sh <lauf> <array|probe|alle>
+#   python refill.py (oder fuer die Probe: bash jobs_paper/submit.sh <lauf> probe)
 # (setzt --array, --time, --mem-per-cpu, --partition und die Argumente <lauf> <idx-Datei>).
 # Wiederholbar: fertige Ergebnisse werden uebersprungen, angefangene ab dem ersten fehlenden Fold fortgesetzt.
 

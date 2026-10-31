@@ -43,13 +43,38 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(states[3][0], "CANCELLED")
         self.assertEqual(states[6][2:], ("900", 1))         # Job-ID und Array-Index fuer den Log-Namen
 
-    def test_retry_escalates_time_and_memory(self):
-        job = SimpleNamespace(stunden=4, mem_gb=4, partition="normal.4h")
-        self.assertEqual(watch_paper.retry_name(job, "TIMEOUT"), "retry_normal.24h_4G_24h")
-        self.assertEqual(watch_paper.retry_name(job, "OUT_OF_MEMORY"), "retry_normal.4h_8G_4h")
-        self.assertEqual(watch_paper.retry_name(job, "FAILED"), "retry_normal.4h_4G_4h")
-        long = SimpleNamespace(stunden=120, mem_gb=8, partition="normal.120h")
-        self.assertEqual(watch_paper.retry_name(long, "TIMEOUT"), "retry_normal.120h_8G_120h")
+    def test_escalate_time_and_memory(self):
+        plan = dict(partition="normal.4h", stunden=4, mem=4)
+        last = dict(partition="normal.4h", stunden=4, mem=4)
+        self.assertEqual(watch_paper.escalate(last, "TIMEOUT", plan), dict(partition="normal.24h", stunden=24, mem=4))
+        self.assertEqual(watch_paper.escalate(last, "OUT_OF_MEMORY", plan)["mem"], 8)
+        self.assertEqual(watch_paper.escalate(dict(last, mem=8), "OUT_OF_MEMORY", plan)["mem"], 12)
+        self.assertEqual(watch_paper.escalate(last, "FAILED", plan), plan)
+        long = dict(partition="normal.120h", stunden=120, mem=32)
+        self.assertEqual(watch_paper.escalate(long, "TIMEOUT", plan)["stunden"], 120)
+        self.assertEqual(watch_paper.escalate(long, "OUT_OF_MEMORY", plan)["mem"], 32)
+        # Plan inzwischen hoeher (z. B. neues Speichermodell): nie weniger als der Plan
+        self.assertEqual(watch_paper.escalate(last, "FAILED", dict(partition="normal.24h", stunden=21, mem=12)),
+                         dict(partition="normal.24h", stunden=21, mem=12))
+
+    def test_old_submission_resources(self):
+        Path("jobs_paper/paper/arrays.tsv").write_text(
+            "array\twelle\tpartition\tstunden\tmem_gb\tn\na\t1\tnormal.120h\t30\t4\t4\n")
+        Path("jobs_paper/paper/arrays/retry_normal.120h_8G_30h.idx").write_text("5\n")
+        with open("jobs_paper/paper/submitted.tsv", "a") as handle:
+            handle.write("902\tjobs_paper/paper/arrays/retry_normal.120h_8G_30h.idx\t1\t2026-10-31\n")
+            handle.write("903;euler\tjobs_paper/paper/arrays/b.idx\t2\t2026-10-31\tnormal.24h\t21\t12\n")
+        subs = watch_paper.submissions("paper")
+        self.assertEqual([(s["id"], s["partition"], s["stunden"], s["mem"]) for s in subs],
+                         [("900", "normal.120h", 30, 4), ("901", None, None, None), ("902", "normal.120h", 30, 8),
+                          ("903", "normal.24h", 21, 12)])
+        tries, ok = watch_paper.attempts("paper", sacct_text="902_0|OUT_OF_MEMORY|10\n903_[0-1]|PENDING|0\n")
+        self.assertTrue(ok)
+        self.assertEqual([t["id"] for t in tries[5]], ["900", "902"])     # erst a.idx Index 0, dann der Retry
+        self.assertEqual(tries[5][-1]["state"], "OUT_OF_MEMORY")
+        self.assertIsNone(tries[5][0]["state"])                          # 900 kennt sacct hier nicht
+        self.assertEqual(tries[2][-1]["state"], "PENDING")                # 903 nur Index 0-1: Zeilen 1, 2
+        self.assertNotIn("903", [t["id"] for t in tries[3]])
 
     def test_file_state_counts_complete_folds(self):
         folder = Path("R/tpe/seed_1/gpboost")

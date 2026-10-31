@@ -108,3 +108,8 @@ jobs_paper/logs/*
 !jobs_paper/logs/.gitkeep
 jobs_paper/*/submitted.tsv
 jobs_paper/*/arrays/retry_*.idx
+jobs_paper/*/arrays/teile/
+jobs_paper/.refill.lock
+jobs_paper/refill.stop
+jobs_paper/speicher_euler.tsv
+jobs_paper/*/scancel_zu_wenig_speicher.sh

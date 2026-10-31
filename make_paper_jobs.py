@@ -13,21 +13,23 @@ Ein Job = (Aufgabe, Seed, Methode), 1 Kern; Default einmal pro Aufgabe (haengt n
 Die Jobs schreiben nach jedem Fold und sind wiederholbar (run_ablation.py --resume: fertige Dateien
 ueberspringen, angefangene ab dem ersten fehlenden Fold fortsetzen; Default: vorhandene Datei ueberspringen).
 
-Zeitlimit und Speicher pro Job aus dem Kostenmodell (siehe kosten()) und der Datengroesse.
+Zeitlimit pro Job aus dem Kostenmodell (siehe kosten()), Speicher aus der Speichermessung (memory_gb()).
 
 Wellen (damit es frueh Zwischenergebnisse gibt): Welle 1 = Seeds 1-5 (Reihenfolge wie utils_modelling.seeds) plus
 Default, Welle 2 = Seeds 6-10, Welle 3 = Seeds 11-15, Welle 4 = Seeds 16-20, jeweils alle 59 Aufgaben und alle
-Methoden. Jede Welle wird nach (Partition, Speicher) in Slurm-Arrays mit hoechstens --max_array Teiljobs aufgeteilt
-(Zeitlimit = groesstes der Gruppe, wie bisher). Innerhalb eines Arrays liegen die Indizes nach geschaetzter Laufzeit
-der Aufgabe (kleine zuerst), dann Seed, dann Methode; Slurm startet Array-Teiljobs in Indexreihenfolge, also werden
-kleine Aufgaben zuerst fuer alle Methoden und Seeds der Welle fertig. Die Probe-Jobs (schon gerechnet) fehlen in
-den Wellen-Arrays. jobs.tsv selbst behaelt seine Reihenfolge (die Zeilennummern der Probe bleiben gueltig).
+Methoden. Abgeschickt wird mit refill.py in Portionen (Euler: hoechstens ~1000 Jobs in der Schlange), in der
+Reihenfolge der Spalte 'reihenfolge' in kosten.tsv: Welle, dann schnelle Partition zuerst (normal.4h vor 24h vor
+120h), dann Aufgabe nach geschaetzter Laufzeit (kleine zuerst), Seed, Methode. Zeitlimit einer Portion = Spalte
+'zeitlimit' (groesstes 'stunden' der Gruppe gleicher Welle, Partition und Speicher, wie bei den frueheren Arrays).
 
-Aufruf:  python make_paper_jobs.py [--max_array 1000] [--out jobs_paper]
+Eingefroren (31.10.2026): die Wellen-Arrays arrays/welle*.idx und arrays.tsv aus dem ersten Abschicken mit
+submit.sh werden nicht mehr geschrieben oder geloescht, weil submitted.tsv auf Euler ueber sie die Array-Indizes
+der schon abgeschickten Jobs auf Zeilen von jobs.tsv abbildet. jobs.tsv behaelt seine Reihenfolge.
+
+Aufruf:  python make_paper_jobs.py [--out jobs_paper]
 Ausgabe: <out>/<lauf>/jobs.tsv (eine Zeile je Job, ohne Kopfzeile, fuer das sbatch-Skript)
-         <out>/<lauf>/kosten.tsv (mit Kopfzeile: Schaetzung, Zeitlimit, Speicher, Array)
-         <out>/<lauf>/arrays/welle<w>.<partition>_<mem>G_<k>.idx (Zeilennummern in jobs.tsv je Array) und
-         arrays.tsv (Uebersicht mit Spalte welle)
+         <out>/<lauf>/kosten.tsv (mit Kopfzeile: Schaetzung, Partition, Zeitlimit, Speicher, Welle, Reihenfolge,
+         Name des eingefrorenen Arrays, falls die Zeile in einem liegt)
          <out>/kosten_wellen.tsv (Kernstunden und Dauer je Lauf und Welle)
          <out>/<lauf>/arrays/probe.idx (wine_quality, Seed 27225, alle 7 Methoden)
          <out>/run_paper_job.sbatch, <out>/submit.sh, <out>/zusammenfassung.txt
@@ -66,7 +68,11 @@ SURROGATE_SEC = {("gp_bo", 135): 1.6, ("gp_bo", 270): 3.6, ("SMAC", 135): 0.9, (
 DEFAULT_HOURS = 0.1
 WAVE_SIZE = 5        # Seeds je Welle
 CORES = (64, 110)    # Euler-Account: 64 Kerne je Partition, 110 in normal/bulk zusammen
-MAX_SUBMIT = 17000   # hoechstens so viele abgeschickte (wartende + laufende) Jobs
+MAX_SUBMIT = 17000   # hoechstens so viele abgeschickte (wartende + laufende) Jobs (QOS: tatsaechlich ~1000, refill.py)
+MEM_STEPS = (4, 8, 12, 16, 24, 32)   # Speicherstufen je Kern in GB
+# Speicher = naechste Stufe ueber MEM_FACTOR x Mac-Spitze + MEM_BASE (jobs_paper/speicher_mac.tsv, measure_memory.py).
+# Abgleich: MiniBooNE Mac-Spitze 6.1 GB, auf Euler mit 4 GB OUT_OF_MEMORY (random_search, Job 19145396).
+MEM_FACTOR, MEM_BASE = 1.5, 1.5
 
 
 def tasks():
@@ -95,13 +101,32 @@ def kosten(method, trials, sec):
     return FOLDS * n * per_trial / 3600
 
 
-def memory_gb(suite, task):
-    """Speicher je Kern nach Groesse der Rohdaten (die Daten werden ganz geladen, dann auf 100'000 Zeilen
-    unterabgetastet). Gemessen (Mac, Laden + Kodierung): delays_zurich_transport 306 MB -> 2.0 GB Spitze,
-    covertype 58 MB -> 1.2 GB, Higgs 419 MB -> 0.8 GB."""
+def mem_step(gb):
+    """Kleinste Speicherstufe >= gb."""
+    return next((m for m in MEM_STEPS if m >= gb), MEM_STEPS[-1])
+
+
+def mac_peaks(path="jobs_paper/speicher_mac.tsv"):
+    """{(suite, task): Spitze in GB} aus measure_memory.py; leer, wenn die Datei fehlt."""
+    if not Path(path).exists():
+        return {}
+    frame = pd.read_csv(path, sep="\t").dropna(subset=["peak_gb"])
+    return {(int(r.suite), int(r.task)): float(r.peak_gb) for r in frame.itertuples()}
+
+
+def memory_gb(suite, task, method="", peaks=None):
+    """Speicher je Kern. Untergrenze nach Groesse der Rohdaten (die Daten werden ganz geladen, dann auf 100'000
+    Zeilen unterabgetastet; Mac: delays_zurich_transport 306 MB -> 2.0 GB): 4 GB bis 100 MB, sonst 8 GB.
+    HPO-Methoden: dazu die Histogramme von GPBoost beim teuersten Versuch (num_leaves 1024, max_bin bis 10'000),
+    gemessen mit measure_memory.py: Stufe ueber MEM_FACTOR x Spitze + MEM_BASE. Default (31 Blaetter, 255 Bins)
+    braucht nur die Untergrenze."""
     folder = Path(f"data/{suite}_{task}")
     mb = sum(f.stat().st_size for f in folder.glob("*")) / 1e6 if folder.exists() else 0
-    return 4 if mb <= 100 else 8
+    floor = 4 if mb <= 100 else 8
+    peak = (peaks or {}).get((suite, task))
+    if method == "default" or peak is None:
+        return floor
+    return max(floor, mem_step(MEM_FACTOR * peak + MEM_BASE))
 
 
 def partition(hours):
@@ -117,7 +142,7 @@ def wave(seed):
     return 1 if seed not in SEEDS else SEEDS.index(seed) // WAVE_SIZE + 1
 
 
-def build(run, sec, task_list):
+def build(run, sec, task_list, peaks=None):
     settings = RUNS[run]
     rows = []
     for t in task_list.itertuples():
@@ -128,7 +153,7 @@ def build(run, sec, task_list):
                 rows.append(dict(method=method, seed=seed, suite=t.suite, task=t.task, trials=settings["trials"],
                                  flags=settings["flags"] if method != "default" else "", folder=settings["folder"],
                                  name=t.name, kernstunden=round(hours, 3), partition=name, stunden=limit,
-                                 mem_gb=memory_gb(t.suite, t.task), welle=wave(seed),
+                                 mem_gb=memory_gb(t.suite, t.task, method, peaks), welle=wave(seed),
                                  sek_versuch=sec[(t.suite, t.task)]))
     return pd.DataFrame(rows)
 
@@ -140,18 +165,28 @@ def ordered(group):
     return key.sort_values(["sek_versuch", "suite", "task", "_seed", "_method"], kind="stable")
 
 
-def arrays(jobs, max_array, skip=()):
-    """Je Welle Gruppen gleicher (Partition, Speicher); Zeitlimit = groesstes der Gruppe (auf die Partition
-    gedeckelt). skip: Zeilennummern, die nicht mehr abgeschickt werden (Probe)."""
-    out = []
-    todo = jobs[~(jobs.index + 1).isin(list(skip))]
-    for (welle, name, mem), group in todo.groupby(["welle", "partition", "mem_gb"], sort=True):
-        lines = (ordered(group).index + 1).tolist()   # Zeilennummern in jobs.tsv (1-basiert, fuer sed -n)
-        hours = int(group["stunden"].max())
-        for chunk, start in enumerate(range(0, len(lines), max_array)):
-            out.append(dict(array=f"welle{welle}.{name}_{mem}G_{chunk}", welle=int(welle), partition=name,
-                            stunden=hours, mem_gb=mem, lines=lines[start:start + max_array]))
-    return out
+def plan(jobs):
+    """Spalten 'zeitlimit' (groesstes 'stunden' je Welle, Partition, Speicher) und 'reihenfolge' (1 = zuerst
+    abschicken: Welle, schnelle Partition zuerst, kleine Aufgaben zuerst, Seed, Methode)."""
+    jobs = jobs.copy()
+    jobs["zeitlimit"] = jobs.groupby(["welle", "partition", "mem_gb"])["stunden"].transform("max").astype(int)
+    hours = dict(PARTITIONS)
+    keyed = ordered(jobs.assign(_part=jobs["partition"].map(hours)))
+    order = keyed.sort_values(["welle", "_part"], kind="stable").index
+    jobs.loc[order, "reihenfolge"] = np.arange(1, len(jobs) + 1)
+    jobs["reihenfolge"] = jobs["reihenfolge"].astype(int)
+    return jobs
+
+
+def frozen_arrays(folder):
+    """{Zeilennummer: Array-Name} aus den eingefrorenen arrays/*.idx (ohne retry_ und Portionen)."""
+    names = {}
+    for idx in sorted((folder / "arrays").glob("*.idx")):
+        if idx.name.startswith("retry_"):
+            continue
+        for line in idx.read_text().split():
+            names.setdefault(int(line), idx.stem)
+    return names
 
 
 def wave_costs(run, jobs, skip=()):
@@ -176,7 +211,7 @@ SBATCH = """#!/bin/bash
 #SBATCH --error=jobs_paper/logs/%x_%A_%a.err
 #SBATCH --export=ALL
 # Ein Teiljob der grossen Laeufe (make_paper_jobs.py). Nicht direkt abschicken, sondern ueber
-#   bash jobs_paper/submit.sh <lauf> <array|probe|alle>
+#   python refill.py (oder fuer die Probe: bash jobs_paper/submit.sh <lauf> probe)
 # (setzt --array, --time, --mem-per-cpu, --partition und die Argumente <lauf> <idx-Datei>).
 # Wiederholbar: fertige Ergebnisse werden uebersprungen, angefangene ab dem ersten fehlenden Fold fortgesetzt.
 
@@ -217,56 +252,32 @@ echo "Ende $(date '+%F %T')"
 """
 
 SUBMIT = """#!/bin/bash
-# Schickt die Arrays eines Laufs ab und merkt sich die Job-IDs in jobs_paper/<lauf>/submitted.tsv
-# (fuer watch_paper.py). Aufruf aus ~/HPOTreeBoosting auf Euler:
-#   bash jobs_paper/submit.sh paper probe        # 7 Jobs: wine_quality, Seed 27225, alle Methoden
-#   bash jobs_paper/submit.sh paper welle1       # alle Arrays der Welle 1 (Seeds 1-5 + Default), ebenso welle2..4
-#   bash jobs_paper/submit.sh paper alle         # alle Wellen (fertige Jobs enden sofort)
-#   bash jobs_paper/submit.sh paper welle1.normal.4h_4G_0   # ein einzelnes Array (Name aus arrays.tsv)
-#   bash jobs_paper/submit.sh paper retry        # Wiederholung: arrays/retry_*.idx aus watch_paper.py --retry
-# Optional: DRY=1 (nur anzeigen), THROTTLE=200 (hoechstens so viele Teiljobs eines Arrays gleichzeitig).
+# Nur noch fuer die Probe. Die Wellen schickt refill.py in Portionen ab (QOS: hoechstens ~1000 Jobs in der Schlange):
+#   python refill.py --run beide              # siehe python refill.py --help
+#   bash jobs_paper/submit.sh paper probe     # 7 Jobs: wine_quality, Seed 27225, alle Methoden
+# Optional: DRY=1 (nur anzeigen). Merkt sich die Job-ID in jobs_paper/<lauf>/submitted.tsv (fuer watch_paper.py).
 set -euo pipefail
 cd "$HOME/HPOTreeBoosting" 2>/dev/null || true
 RUN=$1; WHAT=$2
 DIR=jobs_paper/$RUN
 mkdir -p jobs_paper/logs
-submit() {   # $1 idx-Datei, $2 Partition, $3 Stunden, $4 Speicher GB
-    local n; n=$(grep -c . "$1")
-    [ "$n" -gt 0 ] || return 0
-    local array="0-$((n - 1))${THROTTLE:+%$THROTTLE}"
-    local cmd=(sbatch --parsable --array="$array" --partition="$2" --time="$3:00:00" --mem-per-cpu="$4G"
-               --job-name="hpo-$RUN" jobs_paper/run_paper_job.sbatch "$RUN" "$1")
-    if [ -n "${DRY:-}" ]; then echo "${cmd[*]}"; return 0; fi
-    local id; id=$("${cmd[@]}")
-    printf '%s\\t%s\\t%s\\t%s\\n' "$id" "$1" "$n" "$(date '+%F %T')" >> "$DIR/submitted.tsv"
-    echo "abgeschickt: Job $id, $n Teiljobs, $1 ($2, $3 h, $4 GB)"
-}
 case "$WHAT" in
-    probe) submit "$DIR/arrays/probe.idx" normal.4h 4 4 ;;
-    alle|welle[0-9]|welle[0-9][0-9])
-           W=${WHAT#welle}; [ "$WHAT" = alle ] && W=
-           FOUND=0
-           while IFS=$'\\t' read -r NAME WELLE PART HOURS MEM N; do
-               [ -z "$W" ] || [ "$WELLE" = "$W" ] || continue
-               FOUND=1; submit "$DIR/arrays/$NAME.idx" "$PART" "$HOURS" "$MEM"
-           done < <(tail -n +2 "$DIR/arrays.tsv")
-           [ "$FOUND" = 1 ] || { echo "keine Arrays fuer $WHAT (siehe $DIR/arrays.tsv)"; exit 1; } ;;
-    retry) for f in "$DIR"/arrays/retry_*.idx; do
-               [ -e "$f" ] || { echo "keine retry_*.idx (zuerst: python watch_paper.py --retry)"; exit 1; }
-               IFS=_ read -r _ PART MEMG HOURS <<< "$(basename "$f" .idx)"
-               submit "$f" "$PART" "${HOURS%h}" "${MEMG%G}"; done ;;
-    *)     LINE=$(awk -F'\\t' -v n="$WHAT" '$1 == n' "$DIR/arrays.tsv")
-           [ -n "$LINE" ] || { echo "unbekannt: $WHAT (siehe $DIR/arrays.tsv)"; exit 1; }
-           IFS=$'\\t' read -r NAME WELLE PART HOURS MEM N <<< "$LINE"
-           submit "$DIR/arrays/$NAME.idx" "$PART" "$HOURS" "$MEM" ;;
+    probe) cmd=(sbatch --parsable --array=0-6 --partition=normal.4h --time=4:00:00 --mem-per-cpu=4G
+                --job-name="hpo-$RUN" jobs_paper/run_paper_job.sbatch "$RUN" "$DIR/arrays/probe.idx")
+           if [ -n "${DRY:-}" ]; then echo "${cmd[*]}"; exit 0; fi
+           id=$("${cmd[@]}")
+           printf '%s\\t%s\\t%s\\t%s\\tnormal.4h\\t4\\t4\\n' "$id" "$DIR/arrays/probe.idx" 7 "$(date '+%F %T')" >> "$DIR/submitted.tsv"
+           echo "abgeschickt: Job $id (Probe, 7 Teiljobs)" ;;
+    *)     echo "$WHAT: Wellen und Wiederholungen jetzt mit refill.py (python refill.py --help)"; exit 1 ;;
 esac
 """
 
 
-def main(out, max_array, timing):
+def main(out, timing, memory="jobs_paper/speicher_mac.tsv"):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     sec = seconds_per_trial(timing)
+    peaks = mac_peaks(memory)
     task_list = tasks()
     task_list.assign(classification=[is_classification(s) for s in task_list["suite"]]).to_csv(
         out / "aufgaben.tsv", sep="\t", index=False, columns=["suite", "task", "name", "classification"])
@@ -274,28 +285,22 @@ def main(out, max_array, timing):
     for run in RUNS:
         folder = out / run
         (folder / "arrays").mkdir(parents=True, exist_ok=True)
-        for old in (folder / "arrays").glob("*.idx"):
-            if not old.name.startswith("retry_"):
-                old.unlink()
-        jobs = build(run, sec, task_list)
+        jobs = plan(build(run, sec, task_list, peaks))
         jobs[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
             folder / "jobs.tsv", sep="\t", index=False, header=False)
         probe = jobs[(jobs["suite"] == PROBE[0]) & (jobs["task"] == PROBE[1])
                      & ((jobs["seed"] == PROBE[2]) | (jobs["method"] == "default"))]
         probe_lines = [i + 1 for i in probe.index]
-        (folder / "arrays" / "probe.idx").write_text("\n".join(map(str, probe_lines)) + "\n")
-        groups = arrays(jobs, max_array, skip=probe_lines)
-        jobs["array"] = ""
-        jobs.loc[probe.index, "array"] = "probe"
-        for g in groups:
-            (folder / "arrays" / f"{g['array']}.idx").write_text("\n".join(map(str, g["lines"])) + "\n")
-            jobs.loc[[line - 1 for line in g["lines"]], "array"] = g["array"]
-        pd.DataFrame([{k: g[k] for k in ("array", "welle", "partition", "stunden", "mem_gb")} | {"n": len(g["lines"])}
-                      for g in groups]).to_csv(folder / "arrays.tsv", sep="\t", index=False)
+        if not (folder / "arrays" / "probe.idx").exists():
+            (folder / "arrays" / "probe.idx").write_text("\n".join(map(str, probe_lines)) + "\n")
+        names = frozen_arrays(folder)
+        jobs["array"] = [names.get(i + 1, "") for i in jobs.index]
         jobs.drop(columns="sek_versuch").to_csv(folder / "kosten.tsv", sep="\t", index=False)
         costs = wave_costs(run, jobs, skip=probe_lines)
         waves.append(costs)
         by_method = jobs.groupby("method")["kernstunden"].sum().round(0).astype(int).to_dict()
+        hpo = jobs[jobs["method"] != "default"].drop_duplicates(["suite", "task"])
+        big = hpo[hpo["mem_gb"] > 4].sort_values("mem_gb", ascending=False)
         summary += [f"Lauf {run} -> {RUNS[run]['folder']}/: {len(jobs)} Jobs, geschaetzt "
                     f"{jobs['kernstunden'].sum():,.0f} Kernstunden (Zeitlimits zusammen {jobs['stunden'].sum():,} h)",
                     f"  je Methode: {by_method}",
@@ -303,16 +308,15 @@ def main(out, max_array, timing):
                         f"{r.name} {r.method} {r.kernstunden:.1f} h" for r in
                         jobs.sort_values("kernstunden", ascending=False).drop_duplicates(["task", "method"])
                         .head(5).itertuples()),
-                    f"  Probe (schon gerechnet, nicht in den Wellen): {len(probe)} Jobs "
-                    f"(Zeilen {', '.join(map(str, probe_lines))})"]
+                    "  Speicher je Job: " + ", ".join(f"{m} GB {n}" for m, n in
+                                                     jobs["mem_gb"].value_counts().sort_index().items())
+                    + "; Aufgaben ueber 4 GB: " + ", ".join(f"{r.name} {r.mem_gb}" for r in big.itertuples()),
+                    f"  Probe (schon gerechnet): {len(probe)} Jobs (Zeilen {', '.join(map(str, probe_lines))})"]
         for c in costs.itertuples():
-            part = [g for g in groups if g["welle"] == c.welle]
-            summary += [f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
-                        f"{' + Default' if c.welle == 1 else ''}): {c.jobs} Jobs, {c.kernstunden:,} Kernstunden, "
-                        f"bei 64 Kernen ~{c.tage_64_kerne} Tage, bei 110 Kernen ~{c.tage_110_kerne} Tage "
-                        f"(laengster Job {c.laengster_job_h} h)",
-                        "    Arrays: " + ", ".join(f"{g['array']} ({len(g['lines'])} x {g['stunden']} h, "
-                                                  f"{g['mem_gb']} GB)" for g in part)]
+            summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
+                           f"{' + Default' if c.welle == 1 else ''}): {c.jobs} Jobs, {c.kernstunden:,} Kernstunden, "
+                           f"bei 64 Kernen ~{c.tage_64_kerne} Tage, bei 110 Kernen ~{c.tage_110_kerne} Tage "
+                           f"(laengster Job {c.laengster_job_h} h)")
         summary.append("")
     waves = pd.concat(waves, ignore_index=True)
     both = waves.groupby("welle").agg(jobs=("jobs", "sum"), kernstunden=("kernstunden", "sum"),
@@ -324,9 +328,9 @@ def main(out, max_array, timing):
     summary += ["Beide Laeufe zusammen je Welle (teilen sich dieselben Kerne):"]
     summary += [f"  Welle {r.welle}: {r.jobs} Jobs, {r.kernstunden:,} Kernstunden, bei 64 Kernen ~{r.tage_64_kerne} "
                 f"Tage, bei 110 Kernen ~{r.tage_110_kerne} Tage" for r in both.itertuples()]
-    summary += [f"Alle Wellen beider Laeufe: {both['jobs'].sum():,} Jobs (Grenze {MAX_SUBMIT:,} abgeschickte Jobs), "
-                f"{both['kernstunden'].sum():,} Kernstunden. Dauer = max(Kernstunden / Kerne, laengster Job), "
-                "Untergrenze ohne Wartezeit in der Warteschlange.", ""]
+    summary += [f"Alle Wellen beider Laeufe: {both['jobs'].sum():,} Jobs, {both['kernstunden'].sum():,} Kernstunden. "
+                "Dauer = max(Kernstunden / Kerne, laengster Job), Untergrenze ohne Wartezeit in der Warteschlange. "
+                "Abschicken: refill.py (Schlange <= 940).", ""]
     (out / "run_paper_job.sbatch").write_text(SBATCH)
     (out / "submit.sh").write_text(SUBMIT)
     (out / "logs").mkdir(exist_ok=True)
@@ -338,8 +342,7 @@ def main(out, max_array, timing):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="jobs_paper")
-    parser.add_argument("--max_array", type=int, default=1000,
-                        help="hoechstens so viele Teiljobs je Array (Slurm MaxArraySize auf Euler pruefen)")
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
+    parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
     args = parser.parse_args()
-    main(args.out, args.max_array, args.timing)
+    main(args.out, args.timing, args.memory)
