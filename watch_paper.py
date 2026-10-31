@@ -8,7 +8,10 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
                                           # fertige Datei geendet haben: nach Timeout naechstlaengere Partition, nach
                                           # Speicherfehler doppelter Speicher; abschicken mit
                                           # bash jobs_paper/submit.sh <lauf> retry
-Ohne sacct (z. B. auf dem Mac nach dem Kopieren der Ergebnisse) nur der Dateistand.
+    python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
+Pro Welle (make_paper_jobs.py: Welle 1 = Seeds 1-5 + Default, 2 = Seeds 6-10, ...): fertig / laufend / wartend /
+fehlgeschlagen / fehlt, und wie viele Aufgaben in der Welle vollstaendig sind (alle Methoden, alle Seeds der Welle).
+Ohne sacct (z. B. auf dem Mac nach dem Kopieren der Ergebnisse) nur der Dateistand (laufend/wartend dann unbekannt).
 """
 import argparse
 import subprocess
@@ -86,12 +89,58 @@ def retry_name(job, state):
     return f"retry_{part}_{mem}G_{hours}h"
 
 
-def watch(run, retry):
+ENDED_BAD = ["FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED", "NODE_FAIL", "PREEMPTED"]
+
+
+def status(datei, slurm):
+    """Zustand eines Jobs fuer die Wellen-Uebersicht."""
+    if datei == "fertig":
+        return "fertig"
+    if slurm in ("RUNNING", "COMPLETING"):
+        return "laufend"
+    if slurm in ("PENDING", "REQUEUED", "SUSPENDED"):
+        return "wartend"
+    if slurm in ENDED_BAD or slurm == "COMPLETED":     # COMPLETED ohne fertige Datei zaehlt als fehlgeschlagen
+        return "fehlgeschlagen"
+    return "fehlt"
+
+
+STATES = ["fertig", "laufend", "wartend", "fehlgeschlagen", "fehlt"]
+
+
+def wave_table(jobs):
+    """Je Welle: Zahl der Jobs je Zustand, Aufgaben vollstaendig / mit Jobs."""
+    rows = []
+    for welle, group in jobs.groupby("welle"):
+        counts = group["status"].value_counts()
+        done = group.groupby(["suite", "task"])["status"].apply(lambda s: (s == "fertig").all())
+        rows.append({"welle": int(welle), "jobs": len(group), **{k: int(counts.get(k, 0)) for k in STATES},
+                     "aufgaben_fertig": int(done.sum()), "aufgaben": len(done)})
+    return pd.DataFrame(rows)
+
+
+def task_table(jobs):
+    """Je Aufgabe und Welle: 'fertig/alle', 'ok' wenn vollstaendig; Spalte 'bis' = letzte Welle, bis zu der die
+    Aufgabe lueckenlos fertig ist (0 = nicht einmal Welle 1)."""
+    frame = jobs.assign(fertig=jobs["status"] == "fertig").groupby(["suite", "task", "name", "welle"])["fertig"] \
+        .agg(["sum", "size"]).reset_index()
+    frame["text"] = [("ok" if s == n else f"{s}/{n}") for s, n in zip(frame["sum"], frame["size"])]
+    table = frame.pivot_table(index=["suite", "task", "name"], columns="welle", values="text", aggfunc="first")
+    table.columns = [f"welle{w}" for w in table.columns]
+    table["bis"] = [next((i for i, v in enumerate(row, 1) if v != "ok"), len(row) + 1) - 1
+                    for row in table.to_numpy()]
+    order = jobs.groupby(["suite", "task", "name"])["kernstunden"].sum()     # Reihenfolge wie in den Arrays
+    return table.loc[order.sort_values(kind="stable").index].reset_index()
+
+
+def watch(run, retry, per_task=False):
     jobs = pd.read_csv(JOBS / run / "jobs.tsv", sep="\t", header=None, names=COLUMNS, keep_default_na=False)
     costs = pd.read_csv(JOBS / run / "kosten.tsv", sep="\t")
     arrays = pd.read_csv(JOBS / run / "arrays.tsv", sep="\t").set_index("array")
-    jobs[["partition", "mem_gb", "kernstunden"]] = costs[["partition", "mem_gb", "kernstunden"]]
-    jobs["stunden"] = costs["array"].map(arrays["stunden"])      # Zeitlimit, mit dem das Array abgeschickt wurde
+    jobs[["partition", "mem_gb", "kernstunden", "name"]] = costs[["partition", "mem_gb", "kernstunden", "name"]]
+    jobs["welle"] = costs["welle"] if "welle" in costs else 1
+    # Zeitlimit, mit dem das Array abgeschickt wurde (Probe: aus kosten.tsv)
+    jobs["stunden"] = costs["array"].map(arrays["stunden"]).fillna(costs["stunden"])
     jobs["line"] = jobs.index + 1
     jobs["datei"] = [file_state(j) for j in jobs.itertuples()]
     states = slurm_states(run)
@@ -108,7 +157,25 @@ def watch(run, retry):
               f"{jobs['kernstunden'].sum():,.0f})")
     per_method = jobs.assign(fertig=finished).groupby("method")["fertig"].agg(["sum", "size"])
     print("Fertig je Methode:", ", ".join(f"{m} {r['sum']}/{r['size']}" for m, r in per_method.iterrows()))
-    bad = jobs[jobs["slurm"].isin(["FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED", "NODE_FAIL"]) & ~finished]
+    jobs["status"] = [status(d, s) for d, s in zip(jobs["datei"], jobs["slurm"])]
+    waves = wave_table(jobs)
+    if not states:
+        print("(ohne sacct: laufend/wartend nicht bekannt, als 'fehlt' gezaehlt)")
+    print(waves.to_string(index=False))
+    tasks = task_table(jobs)
+    print("Aufgaben vollstaendig mit allen Seeds 1 bis 5w (fuer make_table5.py --seeds 1-<5w> --partial): "
+          + ", ".join(f"w={w}: {int((tasks['bis'] >= w).sum())}/{len(tasks)}" for w in waves["welle"]))
+    if per_task:
+        print(tasks.drop(columns=["suite"]).to_string(index=False))
+    else:
+        open_waves = waves.loc[waves["fertig"] < waves["jobs"], "welle"]
+        if len(open_waves):
+            col = f"welle{int(open_waves.min())}"
+            open_tasks = tasks[tasks[col] != "ok"]
+            print(f"Erste unvollstaendige Welle {col[5:]}: {len(open_tasks)} Aufgaben offen, z. B. "
+                  + ", ".join(f"{r.name} {getattr(r, col)}" for r in open_tasks.head(8).itertuples())
+                  + "  (alle: --aufgaben)")
+    bad = jobs[jobs["slurm"].isin(ENDED_BAD) & ~finished]
     for state, group in bad.groupby("slurm"):
         examples = ", ".join(f"Zeile {r.line} {r.method} {r.suite}_{r.task} seed {r.seed}"
                              for r in group.head(3).itertuples())
@@ -136,6 +203,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run", choices=("paper", "l1_270"), action="append")
     parser.add_argument("--retry", action="store_true")
+    parser.add_argument("--aufgaben", action="store_true", help="Stand je Aufgabe und Welle ausgeben")
     args = parser.parse_args()
     for run in args.run or ["paper", "l1_270"]:
-        watch(run, args.retry)
+        watch(run, args.retry, args.aufgaben)

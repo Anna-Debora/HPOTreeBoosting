@@ -63,5 +63,32 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(watch_paper.file_state(job), "fertig")
 
 
+class WaveTests(unittest.TestCase):
+    def test_status_and_wave_tables(self):
+        jobs = pd.DataFrame({
+            "suite": [336] * 6 + [334] * 3, "task": [1] * 6 + [2] * 3, "name": ["a"] * 6 + ["b"] * 3,
+            "welle": [1, 1, 1, 2, 2, 2, 1, 1, 2], "kernstunden": [1] * 6 + [5] * 3,
+            "datei": ["fertig", "fertig", "fertig", "fertig", "angefangen (2/5)", "fehlt",
+                      "fertig", "fehlt", "fehlt"],
+            "slurm": ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", "RUNNING", "PENDING",
+                      "COMPLETED", "TIMEOUT", "nicht abgeschickt"]})
+        jobs["status"] = [watch_paper.status(d, s) for d, s in zip(jobs["datei"], jobs["slurm"])]
+        self.assertEqual(list(jobs["status"]), ["fertig"] * 4 + ["laufend", "wartend", "fertig", "fehlgeschlagen",
+                                                                 "fehlt"])
+        waves = watch_paper.wave_table(jobs).set_index("welle")
+        self.assertEqual(waves.loc[1, "fertig"], 4)
+        self.assertEqual(waves.loc[1, "fehlgeschlagen"], 1)
+        self.assertEqual(waves.loc[1, "aufgaben_fertig"], 1)         # Aufgabe a ganz, b nicht
+        self.assertEqual(waves.loc[2, "laufend"], 1)
+        self.assertEqual(waves.loc[2, "aufgaben_fertig"], 0)
+        tasks = watch_paper.task_table(jobs).set_index("name")
+        self.assertEqual(tasks.loc["a", "welle1"], "ok")
+        self.assertEqual(tasks.loc["a", "welle2"], "1/3")
+        self.assertEqual(tasks.loc["a", "bis"], 1)
+        self.assertEqual(tasks.loc["b", "welle1"], "1/2")
+        self.assertEqual(tasks.loc["b", "bis"], 0)
+        self.assertEqual(list(tasks.index), ["a", "b"])               # kleine Aufgabe zuerst
+
+
 if __name__ == "__main__":
     unittest.main()

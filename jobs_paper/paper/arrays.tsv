@@ -1,12 +1,22 @@
-array	partition	stunden	mem_gb	n
-normal.120h_4G_0	normal.120h	30	4	240
-normal.24h_4G_0	normal.24h	21	4	1000
-normal.24h_4G_1	normal.24h	21	4	1000
-normal.24h_4G_2	normal.24h	21	4	200
-normal.24h_8G_0	normal.24h	18	8	480
-normal.4h_4G_0	normal.4h	4	4	1000
-normal.4h_4G_1	normal.4h	4	4	1000
-normal.4h_4G_2	normal.4h	4	4	1000
-normal.4h_4G_3	normal.4h	4	4	1000
-normal.4h_4G_4	normal.4h	4	4	215
-normal.4h_8G_0	normal.4h	1	8	4
+array	welle	partition	stunden	mem_gb	n
+welle1.normal.120h_4G_0	1	normal.120h	30	4	60
+welle1.normal.24h_4G_0	1	normal.24h	21	4	550
+welle1.normal.24h_8G_0	1	normal.24h	18	8	120
+welle1.normal.4h_4G_0	1	normal.4h	4	4	1000
+welle1.normal.4h_4G_1	1	normal.4h	4	4	88
+welle1.normal.4h_8G_0	1	normal.4h	1	8	4
+welle2.normal.120h_4G_0	2	normal.120h	30	4	60
+welle2.normal.24h_4G_0	2	normal.24h	21	4	550
+welle2.normal.24h_8G_0	2	normal.24h	18	8	120
+welle2.normal.4h_4G_0	2	normal.4h	4	4	1000
+welle2.normal.4h_4G_1	2	normal.4h	4	4	40
+welle3.normal.120h_4G_0	3	normal.120h	30	4	60
+welle3.normal.24h_4G_0	3	normal.24h	21	4	550
+welle3.normal.24h_8G_0	3	normal.24h	18	8	120
+welle3.normal.4h_4G_0	3	normal.4h	4	4	1000
+welle3.normal.4h_4G_1	3	normal.4h	4	4	40
+welle4.normal.120h_4G_0	4	normal.120h	30	4	60
+welle4.normal.24h_4G_0	4	normal.24h	21	4	550
+welle4.normal.24h_8G_0	4	normal.24h	18	8	120
+welle4.normal.4h_4G_0	4	normal.4h	4	4	1000
+welle4.normal.4h_4G_1	4	normal.4h	4	4	40

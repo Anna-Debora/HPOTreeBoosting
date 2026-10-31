@@ -26,14 +26,25 @@ Ergebnis-Layouts (beide werden erkannt):
   Testlauf (make_repro_jobs.py):          <root>/Results/seed_*/gpboost/*__num_leaves.csv, Results_SMAC/...,
                                           Results_Default_Run/gpboost/*.csv
 
+Zwischenstand waehrend der Laeufe:
+  --seeds 1-5     nur diese Seeds (Positionen in der Seed-Liste des Papers, utils_modelling.seeds; z. B. 1-5,
+                  1-10, 3,7; Zahlen > 20 gelten als Seed-Werte). Default zaehlt immer.
+  --partial       nur Aufgaben, fuer die jede Methode alle verlangten Seeds vollstaendig hat (--seeds, sonst alle
+                  Seeds, die im Ordner vorkommen); Methoden ohne eine einzige vollstaendige Aufgabe fallen weg. Im
+                  Kopf steht, wie viele Aufgaben, Seeds und Methoden eingeflossen sind.
+
 Aufruf:  python make_table5.py                                   # Paper=Results_paper:135, L1_270=Results_l1_270:135,270
+         python make_table5.py --seeds 1-5 --partial --out table5_welle1
          python make_table5.py --run Testlauf=Results_repro:135 --out table5_testlauf
-Ausgabe: <out>.csv (alle Zahlen, lang), <out>.md (Tabellen wie im Paper und Differenzen), <out>.pdf
+Ausgabe: <out>.csv (alle Zahlen, lang), <out>.md (Tabellen wie im Paper und Differenzen), <out>.pdf,
+         <out>_datensaetze.csv und .md (je Aufgabe x Methode: Test-Score R2/Accuracy bei T, Mittel ueber die
+         vorhandenen Seeds, mit Zahl der Seeds)
 """
 import argparse
 import glob
 import os
 import re
+import textwrap
 
 import matplotlib
 matplotlib.use("Agg")
@@ -94,6 +105,26 @@ def load(root):
     return data.drop_duplicates(subset=["suite", "task", "method", "seed", "fold", "t"], keep="first")
 
 
+def parse_seeds(spec):
+    """'1-5' -> die ersten fuenf Paper-Seeds; '3,7' Positionen; Zahlen > 20 sind Seed-Werte."""
+    from utils_modelling import seeds as paper_seeds
+    out = []
+    for part in str(spec).split(","):
+        start, _, end = part.strip().partition("-")
+        for n in range(int(start), int(end or start) + 1):
+            out.append(paper_seeds[n - 1] if 1 <= n <= len(paper_seeds) else n)
+            if n > len(paper_seeds) and end:
+                raise ValueError(f"Bereich {part}: nur Positionen 1-{len(paper_seeds)}")
+    return list(dict.fromkeys(out))
+
+
+def select_seeds(data, seeds):
+    """Nur diese Seeds (Default mit Seed -1 bleibt)."""
+    if seeds is None:
+        return data
+    return data[(data["method"] == "Default") | data["seed"].isin(list(seeds))]
+
+
 def curves(data, column, budget):
     """{(suite, task): {method: array (Seeds x Versuche)}} mit Fold-Mittel; Versuche bis zum Budget.
     Seeds ohne alle 5 Folds oder mit zu wenigen Versuchen fallen weg (gezaehlt in skipped)."""
@@ -143,17 +174,41 @@ def ranks(final, higher):
     return dict(zip(order, rank.astype(float)))
 
 
-def table5(data, budget, pool="code", quantiles=(10, 90)):
-    """Eine Zeile je (block, metric, method) mit Wert, Zahl der Aufgaben und Seeds."""
+def complete_subset(task_curves, n_seeds):
+    """--partial: (Methoden, Aufgaben), bei denen jede Methode n_seeds Seeds hat (Default: einen Wert).
+    Methoden ohne eine vollstaendige Aufgabe fallen weg."""
+    full = lambda m, c: m == "Default" or c.shape[0] >= n_seeds
+    methods = [m for m in METHODS if any(m in c and full(m, c[m]) for c in task_curves.values())]
+    if not set(methods) - {"Default"}:
+        return [], {}
+    tasks = {k: {m: c[m] for m in methods} for k, c in task_curves.items()
+             if all(m in c and full(m, c[m]) for m in methods)}
+    return methods, tasks
+
+
+def hpo_seeds(data):
+    return sorted(set(data.loc[data["method"] != "Default", "seed"]))
+
+
+def table5(data, budget, pool="code", quantiles=(10, 90), partial=False, seeds=None):
+    """Eine Zeile je (block, metric, method) mit Wert, Zahl der Aufgaben und Seeds.
+    partial: nur Aufgaben, in denen jede Methode alle Seeds (seeds, sonst alle vorkommenden) vollstaendig hat."""
     rows, notes = [], []
+    data = select_seeds(data, seeds)
+    wanted = len(seeds) if seeds is not None else len(hpo_seeds(data))
     for metric, (column, classification, higher) in METRICS.items():
         part = data[[is_classification(s) == classification for s in data["suite"]]]
         if part.empty or column not in part:
             continue
         task_curves, skipped = curves(part, column, budget)
         notes += [(metric, *s) for s in skipped]
-        present = sorted({m for c in task_curves.values() for m in c}, key=METHODS.index)
-        complete = {k: c for k, c in task_curves.items() if all(m in c for m in present)}
+        if partial:
+            present, complete = complete_subset(task_curves, wanted)
+            if not complete:
+                continue
+        else:
+            present = sorted({m for c in task_curves.values() for m in c}, key=METHODS.index)
+            complete = {k: c for k, c in task_curves.items() if all(m in c for m in present)}
         norm, rel, rank = {m: [] for m in present}, {m: [] for m in present}, {m: [] for m in present}
         for key, c in complete.items():
             for m, values in normalize(c, higher, budget, pool, quantiles).items():
@@ -170,7 +225,54 @@ def table5(data, budget, pool="code", quantiles=(10, 90)):
                 rows.append({"block": block, "metric": metric, "method": m, "value": np.mean(values[m]) if values[m]
                              else np.nan, "tasks": len(complete), "tasks_with_data": len(task_curves),
                              "min_seeds": seeds[m]})
-    return pd.DataFrame(rows), notes
+    columns = ["block", "metric", "method", "value", "tasks", "tasks_with_data", "min_seeds"]
+    return pd.DataFrame(rows, columns=columns), notes
+
+
+def per_dataset(data, budget, names=None, seeds=None):
+    """Je Aufgabe x Methode: Test-Score (R2 bzw. Accuracy) bei T, Mittel ueber die vorhandenen vollstaendigen
+    Seeds; Hyperband: Endwert, Default: sein Wert."""
+    names = names or {}
+    rows = []
+    data = select_seeds(data, seeds)
+    if data.empty or "current_best_test_score" not in data:
+        return pd.DataFrame(columns=["suite", "task", "name", "kennzahl", "method", "score", "seeds"])
+    task_curves, _ = curves(data, "current_best_test_score", budget)
+    for (suite, task), c in sorted(task_curves.items()):
+        for m in [m for m in METHODS if m in c]:
+            rows.append(dict(suite=suite, task=task, name=names.get((suite, task), ""),
+                             kennzahl="Accuracy" if is_classification(suite) else "R2", method=m,
+                             score=float(c[m][:, -1].mean()), seeds=0 if m == "Default" else c[m].shape[0]))
+    return pd.DataFrame(rows)
+
+
+def dataset_markdown(frame, title):
+    if frame.empty:
+        return f"## {title}\n\nKeine vollstaendigen Kurven.\n"
+    lines = [f"## {title}", "", "Test-Score (R² bzw. Accuracy, höher ist besser) bei T, Mittel über die vorhandenen "
+             "Seeds (Spalte Seeds: kleinste Zahl über die HPO-Methoden; fett: bester Wert der Zeile).", "",
+             "| Aufgabe | | Seeds | " + " | ".join(METHODS) + " |", "|---|---|---|" + "---|" * len(METHODS)]
+    for (suite, task, name, metric), group in frame.groupby(["suite", "task", "name", "kennzahl"], sort=False):
+        values = dict(zip(group["method"], group["score"]))
+        hpo = group.loc[group["method"] != "Default", "seeds"]
+        best = max(values.values())
+        cells = [("**%.4f**" if values[m] == best else "%.4f") % values[m] if m in values else "–" for m in METHODS]
+        lines.append(f"| {name or task} | {metric} | {int(hpo.min()) if len(hpo) else 0} | " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def coverage_text(table, data, seeds, partial):
+    """Kopfzeile: wie viele Aufgaben, Seeds und Methoden eingeflossen sind."""
+    used = select_seeds(data, seeds)
+    seed_list = list(seeds) if seeds is not None else hpo_seeds(used)
+    tasks = table.dropna(subset=["value"]).groupby("metric")["tasks"].max()
+    n_reg = int(tasks.get("R2", tasks.get("RMSE", 0)))
+    n_cls = int(tasks.get("Accuracy", tasks.get("Log Loss", 0)))
+    methods = [m for m in METHODS if m in set(table.dropna(subset=["value"])["method"])]
+    mode = "TEILAUSWERTUNG (--partial)" if partial else "Auswertung"
+    return (f"{mode}: {n_reg + n_cls} von 59 Aufgaben ({n_reg} Regression, {n_cls} Klassifikation), "
+            f"{len(seed_list)} Seeds ({', '.join(map(str, seed_list))}), {len(methods)} Methoden "
+            f"({', '.join(methods)})")
 
 
 def paper_table(path="paper_table5.csv"):
@@ -261,11 +363,11 @@ def parse_run(spec):
     return name, folder, [int(b) for b in (budgets or "135").split(",")]
 
 
-def main(runs, out, pool="code", quantiles=(10, 90), paper_path="paper_table5.csv"):
+def main(runs, out, pool="code", quantiles=(10, 90), paper_path="paper_table5.csv", seeds=None, partial=False):
     paper = paper_table(paper_path)
     tasks = old_tasks()
-    long, sections = [], []
-    with PdfPages(f"{out}.pdf") as pdf:
+    long, sections, datasets, dataset_sections = [], [], [], []
+    with PdfPages(f"{out}.pdf", keep_empty=False) as pdf:
         for name, folder, budgets in runs:
             data = load(folder)
             if data.empty:
@@ -274,27 +376,44 @@ def main(runs, out, pool="code", quantiles=(10, 90), paper_path="paper_table5.cs
                 continue
             unknown = {(s, t) for s, t in zip(data["suite"], data["task"])} - set(tasks)
             for budget in budgets:
-                ours, notes = table5(data, budget, pool, quantiles)
+                ours, notes = table5(data, budget, pool, quantiles, partial, seeds)
                 table = compare(ours, paper)
                 title = f"{name} ({folder}), Budget T = {budget}"
+                head = coverage_text(table, data, seeds, partial)
                 table.insert(0, "run", name)
                 table.insert(1, "budget", budget)
                 long.append(table)
-                sections.append(markdown(table, title) + (
+                per_task = per_dataset(data, budget, tasks, seeds)
+                datasets.append(per_task.assign(run=name, budget=budget))
+                dataset_sections.append(dataset_markdown(per_task, title))
+                # Kopfzeile direkt unter dem Titel
+                sections.append(markdown(table, title).replace("\n\n", f"\n\n**{head}**\n\n", 1) + (
                     f"Nicht gewertet (unvollstaendig): {len(notes)} Kurven, z. B. {notes[:3]}\n\n" if notes else "")
                     + (f"Aufgaben ausserhalb der 59: {sorted(unknown)[:5]}\n\n" if unknown else ""))
-                pdf_page(pdf, table, title)
-                print(f"\n=== {title} ===")
+                print(f"\n=== {title} ===\n{head}")
+                if table["value"].isna().all():
+                    print("Noch keine Aufgabe mit allen verlangten Seeds vollstaendig (siehe watch_paper.py); "
+                          f"Werte je Datensatz trotzdem in {out}_datensaetze.*")
+                    continue
+                pdf_page(pdf, table, "\n".join(textwrap.fill(x, 110) for x in (title, head)))
                 print(wide(table, "value").round(3).to_string())
                 print("Differenz zum Paper:")
                 print(wide(table, "diff").round(3).to_string())
     if long:
         pd.concat(long, ignore_index=True).to_csv(f"{out}.csv", index=False)
-    header = (f"# Table 5: unsere Läufe vs. Paper\n\nNormalisierung: Pool `{pool}`, Quantile {quantiles}. "
+    if datasets:
+        pd.concat(datasets, ignore_index=True).to_csv(f"{out}_datensaetze.csv", index=False)
+    choice = (f"Seeds: {', '.join(map(str, seeds))}. " if seeds is not None else "") + \
+        ("Nur vollständige Aufgaben und Methoden (--partial). " if partial else "")
+    header = (f"# Table 5: unsere Läufe vs. Paper\n\nNormalisierung: Pool `{pool}`, Quantile {quantiles}. {choice}"
               "Definitionen: siehe make_table5.py und REPRO_PLAN.md.\n\n")
     with open(f"{out}.md", "w") as handle:
         handle.write(header + "\n".join(sections))
-    print(f"\nGeschrieben: {out}.csv, {out}.md, {out}.pdf")
+    with open(f"{out}_datensaetze.md", "w") as handle:
+        handle.write(f"# Ergebnisse je Datensatz\n\n{choice}\n\n" + "\n".join(dataset_sections))
+    written = [f for f in (f"{out}.csv", f"{out}.md", f"{out}.pdf", f"{out}_datensaetze.csv", f"{out}_datensaetze.md")
+               if os.path.exists(f)]
+    print(f"\nGeschrieben: {', '.join(written)}")
 
 
 if __name__ == "__main__":
@@ -306,6 +425,9 @@ if __name__ == "__main__":
     parser.add_argument("--pool", choices=("code", "text"), default="code",
                         help="code: Default im Pool wie im Paper-Code (Standard); text: nur die HPO-Methoden")
     parser.add_argument("--quantiles", type=float, nargs=2, default=(10, 90))
+    parser.add_argument("--seeds", type=parse_seeds, help="z. B. 1-5: nur die ersten fuenf Paper-Seeds")
+    parser.add_argument("--partial", action="store_true",
+                        help="nur Aufgaben und Methoden mit allen (verlangten) Seeds vollstaendig")
     args = parser.parse_args()
     main(args.run or [parse_run("Paper=Results_paper:135"), parse_run("L1_270=Results_l1_270:135,270")],
-         args.out, args.pool, tuple(args.quantiles))
+         args.out, args.pool, tuple(args.quantiles), seeds=args.seeds, partial=args.partial)

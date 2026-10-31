@@ -169,5 +169,104 @@ class Table5Tests(unittest.TestCase):
         self.assertIn("| norm | R2 | 0.000 | 0.500 | 0.625 | 0.375 | 0.750 | 1.000 | 0.875 |", text)
 
 
+class PartialTests(unittest.TestCase):
+    """Zwischenauswertung: --seeds, --partial, Tabelle je Datensatz."""
+    REG2 = (336, 361072)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_parse_seeds_positions_and_values(self):
+        from utils_modelling import seeds
+        self.assertEqual(t5.parse_seeds("1-5"), seeds[:5])
+        self.assertEqual(t5.parse_seeds("6-10"), seeds[5:10])
+        self.assertEqual(t5.parse_seeds("3,1"), [seeds[2], seeds[0]])
+        self.assertEqual(t5.parse_seeds("27225,22"), [27225, 22])
+        with self.assertRaises(ValueError):
+            t5.parse_seeds("1-25")
+
+    def test_seed_selection(self):
+        # Seed 22 von TPE sehr schlecht: mit --seeds 11 zaehlt nur Seed 11
+        write_new_layout(self.root)
+        path = os.path.join(self.root, "tpe", "seed_22", "gpboost", "336_361076__num_leaves.csv")
+        frame("tpe", -0.4, 9.0, 3, False).to_csv(path, index=False)
+        data = t5.load(self.root)
+        table, _ = t5.table5(data, budget=3)
+        self.assertEqual(value(table, "rank", "R2", "TPE"), 6)            # Mittel (0.8 - 0.4) / 2 = 0.2
+        table, _ = t5.table5(data, budget=3, seeds=[11])
+        self.assertEqual(value(table, "rank", "R2", "TPE"), 2)
+        self.assertEqual(set(table["min_seeds"]), {1})                    # Default zaehlt als 1
+
+    def test_partial_keeps_only_complete_tasks(self):
+        write_new_layout(self.root)                                       # Aufgabe 1: alles da
+        write_new_layout(self.root, task=self.REG2, seeds=(11,))          # Aufgabe 2: nur Seed 11
+        data = t5.load(self.root)
+        table, _ = t5.table5(data, budget=3)                              # ohne --partial: beide Aufgaben
+        self.assertEqual(set(table["tasks"]), {2})
+        table, _ = t5.table5(data, budget=3, partial=True)                # Seeds 11, 22 verlangt -> nur Aufgabe 1
+        self.assertEqual(set(table["tasks"]), {1})
+        self.assertEqual(set(table["min_seeds"]) - {1}, {2})
+        table, _ = t5.table5(data, budget=3, partial=True, seeds=[11])    # nur Seed 11 -> beide vollstaendig
+        self.assertEqual(set(table["tasks"]), {2})
+
+    def test_partial_drops_method_without_complete_task(self):
+        write_new_layout(self.root)
+        os.remove(os.path.join(self.root, "SMAC", "seed_22", "gpboost", "336_361076__num_leaves.csv"))
+        path = os.path.join(self.root, "SMAC", "seed_11", "gpboost", "336_361076__num_leaves.csv")
+        frame("SMAC", 0.9, 0.5, 2, False).to_csv(path, index=False)       # angefangen: erst 2 von 3 Versuchen
+        table, _ = t5.table5(t5.load(self.root), budget=3, partial=True)
+        self.assertNotIn("SMAC", set(table["method"]))
+        self.assertEqual(set(table["tasks"]), {1})
+        self.assertEqual(value(table, "rank", "R2", "TPE"), 1)            # ohne SMAC ist TPE am besten
+        self.assertEqual(value(table, "rank", "R2", "Default"), 6)
+
+    def test_running_job_with_missing_folds_counts_as_incomplete(self):
+        write_new_layout(self.root)
+        path = os.path.join(self.root, "gp_bo", "seed_22", "gpboost", "336_361076__num_leaves.csv")
+        frame("gp_bo", 0.6, 0.8, 3, False, folds=2).to_csv(path, index=False)
+        table, _ = t5.table5(t5.load(self.root), budget=3, partial=True)
+        self.assertNotIn("GP-BO", set(table["method"]))                   # nur eine Aufgabe, dort unvollstaendig
+        table, _ = t5.table5(t5.load(self.root), budget=3, partial=True, seeds=[11])
+        self.assertIn("GP-BO", set(table["method"]))
+
+    def test_per_dataset_means_over_available_seeds(self):
+        values = dict(VALUES, tpe=([0.8, 0.8, 0.8], 0.6))
+        write_new_layout(self.root, values=values)
+        path = os.path.join(self.root, "tpe", "seed_22", "gpboost", "336_361076__num_leaves.csv")
+        frame("tpe", [0.1, 0.2, 0.6], 0.6, 3, False).to_csv(path, index=False)
+        os.remove(os.path.join(self.root, "SMAC", "seed_22", "gpboost", "336_361076__num_leaves.csv"))
+        write_new_layout(self.root, task=CLS, classification=True, seeds=(11,))
+        per = t5.per_dataset(t5.load(self.root), budget=3, names={REG: "wine", CLS: "compas"})
+        reg = per[per["task"] == REG[1]].set_index("method")
+        self.assertAlmostEqual(reg.loc["TPE", "score"], 0.7)              # (0.8 + 0.6) / 2 bei T = 3
+        self.assertEqual(reg.loc["TPE", "seeds"], 2)
+        self.assertEqual(reg.loc["SMAC", "seeds"], 1)
+        self.assertAlmostEqual(reg.loc["Default", "score"], 0.1)
+        self.assertEqual(reg.loc["Default", "kennzahl"], "R2")
+        cls = per[per["task"] == CLS[1]]
+        self.assertEqual(set(cls["kennzahl"]), {"Accuracy"})
+        self.assertEqual(len(cls), 7)
+        per2 = t5.per_dataset(t5.load(self.root), budget=2)               # T = 2: Zeile 2 der Kurve
+        self.assertAlmostEqual(per2[(per2["task"] == REG[1]) & (per2["method"] == "TPE")]["score"].iloc[0], 0.5)
+        text = t5.dataset_markdown(per, "Probe")
+        self.assertIn("| wine | R2 | 1 | 0.1000 | 0.5000 | 0.6000 | 0.4000 | 0.7000 | **0.9000** | 0.7000 |", text)
+
+    def test_main_partial_writes_header_and_datasets(self):
+        write_new_layout(self.root)
+        write_new_layout(self.root, task=self.REG2, seeds=(11,))
+        out = os.path.join(self.root, "t5")
+        t5.main([("Probe", self.root, [3])], out, seeds=[11, 22], partial=True)
+        text = open(out + ".md").read()
+        self.assertIn("TEILAUSWERTUNG (--partial): 1 von 59 Aufgaben (1 Regression, 0 Klassifikation), "
+                      "2 Seeds (11, 22), 7 Methoden", text)
+        per = pd.read_csv(out + "_datensaetze.csv")
+        self.assertEqual(set(per["task"]), {REG[1], self.REG2[1]})        # je Datensatz: alles Vorhandene
+        self.assertTrue(os.path.getsize(out + "_datensaetze.md") > 0)
+
+
 if __name__ == "__main__":
     unittest.main()

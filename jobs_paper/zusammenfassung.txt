@@ -1,11 +1,32 @@
 Lauf paper -> Results_paper/: 7139 Jobs, geschaetzt 19,230 Kernstunden (Zeitlimits zusammen 42,179 h)
   je Methode: {'SMAC': 3790, 'default': 6, 'gp_bo': 3945, 'grid_search': 2154, 'hyperband': 2154, 'random_search': 3591, 'tpe': 3591}
-  Arrays: normal.120h_4G_0 (240 x 30 h, 4 GB), normal.24h_4G_0 (1000 x 21 h, 4 GB), normal.24h_4G_1 (1000 x 21 h, 4 GB), normal.24h_4G_2 (200 x 21 h, 4 GB), normal.24h_8G_0 (480 x 18 h, 8 GB), normal.4h_4G_0 (1000 x 4 h, 4 GB), normal.4h_4G_1 (1000 x 4 h, 4 GB), normal.4h_4G_2 (1000 x 4 h, 4 GB), normal.4h_4G_3 (1000 x 4 h, 4 GB), normal.4h_4G_4 (215 x 4 h, 4 GB), normal.4h_8G_0 (4 x 1 h, 8 GB)
   teuerste Jobs: superconduct gp_bo 14.5 h, superconduct SMAC 14.4 h, superconduct random_search 14.2 h, superconduct tpe 14.2 h, Allstate_Claims_Severity gp_bo 13.7 h
-  Probe: 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
+  Probe (schon gerechnet, nicht in den Wellen): 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
+  Welle 1 (Seeds 1-5 + Default): 1822 Jobs, 4,808 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
+    Arrays: welle1.normal.120h_4G_0 (60 x 30 h, 4 GB), welle1.normal.24h_4G_0 (550 x 21 h, 4 GB), welle1.normal.24h_8G_0 (120 x 18 h, 8 GB), welle1.normal.4h_4G_0 (1000 x 4 h, 4 GB), welle1.normal.4h_4G_1 (88 x 4 h, 4 GB), welle1.normal.4h_8G_0 (4 x 1 h, 8 GB)
+  Welle 2 (Seeds 6-10): 1770 Jobs, 4,806 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
+    Arrays: welle2.normal.120h_4G_0 (60 x 30 h, 4 GB), welle2.normal.24h_4G_0 (550 x 21 h, 4 GB), welle2.normal.24h_8G_0 (120 x 18 h, 8 GB), welle2.normal.4h_4G_0 (1000 x 4 h, 4 GB), welle2.normal.4h_4G_1 (40 x 4 h, 4 GB)
+  Welle 3 (Seeds 11-15): 1770 Jobs, 4,806 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
+    Arrays: welle3.normal.120h_4G_0 (60 x 30 h, 4 GB), welle3.normal.24h_4G_0 (550 x 21 h, 4 GB), welle3.normal.24h_8G_0 (120 x 18 h, 8 GB), welle3.normal.4h_4G_0 (1000 x 4 h, 4 GB), welle3.normal.4h_4G_1 (40 x 4 h, 4 GB)
+  Welle 4 (Seeds 16-20): 1770 Jobs, 4,806 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
+    Arrays: welle4.normal.120h_4G_0 (60 x 30 h, 4 GB), welle4.normal.24h_4G_0 (550 x 21 h, 4 GB), welle4.normal.24h_8G_0 (120 x 18 h, 8 GB), welle4.normal.4h_4G_0 (1000 x 4 h, 4 GB), welle4.normal.4h_4G_1 (40 x 4 h, 4 GB)
 
 Lauf l1_270 -> Results_l1_270/: 7139 Jobs, geschaetzt 37,406 Kernstunden (Zeitlimits zusammen 78,279 h)
   je Methode: {'SMAC': 7801, 'default': 6, 'gp_bo': 8774, 'grid_search': 4309, 'hyperband': 2154, 'random_search': 7181, 'tpe': 7181}
-  Arrays: normal.120h_4G_0 (680 x 60 h, 4 GB), normal.120h_8G_0 (320 x 38 h, 8 GB), normal.24h_4G_0 (1000 x 24 h, 4 GB), normal.24h_4G_1 (1000 x 24 h, 4 GB), normal.24h_4G_2 (920 x 24 h, 4 GB), normal.24h_8G_0 (160 x 21 h, 8 GB), normal.4h_4G_0 (1000 x 4 h, 4 GB), normal.4h_4G_1 (1000 x 4 h, 4 GB), normal.4h_4G_2 (1000 x 4 h, 4 GB), normal.4h_4G_3 (55 x 4 h, 4 GB), normal.4h_8G_0 (4 x 1 h, 8 GB)
   teuerste Jobs: superconduct gp_bo 29.8 h, superconduct SMAC 28.9 h, superconduct tpe 28.4 h, superconduct random_search 28.4 h, Allstate_Claims_Severity gp_bo 28.2 h
-  Probe: 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
+  Probe (schon gerechnet, nicht in den Wellen): 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
+  Welle 1 (Seeds 1-5 + Default): 1822 Jobs, 9,348 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)
+    Arrays: welle1.normal.120h_4G_0 (170 x 60 h, 4 GB), welle1.normal.120h_8G_0 (80 x 38 h, 8 GB), welle1.normal.24h_4G_0 (729 x 24 h, 4 GB), welle1.normal.24h_8G_0 (40 x 21 h, 8 GB), welle1.normal.4h_4G_0 (799 x 4 h, 4 GB), welle1.normal.4h_8G_0 (4 x 1 h, 8 GB)
+  Welle 2 (Seeds 6-10): 1770 Jobs, 9,350 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)
+    Arrays: welle2.normal.120h_4G_0 (170 x 60 h, 4 GB), welle2.normal.120h_8G_0 (80 x 38 h, 8 GB), welle2.normal.24h_4G_0 (730 x 24 h, 4 GB), welle2.normal.24h_8G_0 (40 x 21 h, 8 GB), welle2.normal.4h_4G_0 (750 x 4 h, 4 GB)
+  Welle 3 (Seeds 11-15): 1770 Jobs, 9,350 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)
+    Arrays: welle3.normal.120h_4G_0 (170 x 60 h, 4 GB), welle3.normal.120h_8G_0 (80 x 38 h, 8 GB), welle3.normal.24h_4G_0 (730 x 24 h, 4 GB), welle3.normal.24h_8G_0 (40 x 21 h, 8 GB), welle3.normal.4h_4G_0 (750 x 4 h, 4 GB)
+  Welle 4 (Seeds 16-20): 1770 Jobs, 9,350 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)
+    Arrays: welle4.normal.120h_4G_0 (170 x 60 h, 4 GB), welle4.normal.120h_8G_0 (80 x 38 h, 8 GB), welle4.normal.24h_4G_0 (730 x 24 h, 4 GB), welle4.normal.24h_8G_0 (40 x 21 h, 8 GB), welle4.normal.4h_4G_0 (750 x 4 h, 4 GB)
+
+Beide Laeufe zusammen je Welle (teilen sich dieselben Kerne):
+  Welle 1: 3644 Jobs, 14,156 Kernstunden, bei 64 Kernen ~9.2 Tage, bei 110 Kernen ~5.4 Tage
+  Welle 2: 3540 Jobs, 14,156 Kernstunden, bei 64 Kernen ~9.2 Tage, bei 110 Kernen ~5.4 Tage
+  Welle 3: 3540 Jobs, 14,156 Kernstunden, bei 64 Kernen ~9.2 Tage, bei 110 Kernen ~5.4 Tage
+  Welle 4: 3540 Jobs, 14,156 Kernstunden, bei 64 Kernen ~9.2 Tage, bei 110 Kernen ~5.4 Tage
+Alle Wellen beider Laeufe: 14,264 Jobs (Grenze 17,000 abgeschickte Jobs), 56,624 Kernstunden. Dauer = max(Kernstunden / Kerne, laengster Job), Untergrenze ohne Wartezeit in der Warteschlange.
