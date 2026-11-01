@@ -266,8 +266,9 @@ beendete Jobs ohne Ergebnis (TIMEOUT → längere Partition, OUT_OF_MEMORY → n
 ```
 DRY=1 python refill.py --run beide          # Vorschau
 python refill.py --run beide                # nachfüllen; täglich 1-2x
-python refill.py --run beide --daemon       # oder: selbstfortsetzender Slurm-Job, alle 10 min
-python refill.py --stop                     # Daemon beenden
+python refill.py --run beide --daemon       # oder: selbstfortsetzender Slurm-Job, alle 10 min; Standard normal.4h,
+                                            # 4:00:00 (24h wartete auf "Priority"); --daemon-partition/--daemon-zeit
+python refill.py --stop                     # alle hpo-refill-Jobs beenden (laufend + wartend, jede Partition)
 ```
 
 **Speicher** (31.10.2026): MiniBooNE random_search scheiterte mit 4 GB an OUT_OF_MEMORY. Ursache: GPBoost legt je

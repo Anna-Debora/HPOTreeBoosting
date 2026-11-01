@@ -25,6 +25,7 @@ PLAN = [("default", 0, 1, "normal.4h", 1, 4, 1),          # 1: fertig (Datei da)
 class FakeSlurm:
     def __init__(self):
         self.queue, self.sacct, self.calls, self.next_id, self.fail = [], {}, [], 500, False
+        self.respawn = False
 
     def __call__(self, cmd, capture_output=True, text=True, check=False):
         self.calls.append(cmd)
@@ -46,6 +47,12 @@ class FakeSlurm:
                 self.sacct[f"{self.next_id}_{i}"] = "PENDING"
             return SimpleNamespace(stdout=f"{self.next_id};euler\n", stderr="", returncode=0)
         if cmd[0] == "scancel":
+            ids = set(cmd[1:])
+            self.queue = [q for q in self.queue if q.split("|")[0] not in ids]
+            if self.respawn:                     # laufender Daemon schickt gerade noch einen Nachfolger ab
+                self.respawn = False
+                self.next_id += 1
+                self.queue.append(f"{self.next_id}|hpo-refill|normal.4h|PENDING")
             return SimpleNamespace(stdout="", returncode=0)
         raise AssertionError(cmd)
 
@@ -194,13 +201,53 @@ class RefillTests(unittest.TestCase):
             self.assertEqual(self.run_refill("--limit", "100"), refill.NOTHING_LEFT)
 
     def test_daemon_refuses_second_instance(self):
-        self.slurm.queue = ["900|hpo-refill|normal.24h|RUNNING"]
-        self.assertEqual(refill.main(["--daemon"]), 1)
+        for queue in (["900|hpo-refill|normal.24h|RUNNING"], ["901|hpo-refill|normal.4h|PENDING"]):
+            self.slurm.queue = queue
+            self.assertEqual(refill.main(["--daemon"]), 1)
+            self.assertEqual(self.slurm.sbatches(), [])
         self.slurm.queue = []
         self.assertEqual(refill.main(["--daemon", "--run", "beide"]), 0)
+        self.assertEqual(refill.main(["--daemon", "--run", "beide"]), 1)      # der erste wartet jetzt
+        self.assertEqual(len(self.slurm.sbatches()), 1)
+
+    def test_daemon_default_is_4h(self):
+        Path("jobs_paper/refill.stop").write_text("")                          # alter Rest: wird entfernt
+        self.assertEqual(refill.main(["--daemon", "--run", "beide"]), 0)
         call = self.slurm.sbatches()[-1]
-        self.assertEqual(call[2], refill.DAEMON_SCRIPT)
-        self.assertEqual(call[3:5], ["--run", "beide"])
+        self.assertIn("--partition=normal.4h", call)
+        self.assertIn("--time=4:00:00", call)
+        self.assertIn("--export=ALL,DAEMON_PARTITION=normal.4h,DAEMON_TIME=4:00:00,DAEMON_SECONDS=14400", call)
+        i = call.index(refill.DAEMON_SCRIPT)
+        self.assertEqual(call[i + 1:i + 3], ["--run", "beide"])
+        self.assertFalse(Path("jobs_paper/refill.stop").exists())
+
+    def test_daemon_partition_and_time(self):
+        self.assertEqual(refill.main(["--daemon", "--daemon-partition", "normal.24h", "--daemon-zeit", "24:00:00"]),
+                         0)
+        call = self.slurm.sbatches()[-1]
+        self.assertIn("--partition=normal.24h", call)
+        self.assertIn("--time=24:00:00", call)
+        self.assertIn("DAEMON_SECONDS=86400", call[4])
+        self.slurm.queue = []
+        for bad in (["--daemon-zeit", "4:00"], ["--daemon-zeit", "5:00:00"], ["--daemon-zeit", "0:25:00"],
+                    ["--daemon-partition", "bulk"]):
+            self.assertEqual(refill.main(["--daemon", *bad]), 1, bad)
+        self.assertEqual(len(self.slurm.sbatches()), 1)
+        self.assertEqual(refill.time_seconds("1-02:03:04"), 93784)
+
+    def test_stop_ends_both_variants(self):
+        self.slurm.queue = ["19251384|hpo-refill|normal.24h|PENDING",              # alter 24h-Daemon
+                            "600|hpo-refill|normal.4h|RUNNING", "601|hpo-refill|normal.4h|PENDING",
+                            "700_1|hpo-paper|normal.4h|RUNNING"]
+        self.slurm.respawn = True
+        with mock.patch("time.sleep"):
+            self.assertEqual(refill.main(["--stop"]), 0)
+        self.assertEqual(self.slurm.queue, ["700_1|hpo-paper|normal.4h|RUNNING"])  # Rechenjobs bleiben
+        cancels = [c for c in self.slurm.calls if c[0] == "scancel"]
+        self.assertEqual(cancels[0][1:], ["19251384", "600", "601"])
+        self.assertEqual(len(cancels), 2)                                      # zweite Runde: der Nachzuegler
+        with mock.patch("time.sleep"):
+            self.assertEqual(refill.main(["--stop"]), 0)                       # nichts mehr da
 
 
 if __name__ == "__main__":

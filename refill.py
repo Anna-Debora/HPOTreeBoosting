@@ -28,16 +28,21 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
     DRY=1 python refill.py --run beide           # nur anzeigen (auch: --dry)
     python refill.py --run paper --limit 600     # nur paper, kleinere Schlange
-    python refill.py --run beide --daemon        # selbstfortsetzender Slurm-Job: alle 10 min nachfuellen
-    python refill.py --stop                      # Daemon beenden (scancel -n hpo-refill)
+    python refill.py --run beide --daemon        # selbstfortsetzender Slurm-Job: alle 10 min nachfuellen,
+                                                 # Standard normal.4h mit 4:00:00, reiht sich selbst neu ein
+    python refill.py --run beide --daemon --daemon-partition normal.24h --daemon-zeit 24:00:00
+    python refill.py --stop                      # alle hpo-refill-Jobs beenden (laufend und wartend, jede
+                                                 # Partition), prueft danach, dass keiner mehr da ist
 Exit-Code 0: in Ordnung; 3: nichts mehr zu tun (alles fertig oder aufgegeben, nichts in der Schlange);
 1: Fehler (z. B. sbatch abgelehnt, unbekannte hpo-Jobs in der Schlange, kein sacct).
 """
 import argparse
 import fcntl
 import os
+import re
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -52,6 +57,8 @@ HOURS = dict(wp.PARTITIONS)
 DAEMON = "hpo-refill"
 DAEMON_SCRIPT = "jobs_paper/refill_daemon.sbatch"
 NOTHING_LEFT = 3
+DAEMON_PARTITION, DAEMON_TIME = "normal.4h", "4:00:00"
+DAEMON_MARGIN_S = 20 * 60          # so lange vor dem Zeitlimit endet der Daemon (refill_daemon.sbatch)
 
 
 def candidates(runs, max_tries):
@@ -187,22 +194,75 @@ def daemon_running():
     return [] if q is None else q.loc[q["name"] == DAEMON, "id"].tolist()
 
 
+def time_seconds(text):
+    """Slurm-Zeit 'H:MM:SS' oder 'D-HH:MM:SS' in Sekunden; ValueError bei anderer Form (Slurm liest 'H:MM' als
+    Minuten:Sekunden, deshalb nicht erlaubt)."""
+    match = re.fullmatch(r"(?:(\d+)-)?(\d+):([0-5]\d):([0-5]\d)", text)
+    if not match:
+        raise ValueError(f"Zeitlimit {text!r}: erwartet H:MM:SS oder D-HH:MM:SS, z. B. 4:00:00")
+    days, hours, minutes, seconds = (int(g or 0) for g in match.groups())
+    return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+
+
+def daemon_command(args):
+    """sbatch-Befehl fuer den Daemon; Partition und Zeitlimit gehen als Umgebung an das Skript und seine
+    Nachfolger (die sich mit denselben Werten neu einreihen)."""
+    seconds = time_seconds(args.daemon_zeit)
+    longest = dict(wp.PARTITIONS).get(args.daemon_partition)
+    if longest is None:
+        raise ValueError(f"Partition {args.daemon_partition!r}: erlaubt {', '.join(dict(wp.PARTITIONS))}")
+    if seconds > longest * 3600:
+        raise ValueError(f"Zeitlimit {args.daemon_zeit} laenger als {args.daemon_partition} ({longest} h)")
+    if seconds <= DAEMON_MARGIN_S + 600:
+        raise ValueError(f"Zeitlimit {args.daemon_zeit} zu kurz (Daemon endet {DAEMON_MARGIN_S // 60} min vorher)")
+    passed = ["--run", args.run, "--limit", str(args.limit), "--reserve", str(args.reserve),
+              "--max_versuche", str(args.max_versuche)]
+    env = f"ALL,DAEMON_PARTITION={args.daemon_partition},DAEMON_TIME={args.daemon_zeit},DAEMON_SECONDS={seconds}"
+    return ["sbatch", "--parsable", f"--partition={args.daemon_partition}", f"--time={args.daemon_zeit}",
+            f"--export={env}", DAEMON_SCRIPT, *passed]
+
+
 def start_daemon(args):
     running = daemon_running()
     if running:
         print(f"Daemon laeuft schon oder wartet: {running} (beenden: python refill.py --stop)")
         return 1
-    passed = ["--run", args.run, "--limit", str(args.limit), "--reserve", str(args.reserve),
-              "--max_versuche", str(args.max_versuche)]
-    cmd = ["sbatch", "--parsable", DAEMON_SCRIPT, *passed]
+    try:
+        cmd = daemon_command(args)
+    except ValueError as error:
+        print(error)
+        return 1
     if args.dry:
         print("DRY:", " ".join(cmd))
         return 0
+    stale = wp.JOBS / "refill.stop"
+    if stale.exists():                       # sonst wuerde der neue Daemon sofort wieder enden
+        stale.unlink()
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout.strip() or result.stderr.strip())
     if result.returncode == 0:
-        print("Daemon abgeschickt; Log: jobs_paper/logs/refill_<Job-ID>.out; beenden: python refill.py --stop")
+        print(f"Daemon abgeschickt ({args.daemon_partition}, {args.daemon_zeit}); Log: "
+              "jobs_paper/logs/refill_<Job-ID>.out; beenden: python refill.py --stop")
     return result.returncode
+
+
+def stop_daemon(rounds=3, pause=5):
+    """Alle hpo-refill-Jobs (laufend und wartend, jede Partition) abbrechen, bis keiner mehr in der Schlange ist:
+    ein Daemon, der gerade startet, kann zwischen squeue und scancel noch einen Nachfolger abschicken."""
+    stopped = []
+    for _ in range(rounds):
+        ids = daemon_running()
+        if not ids:
+            break
+        subprocess.run(["scancel", *ids])
+        stopped += ids
+        time.sleep(pause)
+    left = daemon_running()
+    if left:
+        print(f"beendet: {stopped}; noch in der Schlange: {left} (nochmal: python refill.py --stop)")
+        return 1
+    print(f"beendet: {stopped}" if stopped else "kein Daemon in der Schlange")
+    return 0
 
 
 def main(argv=None):
@@ -213,14 +273,15 @@ def main(argv=None):
     parser.add_argument("--max_versuche", type=int, default=3, help="Wiederholungen je Job bis 'aufgegeben'")
     parser.add_argument("--dry", action="store_true", default=bool(os.environ.get("DRY")), help="nur anzeigen")
     parser.add_argument("--daemon", action="store_true", help="als selbstfortsetzenden Slurm-Job starten")
-    parser.add_argument("--stop", action="store_true", help="Daemon beenden")
+    parser.add_argument("--daemon-partition", dest="daemon_partition", default=DAEMON_PARTITION,
+                        help=f"Partition des Daemons (Standard {DAEMON_PARTITION})")
+    parser.add_argument("--daemon-zeit", dest="daemon_zeit", default=DAEMON_TIME,
+                        help=f"Zeitlimit des Daemons, H:MM:SS (Standard {DAEMON_TIME}); er endet 20 min vorher, "
+                             "der Nachfolger uebernimmt")
+    parser.add_argument("--stop", action="store_true", help="Daemon beenden (laufend und wartend)")
     args = parser.parse_args(argv)
     if args.stop:
-        ids = daemon_running()
-        if ids:
-            subprocess.run(["scancel", "-n", DAEMON])
-        print(f"beendet: {ids}" if ids else "kein Daemon in der Schlange")
-        return 0
+        return stop_daemon()
     if args.daemon:
         return start_daemon(args)
     runs = list(RUNS) if args.run == "beide" else [args.run]
