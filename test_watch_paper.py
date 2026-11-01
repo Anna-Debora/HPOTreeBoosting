@@ -45,17 +45,81 @@ class WatchTests(unittest.TestCase):
 
     def test_escalate_time_and_memory(self):
         plan = dict(partition="normal.4h", stunden=4, mem=4)
-        last = dict(partition="normal.4h", stunden=4, mem=4)
-        self.assertEqual(watch_paper.escalate(last, "TIMEOUT", plan), dict(partition="normal.24h", stunden=24, mem=4))
-        self.assertEqual(watch_paper.escalate(last, "OUT_OF_MEMORY", plan)["mem"], 8)
-        self.assertEqual(watch_paper.escalate(dict(last, mem=8), "OUT_OF_MEMORY", plan)["mem"], 12)
-        self.assertEqual(watch_paper.escalate(last, "FAILED", plan), plan)
-        long = dict(partition="normal.120h", stunden=120, mem=32)
-        self.assertEqual(watch_paper.escalate(long, "TIMEOUT", plan)["stunden"], 120)
-        self.assertEqual(watch_paper.escalate(long, "OUT_OF_MEMORY", plan)["mem"], 32)
-        # Plan inzwischen hoeher (z. B. neues Speichermodell): nie weniger als der Plan
-        self.assertEqual(watch_paper.escalate(last, "FAILED", dict(partition="normal.24h", stunden=21, mem=12)),
+        a = lambda state, **kw: dict(dict(partition="normal.4h", stunden=4, mem=4, state=state, sekunden=10), **kw)
+        esc = watch_paper.escalate
+        self.assertEqual(esc([a("TIMEOUT")], plan), dict(partition="normal.24h", stunden=24, mem=4))
+        self.assertEqual(esc([a("OUT_OF_MEMORY")], plan)["mem"], 6)
+        self.assertEqual(esc([a("OUT_OF_MEMORY", mem=8)], plan)["mem"], 12)
+        self.assertEqual(esc([a("OUT_OF_MEMORY", mem=1.5)], dict(plan, mem=1))["mem"], 2)
+        self.assertEqual(esc([a("FAILED")], plan), plan)
+        self.assertEqual(esc([a("TIMEOUT", partition="normal.120h", stunden=120)], plan)["stunden"], 120)
+        self.assertEqual(esc([a("OUT_OF_MEMORY", mem=32)], plan)["mem"], 32)
+        # Eskalation bleibt nach einem spaeteren anderen Fehler erhalten
+        self.assertEqual(esc([a("OUT_OF_MEMORY"), a("TIMEOUT", mem=6)], plan),
+                         dict(partition="normal.24h", stunden=24, mem=6))
+        # Plan inzwischen kleiner, letzter Versuch abgebrochen: Plan, nicht der alte Speicher
+        self.assertEqual(esc([a("CANCELLED", sekunden=0)], dict(plan, mem=1.5))["mem"], 1.5)
+        # Plan hoeher: nie weniger als der Plan
+        self.assertEqual(esc([a("FAILED")], dict(partition="normal.24h", stunden=21, mem=12)),
                          dict(partition="normal.24h", stunden=21, mem=12))
+
+    def test_cancelled_while_pending_is_no_failure(self):
+        jobs = pd.DataFrame(dict(line=[1, 2], datei=["fehlt", "fehlt"], partition="normal.4h", zeitlimit=4,
+                                 mem_gb=[1.5, 1.5]))
+        never = [dict(id=str(k), index=0, partition="normal.4h", stunden=4, mem=4, state="CANCELLED", sekunden=0)
+                 for k in range(5)]
+        ran = [dict(never[0], state="CANCELLED", sekunden=100)] * 3
+        out = watch_paper.classify(jobs, {1: never, 2: ran}, max_tries=3).set_index("line")
+        self.assertEqual(out.loc[1, "aktion"], "wiederholen")
+        self.assertEqual(out.loc[1, "versuche"], 0)
+        self.assertEqual(out.loc[1, "mem_neu"], 1.5)
+        self.assertEqual(out.loc[2, "aktion"], "aufgegeben")       # lief schon: zaehlt
+
+    def test_pending_mismatch_scripts(self):
+        jobs = pd.DataFrame(dict(line=[1, 2, 3, 4], slurm=["PENDING", "PENDING", "PENDING", "RUNNING"],
+                                 mem_gb=[1.5, 8.0, 4.0, 1.0]))
+        mk = lambda i, mem: [dict(id="77", index=i, partition="normal.4h", stunden=4, mem=mem, state="PENDING",
+                                  sekunden=0)]
+        tries = {1: mk(0, 4), 2: mk(1, 4), 3: mk(2, 4), 4: mk(3, 4)}
+        lines = watch_paper.pending_mismatch("paper", jobs, tries)
+        self.assertEqual(len(lines), 2)
+        high = Path("jobs_paper/paper/scancel_zu_viel_speicher.sh").read_text()
+        low = Path("jobs_paper/paper/scancel_zu_wenig_speicher.sh").read_text()
+        self.assertIn("scancel 77_0\n", high)                     # 4 GB angefordert, Plan 1.5
+        self.assertIn("scancel 77_1\n", low)                      # 4 GB angefordert, Plan 8
+        self.assertNotIn("77_2", high + low)                       # passt
+        self.assertNotIn("77_3", high + low)                       # laeuft schon
+        self.assertIn("1x 4->1.5 GB normal.4h", " ".join(lines))
+        watch_paper.pending_mismatch("paper", jobs.assign(mem_gb=4.0), tries)
+        self.assertFalse(Path("jobs_paper/paper/scancel_zu_viel_speicher.sh").exists())   # nichts mehr: weg
+
+    def test_memory_report(self):
+        Path("jobs_paper/paper/jobs.tsv").write_text("".join(
+            f"{m}\t1\t336\t1\t135\tR\t\n" for m in ["tpe"] * 7 + ["SMAC"]))      # a.idx: 900_0-3 = Zeilen 5-8
+        pd.DataFrame(dict(method=["tpe"] * 7 + ["SMAC"], partition="normal.4h", mem_gb=4,
+                          kernstunden=1.0, name="t", stunden=2, welle=1, zeitlimit=2,
+                          reihenfolge=range(1, 9))).to_csv("jobs_paper/paper/kosten.tsv", sep="\t", index=False)
+        sacct = "\n".join([
+            "900_0|COMPLETED|", "900_0.batch|COMPLETED|1200M|", "900_0.extern|COMPLETED|1K|",
+            "900_1|TIMEOUT|", "900_1.batch|CANCELLED|1.1G|",
+            "900_2|COMPLETED|", "900_2.batch|COMPLETED|50M|",              # zu kurz ("SCHON FERTIG")
+            "900_3|OUT_OF_MEMORY|", "900_3.batch|OUT_OF_MEMORY|4G|",
+            "900_[4-7]|PENDING|"])
+        # Spalten JobID|State|MaxRSS|ElapsedRaw
+        rows = []
+        for row in sacct.splitlines():
+            parts = row.split("|")
+            elapsed = {"900_0": 4000, "900_1": 7300, "900_2": 5, "900_3": 600}.get(parts[0], 0)
+            rows.append("|".join(parts[:3] + [str(elapsed)]))
+        table = watch_paper.memory_report(["paper"], sacct_text="\n".join(rows) + "\n",
+                                          out="jobs_paper/speicher_euler.tsv").set_index("method")
+        self.assertEqual(table.loc["tpe", "jobs"], 2)              # 900_0, 900_1 (900_2 zu kurz)
+        self.assertAlmostEqual(table.loc["tpe", "maxrss_gb"], 1.2)
+        self.assertEqual(table.loc["SMAC", "oom"], 1)
+        self.assertEqual(table.loc["SMAC", "oom_bei"], 4)
+        self.assertEqual(table.loc["tpe", "neu_gb"], 6)            # OOM bei 4 GB in der Aufgabe hebt alle HPO
+        saved = pd.read_csv("jobs_paper/speicher_euler.tsv", sep="\t")
+        self.assertEqual(list(saved.columns), watch_paper.speicher.EULER_COLUMNS)
 
     def test_old_submission_resources(self):
         Path("jobs_paper/paper/arrays.tsv").write_text(

@@ -13,14 +13,17 @@ Ein Job = (Aufgabe, Seed, Methode), 1 Kern; Default einmal pro Aufgabe (haengt n
 Die Jobs schreiben nach jedem Fold und sind wiederholbar (run_ablation.py --resume: fertige Dateien
 ueberspringen, angefangene ab dem ersten fehlenden Fold fortsetzen; Default: vorhandene Datei ueberspringen).
 
-Zeitlimit pro Job aus dem Kostenmodell (siehe kosten()), Speicher aus der Speichermessung (memory_gb()).
+Zeitlimit pro Job aus dem Kostenmodell (siehe kosten()), aufgerundet auf eine Stufe in HOUR_STEPS; Speicher je
+Aufgabe und Methode nach speicher.py (Spitze x 1.3, mindestens 1 GB, Stufen 1, 1.5, 2, 3, 4, 6, 8, ... GB; Spitze
+von Euler aus jobs_paper/speicher_euler.tsv, sonst vom Mac aus jobs_paper/speicher_mac.tsv).
 
 Wellen (damit es frueh Zwischenergebnisse gibt): Welle 1 = Seeds 1-5 (Reihenfolge wie utils_modelling.seeds) plus
 Default, Welle 2 = Seeds 6-10, Welle 3 = Seeds 11-15, Welle 4 = Seeds 16-20, jeweils alle 59 Aufgaben und alle
 Methoden. Abgeschickt wird mit refill.py in Portionen (Euler: hoechstens ~1000 Jobs in der Schlange), in der
 Reihenfolge der Spalte 'reihenfolge' in kosten.tsv: Welle, dann schnelle Partition zuerst (normal.4h vor 24h vor
-120h), dann Aufgabe nach geschaetzter Laufzeit (kleine zuerst), Seed, Methode. Zeitlimit einer Portion = Spalte
-'zeitlimit' (groesstes 'stunden' der Gruppe gleicher Welle, Partition und Speicher, wie bei den frueheren Arrays).
+120h), dann Aufgabe nach geschaetzter Laufzeit (kleine zuerst), Seed, Methode. refill.py buendelt Jobs gleicher
+Welle, Partition, Spalte 'zeitlimit' (= 'stunden' aufgerundet auf HOUR_STEPS, je Job statt wie frueher das
+Maximum der ganzen Gruppe) und Speicher 'mem_gb' zu einem Array.
 
 Eingefroren (31.10.2026): die Wellen-Arrays arrays/welle*.idx und arrays.tsv aus dem ersten Abschicken mit
 submit.sh werden nicht mehr geschrieben oder geloescht, weil submitted.tsv auf Euler ueber sie die Array-Indizes
@@ -42,6 +45,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import speicher
 from utils_modelling import seeds as SEEDS
 from task_types import is_classification
 
@@ -54,6 +58,9 @@ FOLDS = 5
 # Partitionen auf Euler: (Name, laengstes Zeitlimit in Stunden)
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
 SAFETY = 2.0         # Zeitlimit = Schaetzung x SAFETY, aufgerundet auf volle Stunden, mindestens 1 h
+# Zeitlimit-Stufen der Arrays: wenige Stufen, damit die Arrays gross bleiben, aber kein 1-h-Job mit 21 h Limit
+# (kurze Limits kommen beim Backfill frueher dran; Grenzen 4, 24, 120 = Partitionen)
+HOUR_STEPS = (1, 2, 4, 8, 12, 24, 48, 72, 120)
 
 # Kostenmodell (Kernstunden je Job, siehe README in REPRO_PLAN.md, Abschnitt "Kosten der grossen Laeufe"):
 #   Sekunden je Versuch c_k pro Aufgabe = Wanduhrzeit lokal (Mac, 1 Thread) fuer 15 Versuche Zufallsgitter bzw.
@@ -69,10 +76,7 @@ DEFAULT_HOURS = 0.1
 WAVE_SIZE = 5        # Seeds je Welle
 CORES = (64, 110)    # Euler-Account: 64 Kerne je Partition, 110 in normal/bulk zusammen
 MAX_SUBMIT = 17000   # hoechstens so viele abgeschickte (wartende + laufende) Jobs (QOS: tatsaechlich ~1000, refill.py)
-MEM_STEPS = (4, 8, 12, 16, 24, 32)   # Speicherstufen je Kern in GB
-# Speicher = naechste Stufe ueber MEM_FACTOR x Mac-Spitze + MEM_BASE (jobs_paper/speicher_mac.tsv, measure_memory.py).
-# Abgleich: MiniBooNE Mac-Spitze 6.1 GB, auf Euler mit 4 GB OUT_OF_MEMORY (random_search, Job 19145396).
-MEM_FACTOR, MEM_BASE = 1.5, 1.5
+MEM_STEPS = speicher.MEM_STEPS     # Speicherstufen je Kern in GB (Regel in speicher.py)
 
 
 def tasks():
@@ -101,32 +105,9 @@ def kosten(method, trials, sec):
     return FOLDS * n * per_trial / 3600
 
 
-def mem_step(gb):
-    """Kleinste Speicherstufe >= gb."""
-    return next((m for m in MEM_STEPS if m >= gb), MEM_STEPS[-1])
-
-
-def mac_peaks(path="jobs_paper/speicher_mac.tsv"):
-    """{(suite, task): Spitze in GB} aus measure_memory.py; leer, wenn die Datei fehlt."""
-    if not Path(path).exists():
-        return {}
-    frame = pd.read_csv(path, sep="\t").dropna(subset=["peak_gb"])
-    return {(int(r.suite), int(r.task)): float(r.peak_gb) for r in frame.itertuples()}
-
-
-def memory_gb(suite, task, method="", peaks=None):
-    """Speicher je Kern. Untergrenze nach Groesse der Rohdaten (die Daten werden ganz geladen, dann auf 100'000
-    Zeilen unterabgetastet; Mac: delays_zurich_transport 306 MB -> 2.0 GB): 4 GB bis 100 MB, sonst 8 GB.
-    HPO-Methoden: dazu die Histogramme von GPBoost beim teuersten Versuch (num_leaves 1024, max_bin bis 10'000),
-    gemessen mit measure_memory.py: Stufe ueber MEM_FACTOR x Spitze + MEM_BASE. Default (31 Blaetter, 255 Bins)
-    braucht nur die Untergrenze."""
-    folder = Path(f"data/{suite}_{task}")
-    mb = sum(f.stat().st_size for f in folder.glob("*")) / 1e6 if folder.exists() else 0
-    floor = 4 if mb <= 100 else 8
-    peak = (peaks or {}).get((suite, task))
-    if method == "default" or peak is None:
-        return floor
-    return max(floor, mem_step(MEM_FACTOR * peak + MEM_BASE))
+def hour_step(hours):
+    """Kleinste Zeitlimit-Stufe >= hours."""
+    return next((h for h in HOUR_STEPS if h >= hours), HOUR_STEPS[-1])
 
 
 def partition(hours):
@@ -142,8 +123,9 @@ def wave(seed):
     return 1 if seed not in SEEDS else SEEDS.index(seed) // WAVE_SIZE + 1
 
 
-def build(run, sec, task_list, peaks=None):
+def build(run, sec, task_list, memory=None):
     settings = RUNS[run]
+    memory = memory or speicher.Plan(mac={}, euler=pd.DataFrame(columns=speicher.EULER_COLUMNS))
     rows = []
     for t in task_list.itertuples():
         for method in METHODS:
@@ -153,7 +135,7 @@ def build(run, sec, task_list, peaks=None):
                 rows.append(dict(method=method, seed=seed, suite=t.suite, task=t.task, trials=settings["trials"],
                                  flags=settings["flags"] if method != "default" else "", folder=settings["folder"],
                                  name=t.name, kernstunden=round(hours, 3), partition=name, stunden=limit,
-                                 mem_gb=memory_gb(t.suite, t.task, method, peaks), welle=wave(seed),
+                                 mem_gb=memory(t.suite, t.task, method), welle=wave(seed),
                                  sek_versuch=sec[(t.suite, t.task)]))
     return pd.DataFrame(rows)
 
@@ -166,10 +148,10 @@ def ordered(group):
 
 
 def plan(jobs):
-    """Spalten 'zeitlimit' (groesstes 'stunden' je Welle, Partition, Speicher) und 'reihenfolge' (1 = zuerst
-    abschicken: Welle, schnelle Partition zuerst, kleine Aufgaben zuerst, Seed, Methode)."""
+    """Spalten 'zeitlimit' ('stunden' aufgerundet auf HOUR_STEPS) und 'reihenfolge' (1 = zuerst abschicken: Welle,
+    schnelle Partition zuerst, kleine Aufgaben zuerst, Seed, Methode)."""
     jobs = jobs.copy()
-    jobs["zeitlimit"] = jobs.groupby(["welle", "partition", "mem_gb"])["stunden"].transform("max").astype(int)
+    jobs["zeitlimit"] = [hour_step(h) for h in jobs["stunden"]]
     hours = dict(PARTITIONS)
     keyed = ordered(jobs.assign(_part=jobs["partition"].map(hours)))
     order = keyed.sort_values(["welle", "_part"], kind="stable").index
@@ -273,11 +255,11 @@ esac
 """
 
 
-def main(out, timing, memory="jobs_paper/speicher_mac.tsv"):
+def main(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/speicher_euler.tsv"):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     sec = seconds_per_trial(timing)
-    peaks = mac_peaks(memory)
+    peaks = speicher.Plan(mac=speicher.mac_peaks(memory), euler=speicher.euler_measurements(euler))
     task_list = tasks()
     task_list.assign(classification=[is_classification(s) for s in task_list["suite"]]).to_csv(
         out / "aufgaben.tsv", sep="\t", index=False, columns=["suite", "task", "name", "classification"])
@@ -299,8 +281,8 @@ def main(out, timing, memory="jobs_paper/speicher_mac.tsv"):
         costs = wave_costs(run, jobs, skip=probe_lines)
         waves.append(costs)
         by_method = jobs.groupby("method")["kernstunden"].sum().round(0).astype(int).to_dict()
-        hpo = jobs[jobs["method"] != "default"].drop_duplicates(["suite", "task"])
-        big = hpo[hpo["mem_gb"] > 4].sort_values("mem_gb", ascending=False)
+        big = jobs[jobs["method"] != "default"].groupby("name")["mem_gb"].max()
+        big = big[big > 4].sort_values(ascending=False)
         summary += [f"Lauf {run} -> {RUNS[run]['folder']}/: {len(jobs)} Jobs, geschaetzt "
                     f"{jobs['kernstunden'].sum():,.0f} Kernstunden (Zeitlimits zusammen {jobs['stunden'].sum():,} h)",
                     f"  je Methode: {by_method}",
@@ -308,9 +290,13 @@ def main(out, timing, memory="jobs_paper/speicher_mac.tsv"):
                         f"{r.name} {r.method} {r.kernstunden:.1f} h" for r in
                         jobs.sort_values("kernstunden", ascending=False).drop_duplicates(["task", "method"])
                         .head(5).itertuples()),
-                    "  Speicher je Job: " + ", ".join(f"{m} GB {n}" for m, n in
+                    "  Speicher je Job: " + ", ".join(f"{speicher.fmt(m)} GB {n}" for m, n in
                                                      jobs["mem_gb"].value_counts().sort_index().items())
-                    + "; Aufgaben ueber 4 GB: " + ", ".join(f"{r.name} {r.mem_gb}" for r in big.itertuples()),
+                    + "; Aufgaben ueber 4 GB: " + ", ".join(f"{n} {speicher.fmt(m)}" for n, m in big.items()),
+                    "  Mittlerer Speicher je Job und Partition (Kernstunden-gewichtet = was gleichzeitig laeuft): "
+                    + ", ".join(f"{p} {np.average(g['mem_gb'], weights=g['kernstunden']):.2f} GB ({len(g)} Jobs, "
+                                f"{g['kernstunden'].sum():,.0f} Kernstunden)"
+                                for p, g in jobs.groupby("partition", sort=False)),
                     f"  Probe (schon gerechnet): {len(probe)} Jobs (Zeilen {', '.join(map(str, probe_lines))})"]
         for c in costs.itertuples():
             summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
@@ -344,5 +330,6 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="jobs_paper")
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
     parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
+    parser.add_argument("--euler", default="jobs_paper/speicher_euler.tsv", help="aus watch_paper.py --speicher")
     args = parser.parse_args()
-    main(args.out, args.timing, args.memory)
+    main(args.out, args.timing, args.memory, args.euler)

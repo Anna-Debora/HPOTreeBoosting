@@ -1,7 +1,8 @@
 Lauf paper -> Results_paper/: 7139 Jobs, geschaetzt 19,230 Kernstunden (Zeitlimits zusammen 42,179 h)
   je Methode: {'SMAC': 3790, 'default': 6, 'gp_bo': 3945, 'grid_search': 2154, 'hyperband': 2154, 'random_search': 3591, 'tpe': 3591}
   teuerste Jobs: superconduct gp_bo 14.5 h, superconduct SMAC 14.4 h, superconduct random_search 14.2 h, superconduct tpe 14.2 h, Allstate_Claims_Severity gp_bo 13.7 h
-  Speicher je Job: 4 GB 6175, 8 GB 604, 12 GB 360; Aufgaben ueber 4 GB: topo_2_1 12, MiniBooNE 12, jannis 12, delays_zurich_transport 8, superconduct 8, delays_zurich_transport 8, covertype 8, Higgs 8
+  Speicher je Job: 1 GB 2904, 1.5 GB 2420, 2 GB 484, 3 GB 484, 4 GB 242, 6 GB 121, 8 GB 242, 12 GB 242; Aufgaben ueber 4 GB: MiniBooNE 12, jannis 12, superconduct 8, topo_2_1 8, Higgs 6
+  Mittlerer Speicher je Job und Partition (Kernstunden-gewichtet = was gleichzeitig laeuft): normal.4h 1.36 GB (4219 Jobs, 2,945 Kernstunden), normal.24h 3.15 GB (2680 Jobs, 13,027 Kernstunden), normal.120h 7.60 GB (240 Jobs, 3,258 Kernstunden)
   Probe (schon gerechnet): 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
   Welle 1 (Seeds 1-5 + Default): 1822 Jobs, 4,808 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
   Welle 2 (Seeds 6-10): 1770 Jobs, 4,806 Kernstunden, bei 64 Kernen ~3.1 Tage, bei 110 Kernen ~1.8 Tage (laengster Job 14.5 h)
@@ -11,7 +12,8 @@ Lauf paper -> Results_paper/: 7139 Jobs, geschaetzt 19,230 Kernstunden (Zeitlimi
 Lauf l1_270 -> Results_l1_270/: 7139 Jobs, geschaetzt 37,406 Kernstunden (Zeitlimits zusammen 78,279 h)
   je Methode: {'SMAC': 7801, 'default': 6, 'gp_bo': 8774, 'grid_search': 4309, 'hyperband': 2154, 'random_search': 7181, 'tpe': 7181}
   teuerste Jobs: superconduct gp_bo 29.8 h, superconduct SMAC 28.9 h, superconduct tpe 28.4 h, superconduct random_search 28.4 h, Allstate_Claims_Severity gp_bo 28.2 h
-  Speicher je Job: 4 GB 6175, 8 GB 604, 12 GB 360; Aufgaben ueber 4 GB: topo_2_1 12, MiniBooNE 12, jannis 12, delays_zurich_transport 8, superconduct 8, delays_zurich_transport 8, covertype 8, Higgs 8
+  Speicher je Job: 1 GB 2904, 1.5 GB 2420, 2 GB 484, 3 GB 484, 4 GB 242, 6 GB 121, 8 GB 242, 12 GB 242; Aufgaben ueber 4 GB: MiniBooNE 12, jannis 12, superconduct 8, topo_2_1 8, Higgs 6
+  Mittlerer Speicher je Job und Partition (Kernstunden-gewichtet = was gleichzeitig laeuft): normal.4h 1.43 GB (3059 Jobs, 2,568 Kernstunden), normal.24h 2.83 GB (3080 Jobs, 16,484 Kernstunden), normal.120h 4.56 GB (1000 Jobs, 18,354 Kernstunden)
   Probe (schon gerechnet): 7 Jobs (Zeilen 3268, 3269, 3289, 3309, 3329, 3349, 3369)
   Welle 1 (Seeds 1-5 + Default): 1822 Jobs, 9,348 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)
   Welle 2 (Seeds 6-10): 1770 Jobs, 9,350 Kernstunden, bei 64 Kernen ~6.1 Tage, bei 110 Kernen ~3.5 Tage (laengster Job 29.8 h)

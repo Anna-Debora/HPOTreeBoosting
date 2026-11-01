@@ -6,8 +6,14 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
     python watch_paper.py                 # beide Laeufe
     python watch_paper.py --run paper     # nur einer
     python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
-    python watch_paper.py --speicher      # MaxRSS je Aufgabe aus sacct gegen den angeforderten Speicher, OOM-Faelle;
-                                          # schreibt jobs_paper/speicher_euler.tsv (refill.py nimmt den hoeheren Wert)
+    python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
+                                          # Laufzeit gegen Zeitlimit; schreibt jobs_paper/speicher_euler.tsv, aus dem
+                                          # refill.py den Speicher plant (speicher.py: MaxRSS x 1.3, Stufen ab 1 GB)
+Wartende Jobs mit anderem Speicher als im Plan meldet watch_paper.py mit scancel-Skript:
+    zu wenig (wuerden wohl OOM):      bash jobs_paper/<lauf>/scancel_zu_wenig_speicher.sh
+    zu viel (blockieren QOSMaxMemoryPerUser): bash jobs_paper/<lauf>/scancel_zu_viel_speicher.sh
+Danach schickt refill.py sie mit dem Plan neu ab. Ein abgebrochener Job, der nie gelaufen ist (CANCELLED,
+ElapsedRaw 0), zaehlt nicht als Fehlschlag.
 Ohne sacct (z. B. auf dem Mac nach dem Kopieren der Ergebnisse) nur der Dateistand (laufend/wartend dann unbekannt).
 
 submitted.tsv (je Abgabe eine Zeile, ohne Kopf): Job-ID, idx-Datei, Zahl der Teiljobs, Zeit, Partition, Stunden,
@@ -23,13 +29,14 @@ from pathlib import Path
 
 import pandas as pd
 
+import speicher
 from run_ablation import expected_rows
 
 JOBS = Path("jobs_paper")
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
-MEM_STEPS = (4, 8, 12, 16, 24, 32)
+MEM_STEPS = speicher.MEM_STEPS
 FOLDS = 5
 QUEUED = ("PENDING", "RUNNING", "REQUEUED", "SUSPENDED", "COMPLETING", "CONFIGURING", "RESIZING", "REQUEUE_HOLD",
           "REQUEUE_FED", "SIGNALING", "STAGE_OUT")
@@ -84,7 +91,7 @@ def submissions(run):
         sub = dict(zip(SUBMITTED, fields))
         sub["id"] = sub["id"].split(";")[0]
         if sub["partition"]:
-            sub["stunden"], sub["mem"] = int(sub["stunden"]), int(sub["mem"])
+            sub["stunden"], sub["mem"] = int(sub["stunden"]), float(sub["mem"])
         else:
             sub["partition"], sub["stunden"], sub["mem"] = resources_from_idx(run, sub["idx"])
         idx = Path(sub["idx"])
@@ -148,20 +155,28 @@ def slurm_states(run):
             for line, t in tries.items()}
 
 
-def escalate(last, state, plan):
-    """Ressourcen fuer die Wiederholung: nach TIMEOUT naechstlaengere Partition, nach OUT_OF_MEMORY naechste
-    Speicherstufe, sonst wie zuletzt; nie weniger als der aktuelle Plan (kosten.tsv). last/plan: dict(partition,
-    stunden, mem)."""
-    part, hours, mem = last["partition"] or plan["partition"], last["stunden"] or plan["stunden"], \
-        last["mem"] or plan["mem"]
-    if state == "TIMEOUT":
-        bigger = [p for p in PARTITIONS if p[1] > hours]
-        part, hours = bigger[0] if bigger else PARTITIONS[-1]
-    if state == "OUT_OF_MEMORY":
-        mem = next((m for m in MEM_STEPS if m > mem), MEM_STEPS[-1])
-    if plan["stunden"] > hours:
-        part, hours = plan["partition"], plan["stunden"]
-    return dict(partition=part, stunden=int(hours), mem=int(max(mem, plan["mem"])))
+def never_ran(attempt):
+    """Abgebrochen, bevor er lief (z. B. scancel eines wartenden Jobs): kein Fehlschlag."""
+    return attempt["state"] == "CANCELLED" and not attempt["sekunden"]
+
+
+def escalate(tries, plan):
+    """Ressourcen fuer die Wiederholung aus allen bisherigen Versuchen eines Jobs: nach TIMEOUT die naechstlaengere
+    Partition ueber dem laengsten abgelaufenen Versuch, nach OUT_OF_MEMORY die naechste Speicherstufe ueber dem
+    groessten OOM-Versuch, sonst der aktuelle Plan (kosten.tsv bzw. speicher_euler.tsv); nie weniger als der Plan.
+    So bleibt eine Eskalation auch nach einem spaeteren anderen Fehler erhalten, und ein wartender Job, der wegen
+    zu viel Speicher abgebrochen wurde, kommt mit dem kleineren Plan zurueck. plan: dict(partition, stunden, mem)."""
+    part, hours, mem = plan["partition"], int(plan["stunden"]), float(plan["mem"])
+    timeouts = [a["stunden"] or plan["stunden"] for a in tries if a["state"] == "TIMEOUT"]
+    if timeouts:
+        bigger = [p for p in PARTITIONS if p[1] > max(timeouts)]
+        longer = bigger[0] if bigger else PARTITIONS[-1]
+        if longer[1] > hours:
+            part, hours = longer
+    ooms = [a["mem"] or plan["mem"] for a in tries if a["state"] == "OUT_OF_MEMORY"]
+    if ooms:
+        mem = max(mem, speicher.next_step(max(ooms)))
+    return dict(partition=part, stunden=int(hours), mem=mem)
 
 
 def classify(jobs, tries, max_tries=3):
@@ -173,8 +188,8 @@ def classify(jobs, tries, max_tries=3):
         t = tries.get(job.line, [])
         last = t[-1] if t else None
         state = last["state"] if last else None
-        n_failed = sum(1 for a in t if a["state"] in ENDED_BAD + ["COMPLETED"])
-        plan = dict(partition=job.partition, stunden=int(job.zeitlimit), mem=int(job.mem_gb))
+        n_failed = sum(1 for a in t if a["state"] in ENDED_BAD + ["COMPLETED"] and not never_ran(a))
+        plan = dict(partition=job.partition, stunden=int(job.zeitlimit), mem=float(job.mem_gb))
         slurm.append("nicht abgeschickt" if not t else (state or "UNBEKANNT"))
         failed.append(n_failed)
         if job.datei == "fertig":
@@ -186,7 +201,7 @@ def classify(jobs, tries, max_tries=3):
         elif n_failed >= max_tries:
             action.append("aufgegeben"), res.append(plan)
         else:
-            action.append("wiederholen"), res.append(escalate(last, state, plan))
+            action.append("wiederholen"), res.append(escalate(t, plan))
     out = jobs.copy()
     out["slurm"], out["versuche"], out["aktion"] = slurm, failed, action
     out["partition_neu"] = [r["partition"] for r in res]
@@ -207,25 +222,18 @@ def queue():
     return pd.DataFrame(rows, columns=["id", "name", "partition", "state"])
 
 
-def euler_memory(path=JOBS / "speicher_euler.tsv"):
-    """{(suite, task): GB} aus watch_paper.py --speicher (nur auf Euler, nicht im Repository)."""
-    if not Path(path).exists():
-        return {}
-    frame = pd.read_csv(path, sep="\t")
-    return {(int(r.suite), int(r.task)): int(r.mem_gb) for r in frame.itertuples()}
-
-
 def load_jobs(run, with_files=True):
     """jobs.tsv mit Plan aus kosten.tsv (welle, partition, zeitlimit, mem_gb, reihenfolge) und Dateistand.
-    mem_gb: hoeherer Wert aus kosten.tsv und jobs_paper/speicher_euler.tsv (nicht fuer Default)."""
+    mem_gb: aus kosten.tsv; gibt es jobs_paper/speicher_euler.tsv (Euler-Messung), neu nach speicher.Plan
+    (Euler-Messung je Aufgabe und Methode, sonst Mac)."""
     jobs = pd.read_csv(JOBS / run / "jobs.tsv", sep="\t", header=None, names=COLUMNS, keep_default_na=False)
     costs = pd.read_csv(JOBS / run / "kosten.tsv", sep="\t", keep_default_na=False)
     for column in ("partition", "mem_gb", "kernstunden", "name", "stunden", "welle", "zeitlimit", "reihenfolge"):
         jobs[column] = costs[column] if column in costs else (costs["stunden"] if column == "zeitlimit" else 0)
-    override = euler_memory()
-    if override:
-        jobs["mem_gb"] = [m if meth == "default" else max(m, override.get((s, t), 0))
-                          for m, meth, s, t in zip(jobs["mem_gb"], jobs["method"], jobs["suite"], jobs["task"])]
+    jobs["mem_gb"] = jobs["mem_gb"].astype(float)
+    if speicher.EULER.exists():
+        plan = speicher.Plan()
+        jobs["mem_gb"] = [plan(s, t, m) for s, t, m in zip(jobs["suite"], jobs["task"], jobs["method"])]
     jobs["line"] = jobs.index + 1
     jobs["datei"] = [file_state(j) for j in jobs.itertuples()] if with_files else "fehlt"
     return jobs
@@ -285,54 +293,176 @@ def queue_text(limit=940):
             + ", ".join(f"{k} {v}" for k, v in sorted(states.items())))
 
 
-def memory_report(runs):
-    """MaxRSS je Aufgabe (sacct, Schritt .batch) gegen den angeforderten Speicher; schreibt speicher_euler.tsv
-    mit der Stufe ueber 1.3 x MaxRSS bzw. ueber dem Speicher eines OOM-Versuchs."""
+LEGACY_MEM = 4        # Abgaben ohne bekannten Speicher stammen aus der Zeit vor dem 1.11.2026: alle >= 4 GB
+MIN_SECONDS = 300     # kuerzere Jobs (z. B. "SCHON FERTIG" nach --resume) sagen nichts ueber den Speicher
+
+
+def parse_rss(value):
+    """sacct-MaxRSS ('1234K', '1.5G', '0') in GB."""
+    if not value:
+        return 0.0
+    unit = {"K": 1e-6, "M": 1e-3, "G": 1.0, "T": 1e3}.get(value[-1], 1e-9)
+    return float(value[:-1] if value[-1] in "KMGT" else value) * unit
+
+
+def parse_steps(text):
+    """{(Job-ID, Array-Index): dict(state, sekunden, rss, oom)} aus sacct mit Schritten (JobID|State|MaxRSS|
+    ElapsedRaw): Zustand und Laufzeit aus der Hauptzeile, MaxRSS = Maximum ueber die Schritte (.batch, .extern)."""
+    out = {}
+    for row in (text or "").splitlines():
+        job_id, state, maxrss, elapsed = (row.split("|") + ["", "", "", ""])[:4]
+        base, _, rest = job_id.partition("_")
+        index, _, step_name = rest.partition(".")
+        if not index.isdigit():
+            continue
+        entry = out.setdefault((base, int(index)), dict(state=None, sekunden=0, rss=0.0, oom=False))
+        state = (state.split() or ["?"])[0]
+        if not step_name:
+            entry["state"], entry["sekunden"] = state, int(elapsed or 0)
+        entry["oom"] |= state.startswith("OUT_OF_ME")
+        entry["rss"] = max(entry["rss"], parse_rss(maxrss))
+    return out
+
+
+def measurements(runs, sacct_text=None):
+    """Ein Eintrag je beendetem Versuch mit Messung: lauf, line, suite, task, name, method, angefordert, state,
+    sekunden, rss, oom, gezaehlt (COMPLETED/TIMEOUT, mindestens MIN_SECONDS), kernstunden, zeitlimit (Plan)."""
     rows = []
     for run in runs:
         jobs = load_jobs(run, with_files=False).set_index("line")
         subs = submissions(run)
-        text = run_sacct(sorted({s["id"] for s in subs}), fmt="JobID,State,MaxRSS,ReqMem", steps=True)
+        text = sacct_text if sacct_text is not None else run_sacct(
+            sorted({s["id"] for s in subs}), fmt="JobID,State,MaxRSS,ElapsedRaw", steps=True)
         if text is None:
-            print("kein sacct")
-            return
-        rss, oom = {}, set()
-        for row in text.splitlines():
-            job_id, state, maxrss = (row.split("|") + ["", "", ""])[:3]
-            base, _, rest = job_id.partition("_")
-            index = rest.split(".")[0]
-            if not index.isdigit():
-                continue
-            key = (base, int(index))
-            if state.startswith("OUT_OF_ME"):
-                oom.add(key)
-            if maxrss:
-                unit = {"K": 1e-6, "M": 1e-3, "G": 1.0}.get(maxrss[-1], 1e-9)
-                value = float(maxrss[:-1] if maxrss[-1] in "KMG" else maxrss) * unit
-                rss[key] = max(rss.get(key, 0.0), value)
+            return None
+        steps = parse_steps(text)
         for sub in subs:
-            for i, line in enumerate(sub["lines"]):
-                if (sub["id"], i) in rss or (sub["id"], i) in oom:
-                    job = jobs.loc[line]
-                    rows.append(dict(lauf=run, suite=job.suite, task=job.task, name=job["name"], method=job.method,
-                                     maxrss_gb=rss.get((sub["id"], i), 0.0), angefordert=sub["mem"],
-                                     oom=(sub["id"], i) in oom))
-    if not rows:
+            for i, line in enumerate(sub["lines"][:int(sub["n"] or len(sub["lines"]))]):
+                m = steps.get((sub["id"], i))
+                if m is None or m["state"] in QUEUED or m["state"] is None:
+                    continue
+                job = jobs.loc[line]
+                long_enough = m["sekunden"] >= MIN_SECONDS
+                rows.append(dict(lauf=run, line=line, suite=int(job.suite), task=int(job.task), name=job["name"],
+                                 method=job.method, angefordert=float(sub["mem"] or LEGACY_MEM), state=m["state"],
+                                 sekunden=m["sekunden"], rss=m["rss"] if long_enough or m["oom"] else 0.0,
+                                 oom=m["oom"], gezaehlt=long_enough and m["state"] in ("COMPLETED", "TIMEOUT"),
+                                 kernstunden=float(job.kernstunden), zeitlimit=int(job.zeitlimit),
+                                 limit_abgabe=int(sub["stunden"] or job.zeitlimit)))
+    return pd.DataFrame(rows)
+
+
+def euler_table(frame):
+    """speicher_euler.tsv: je Aufgabe und Methode Zahl der gezaehlten Jobs, MaxRSS (Maximum ueber alle beendeten
+    Versuche mit Messung, beide Laeufe), OOM-Faelle und groesster Speicher, bei dem ein OOM kam."""
+    rows = []
+    for (suite, task, name, method), g in frame.groupby(["suite", "task", "name", "method"]):
+        rows.append(dict(suite=suite, task=task, name=name, method=method, jobs=int(g["gezaehlt"].sum()),
+                         maxrss_gb=round(g.loc[g["gezaehlt"] | g["oom"], "rss"].max() if len(g) else 0.0, 3),
+                         oom=int(g["oom"].sum()), oom_bei=float(g.loc[g["oom"], "angefordert"].max())
+                         if g["oom"].any() else 0.0))
+    table = pd.DataFrame(rows, columns=speicher.EULER_COLUMNS)
+    table["maxrss_gb"] = table["maxrss_gb"].fillna(0.0)
+    return table
+
+
+def memory_report(runs, sacct_text=None, out=None):
+    """MaxRSS je Aufgabe und Methode gegen angeforderten und neuen Speicher; schreibt speicher_euler.tsv (Grundlage
+    fuer speicher.Plan und damit fuer refill.py) und prueft die Zeitlimits gegen die gemessenen Laufzeiten."""
+    out = Path(out or speicher.EULER)
+    frame = measurements(runs, sacct_text)
+    if frame is None:
+        print("kein sacct")
+        return None
+    if frame.empty or not (frame["gezaehlt"] | frame["oom"]).any():
         print("Noch keine beendeten Jobs mit MaxRSS.")
+        return None
+    table = euler_table(frame)
+    table.to_csv(out, sep="\t", index=False)
+    plan = speicher.Plan(euler=table)
+    table["alt_gb"] = [frame.loc[(frame["suite"] == r.suite) & (frame["task"] == r.task)
+                                 & (frame["method"] == r.method), "angefordert"].max() for r in table.itertuples()]
+    table["neu_gb"] = [plan(r.suite, r.task, r.method) for r in table.itertuples()]
+    table["quelle"] = [plan.source(r.suite, r.task, r.method)[1] for r in table.itertuples()]
+    pd.set_option("display.width", 200)
+    print("Je Aufgabe und Methode (jobs = gezaehlte Jobs mit Messung, MaxRSS in GB; neu = Plan nach speicher.py):")
+    print(table.sort_values(["maxrss_gb"], ascending=False).drop(columns=["suite", "task"]).round(2)
+          .to_string(index=False))
+    hpo = table[table["method"] != "default"]
+    per_task = hpo.groupby("name").agg(jobs=("jobs", "sum"), maxrss_gb=("maxrss_gb", "max"), oom=("oom", "sum"),
+                                       alt_gb=("alt_gb", "max"), neu_min=("neu_gb", "min"),
+                                       neu_max=("neu_gb", "max")).sort_values("maxrss_gb", ascending=False)
+    print("\nJe Aufgabe (HPO-Methoden):")
+    print(per_task.round(2).to_string())
+    spread = per_task[per_task["neu_max"] > per_task["neu_min"]]
+    print(f"\nAufgaben, in denen sich die Methoden in der Stufe unterscheiden: {len(spread)} von {len(per_task)}"
+          + (" (" + ", ".join(spread.index[:10]) + ")" if len(spread) else ""))
+    print(f"{out}: {len(table)} Zeilen (Aufgabe x Methode); refill.py und watch_paper.py planen damit den Speicher.")
+    time_report(frame)
+    return table
+
+
+def time_report(frame):
+    """Laufzeit der fertigen Jobs gegen Schaetzung (kernstunden) und neues Zeitlimit."""
+    done = frame[(frame["state"] == "COMPLETED") & (frame["sekunden"] >= MIN_SECONDS)]
+    timeouts = frame[frame["state"] == "TIMEOUT"]
+    if done.empty and timeouts.empty:
         return
-    frame = pd.DataFrame(rows)
-    per_task = frame.groupby(["suite", "task", "name"]).agg(
-        jobs=("maxrss_gb", "size"), maxrss_gb=("maxrss_gb", "max"), angefordert=("angefordert", "max"),
-        oom=("oom", "sum"), oom_bei=("angefordert", lambda s: s[frame.loc[s.index, "oom"]].max())).reset_index()
-    per_task["oom_bei"] = per_task["oom_bei"].fillna(0)
-    per_task["vorschlag"] = [next((m for m in MEM_STEPS if m >= 1.3 * r.maxrss_gb and m > r.oom_bei),
-                                  MEM_STEPS[-1]) for r in per_task.itertuples()]
-    per_task = per_task.sort_values("maxrss_gb", ascending=False)
-    print(per_task.round(2).to_string(index=False))
-    out = per_task[per_task["vorschlag"] > 4][["suite", "task", "name", "vorschlag"]].rename(
-        columns={"vorschlag": "mem_gb"})
-    out.to_csv(JOBS / "speicher_euler.tsv", sep="\t", index=False)
-    print(f"\n{JOBS / 'speicher_euler.tsv'}: {len(out)} Aufgaben ueber 4 GB (refill.py nimmt max(Plan, diese Werte))")
+    done = done.assign(h=done["sekunden"] / 3600)
+    done = done.assign(verhaeltnis=done["h"] / done["kernstunden"].clip(lower=0.01),
+                       ausnutzung=done["h"] / done["zeitlimit"])
+    print("\nLaufzeit fertiger Jobs (h = Wanduhr, verhaeltnis = h / Schaetzung, ausnutzung = h / neues Zeitlimit;"
+          " Jobs mit --resume nach Abbruch laufen kuerzer):")
+    print(done.groupby(["lauf", "method"]).agg(jobs=("h", "size"), h_median=("h", "median"), h_max=("h", "max"),
+                                               verh_median=("verhaeltnis", "median"),
+                                               verh_max=("verhaeltnis", "max"),
+                                               ausn_max=("ausnutzung", "max")).round(2).to_string())
+    over = done[done["h"] > done["zeitlimit"]]
+    tight = done[done["ausnutzung"] > 0.8]
+    print(f"Fertige Jobs, die das neue Zeitlimit ueberschritten haetten: {len(over)} von {len(done)}; ueber 80 % "
+          f"des Limits: {len(tight)}"
+          + ("" if over.empty else " (z. B. " + ", ".join(f"{r.name} {r.method} {r.h:.1f} h > {r.zeitlimit} h"
+                                                           for r in over.head(5).itertuples()) + ")"))
+    print(f"TIMEOUT: {len(timeouts)}" + ("" if timeouts.empty else " (z. B. " + ", ".join(
+        f"{r.name} {r.method} Limit {r.limit_abgabe} h" for r in timeouts.head(5).itertuples()) + ")"))
+
+
+SCANCEL = {"zu_wenig": "wartende Jobs mit weniger Speicher als im Plan (wuerden wohl OOM)",
+           "zu_viel": "wartende Jobs mit mehr Speicher als im Plan (belegen unnoetig QOSMaxMemoryPerUser)"}
+
+
+def pending_mismatch(run, jobs, tries):
+    """Wartende Jobs, deren Abgabe weniger oder mehr Speicher hat als der Plan (jobs.mem_gb): je Richtung ein
+    scancel-Skript jobs_paper/<lauf>/scancel_<richtung>_speicher.sh (alte Skripte werden geloescht, wenn nichts
+    mehr abweicht). Gibt die Meldezeilen zurueck. Nach dem Abbrechen schickt refill.py die Jobs mit dem Plan neu ab;
+    das Abbrechen eines wartenden Jobs zaehlt nicht als Fehlschlag (never_ran)."""
+    found = {"zu_wenig": [], "zu_viel": []}
+    for r in jobs[jobs["slurm"] == "PENDING"].itertuples():
+        last = tries[r.line][-1]
+        if last["mem"] is None:
+            continue
+        if float(last["mem"]) < float(r.mem_gb):
+            found["zu_wenig"].append((last, float(r.mem_gb)))
+        elif float(last["mem"]) > float(r.mem_gb):
+            found["zu_viel"].append((last, float(r.mem_gb)))
+    out = []
+    for kind, hits in found.items():
+        script = JOBS / run / f"scancel_{kind}_speicher.sh"
+        if not hits:
+            if script.exists():
+                script.unlink()
+            continue
+        ids = [f"{a['id']}_{a['index']}" for a, _ in hits]
+        script.write_text(f"#!/bin/bash\n# {SCANCEL[kind]}, geschrieben von watch_paper.py; danach schickt refill.py "
+                          "sie mit dem Plan neu ab\n# (wartend abgebrochen = nie gelaufen: zaehlt nicht als "
+                          "Fehlschlag)\n" + "".join(f"scancel {' '.join(ids[i:i + 200])}\n"
+                                                    for i in range(0, len(ids), 200)))
+        moves = Counter((speicher.fmt(a["mem"]), speicher.fmt(m), a["partition"]) for a, m in hits)
+        freed = sum(float(a["mem"]) - m for a, m in hits)
+        out.append(f"  {len(hits)} {SCANCEL[kind]}: " + ", ".join(
+            f"{n}x {old}->{new} GB {part}" for (old, new, part), n in moves.most_common(6))
+            + (f"; frei nach Neuabgabe {freed:.0f} GB" if kind == "zu_viel" else "") + f" -> bash {script}")
+    return out
 
 
 def watch(run, per_task=False, max_tries=3):
@@ -379,15 +509,8 @@ def watch(run, per_task=False, max_tries=3):
     if len(bad):
         last = tries[bad.iloc[0]["line"]][-1]
         print(f"  Log des ersten: jobs_paper/logs/hpo-{run}_{last['id']}_{last['index']}.err")
-    low = [(r.line, tries[r.line][-1]) for r in jobs[jobs["slurm"] == "PENDING"].itertuples()
-           if (tries[r.line][-1]["mem"] or 0) < r.mem_gb]
-    if low:
-        script = JOBS / run / "scancel_zu_wenig_speicher.sh"
-        ids = [f"{a['id']}_{a['index']}" for _, a in low]
-        script.write_text("#!/bin/bash\n# wartende Jobs mit weniger Speicher als im Plan; refill.py schickt sie danach "
-                          "mit dem Plan neu ab\n" + "".join(f"scancel {' '.join(ids[i:i + 200])}\n"
-                                                              for i in range(0, len(ids), 200)))
-        print(f"  {len(low)} wartende Jobs mit weniger Speicher als im Plan (wuerden wohl OOM): bash {script}")
+    for line in pending_mismatch(run, jobs, tries):
+        print(line)
     gave_up = jobs[jobs["aktion"] == "aufgegeben"]
     if len(gave_up):
         print(f"  aufgegeben nach {max_tries} Versuchen (refill.py --max_versuche erhoehen oder Ursache beheben): "

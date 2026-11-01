@@ -32,6 +32,8 @@ class PlanTests(unittest.TestCase):
         self.assertTrue((costs["zeitlimit"] >= costs["stunden"]).all())
         self.assertTrue((costs["zeitlimit"] <= costs["partition"].map(HOURS)).all())
         self.assertTrue(set(costs["mem_gb"]) <= set(mpj.MEM_STEPS))
+        self.assertTrue(set(costs["zeitlimit"]) <= set(mpj.HOUR_STEPS))
+        self.assertTrue((costs["zeitlimit"] == [mpj.hour_step(h) for h in costs["stunden"]]).all())
 
     def test_paper(self):
         self.check_run("paper")
@@ -42,15 +44,16 @@ class PlanTests(unittest.TestCase):
     def test_memory_for_large_histograms(self):
         costs = self.costs("paper")
         mem = costs.groupby(["name", "method"])["mem_gb"].max()
+        # ohne speicher_euler.tsv im Repository: Mac-Spitze + 0.4 GB, x 1.3, Stufe
         self.assertEqual(mem[("MiniBooNE", "random_search")], 12)        # OOM mit 4 GB auf Euler (Job 19145396)
-        self.assertEqual(mem[("MiniBooNE", "default")], 4)
-        self.assertGreaterEqual(mem[("jannis", "SMAC")], 12)
-        self.assertEqual(mem[("wine_quality", "tpe")], 4)
-        self.assertGreaterEqual(mem[("delays_zurich_transport", "tpe")], 8)
-        self.assertEqual(mpj.mem_step(4.0), 4)
-        self.assertEqual(mpj.mem_step(4.1), 8)
-        self.assertEqual(mpj.memory_gb(337, 361068, "tpe", {(337, 361068): 6.1}), 12)
-        self.assertEqual(mpj.memory_gb(337, 361068, "tpe", {}), 4)       # ohne Messung: nach Dateigroesse
+        self.assertGreaterEqual(mem[("jannis", "SMAC")], 8)
+        self.assertEqual(mem[("wine_quality", "tpe")], 1)
+        self.assertEqual(mem[("delays_zurich_transport", "tpe")], 4)
+        self.assertEqual(mem[("MagicTelescope", "tpe")], 4)              # keine Mac-Messung: UNKNOWN_GB
+        self.assertLess(costs["mem_gb"].mean(), 3)
+
+    def test_hour_step(self):
+        self.assertEqual([mpj.hour_step(h) for h in (1, 3, 5, 13, 25, 100)], [1, 4, 8, 24, 48, 120])
 
     def test_frozen_arrays_untouched(self):
         # die Wellen-Arrays vom ersten Abschicken bleiben, wie sie sind (submitted.tsv verweist auf sie)

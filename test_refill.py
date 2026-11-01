@@ -1,5 +1,6 @@
 """test_refill.py -- refill.py mit nachgebildetem squeue/sacct/sbatch: Schlangen-Limit, Reihenfolge, nie doppelt,
-Wiederholung mit mehr Speicher/Zeit, aufgegeben, sbatch-Fehler, Reserve je Partition, Vorschau.
+Wiederholung mit mehr Speicher/Zeit, aufgegeben, sbatch-Fehler, Reserve je Partition, Vorschau, halbe
+Speicherstufen, wartend abgebrochene Jobs (kein Fehlschlag, Neuabgabe mit kleinerem Plan).
 Aufruf: python test_refill.py"""
 import os
 import tempfile
@@ -115,7 +116,7 @@ class RefillTests(unittest.TestCase):
         self.run_refill("--limit", "100")
         retry = self.slurm.sbatches()[-1]
         self.assertEqual(self.lines_of(retry), [3])
-        self.assertIn("--mem-per-cpu=8G", retry)
+        self.assertIn("--mem-per-cpu=6G", retry)                          # Stufe ueber 4 GB
         self.assertIn("--partition=normal.120h", retry)
         for state, mem in (("TIMEOUT", None), ("FAILED", None)):          # 2. und 3. Fehlschlag
             last = self.submitted()[-1].split("\t")[0]
@@ -124,9 +125,43 @@ class RefillTests(unittest.TestCase):
             n = len(self.slurm.sbatches())
             self.run_refill("--limit", "100")
             if state == "TIMEOUT":
-                self.assertIn("--mem-per-cpu=8G", self.slurm.sbatches()[-1])   # Speicher bleibt erhoeht
+                self.assertIn("--mem-per-cpu=6G", self.slurm.sbatches()[-1])   # Speicher bleibt erhoeht
                 self.assertEqual(len(self.slurm.sbatches()), n + 1)
         self.assertEqual(len(self.slurm.sbatches()), n)                       # nach 3 Fehlschlaegen aufgegeben
+
+    def set_plan_mem(self, line, mem):
+        costs = pd.read_csv("jobs_paper/paper/kosten.tsv", sep="\t", keep_default_na=False)
+        costs["mem_gb"] = costs["mem_gb"].astype(float)
+        costs.loc[line - 1, "mem_gb"] = mem
+        costs.to_csv("jobs_paper/paper/kosten.tsv", sep="\t", index=False)
+
+    def test_half_steps_in_mb(self):
+        self.set_plan_mem(2, 1.5)
+        self.set_plan_mem(4, 1.5)
+        self.run_refill("--limit", "100")
+        first = self.slurm.sbatches()[0]
+        self.assertEqual(self.lines_of(first), [2, 4])
+        self.assertIn("--mem-per-cpu=1536M", first)
+        self.assertEqual(self.submitted()[0].split("\t")[-1], "1.5")
+        tries, _ = refill.wp.attempts("paper", sacct_text="")
+        self.assertEqual(tries[2][0]["mem"], 1.5)
+
+    def test_cancelled_pending_is_resubmitted_with_smaller_plan(self):
+        self.run_refill("--limit", "100")                                     # alle mit 4 GB (Zeile 6: 12 GB)
+        job = self.submitted()[0].split("\t")[0]                               # Zeilen 2 und 4, normal.4h
+        self.set_plan_mem(2, 1.5)                                             # neuer, kleinerer Plan
+        self.set_plan_mem(4, 1.5)
+        for attempt in range(4):                                              # oefter als --max_versuche
+            self.slurm.queue = [q for q in self.slurm.queue if not q.startswith(job)]
+            for i in (0, 1):
+                self.slurm.sacct[f"{job}_{i}"] = "CANCELLED by 1234"         # wartend abgebrochen, Laufzeit 0
+            n = len(self.slurm.sbatches())
+            self.run_refill("--limit", "100")
+            self.assertEqual(len(self.slurm.sbatches()), n + 1)               # nie aufgegeben
+            retry = self.slurm.sbatches()[-1]
+            self.assertEqual(self.lines_of(retry), [2, 4])
+            self.assertIn("--mem-per-cpu=1536M", retry)
+            job = self.submitted()[-1].split("\t")[0]
 
     def test_sbatch_failure_stops_and_leaves_no_trace(self):
         self.slurm.fail = True

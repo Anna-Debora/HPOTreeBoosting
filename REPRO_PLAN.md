@@ -279,6 +279,17 @@ covertype, delays_zurich_transport; sonst 4 GB (Default immer nach Dateigrösse)
 `python watch_paper.py --speicher` (MaxRSS aus sacct je Aufgabe, schreibt `jobs_paper/speicher_euler.tsv`, das
 refill.py als Untergrenze nimmt).
 
+**Speicher, neu** (1.11.2026): Engpass ist `QOSMaxMemoryPerUser` (Gesamtspeicher je Nutzer und Partition, ~133 GB in
+normal.24h), nicht die Kerne; mit 4 GB je Job liefen nur ~32 gleichzeitig. Neue Regel in `speicher.py`: Spitze × 1.3,
+mindestens 1 GB, Stufen 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32 GB. Spitze aus Euler-MaxRSS je Aufgabe und Methode
+(`watch_paper.py --speicher` → `speicher_euler.tsv`, ab 5 gemessenen Jobs je Methode, sonst Maximum der Aufgabe),
+sonst Mac-Spitze + 0.4 GB (der echte Job braucht mehr als measure_memory.py: wine_quality Mac 0.22 GB, ganzer
+Job 0.44–0.58 GB). OOM auf Euler hebt den Plan der Aufgabe über die OOM-Stufe; Wiederholungen nach OOM eskalieren
+je Job zur nächsten Stufe. Zeitlimit je Job = Schätzung × 2 auf Stufen 1, 2, 4, 8, 12, 24, 48, 72, 120 h (statt
+Maximum der ganzen Gruppe). Wartende Jobs mit mehr Speicher als im Plan: `watch_paper.py` schreibt
+`jobs_paper/<lauf>/scancel_zu_viel_speicher.sh`; wartend abgebrochene Jobs (CANCELLED, Laufzeit 0) zählen nicht als
+Fehlschlag, refill.py schickt sie mit dem kleineren Plan neu ab.
+
 **Euler, beobachten:**
 ```
 python watch_paper.py                       # Schlange, je Welle fertig/laufend/wartend/fehlgeschlagen/fehlt/nachfüllen

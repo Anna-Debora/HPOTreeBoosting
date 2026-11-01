@@ -5,12 +5,16 @@ erlaubt ~1000 Jobs, sonst QOSMaxSubmitJobPerUserLimit).
 Je Job (Zeile von jobs.tsv) entscheidet watch_paper.classify():
   fertig        Ergebnisdatei vollstaendig                                    -> nichts
   in_schlange   letzte Abgabe wartet/laeuft oder ist sacct (noch) unbekannt   -> nichts (nie doppelt)
-  neu           nie abgeschickt                                               -> abschicken mit Plan (kosten.tsv)
+  neu           nie abgeschickt                                               -> abschicken mit Plan
   wiederholen   letzte Abgabe beendet ohne fertige Datei (TIMEOUT, OUT_OF_MEMORY, FAILED, CANCELLED, ...)
-                -> abschicken, nach TIMEOUT naechstlaengere Partition, nach OUT_OF_MEMORY naechste Speicherstufe
-                   (4, 8, 12, 16, 24, 32 GB), nie weniger als der Plan; angefangene Dateien laufen ab dem ersten
-                   fehlenden Fold weiter (run_ablation.py --resume)
+                -> abschicken mit Plan, nach TIMEOUT naechstlaengere Partition, nach OUT_OF_MEMORY naechste
+                   Speicherstufe ueber dem groessten OOM-Versuch (speicher.MEM_STEPS: 1, 1.5, 2, 3, 4, 6, 8, 12, 16,
+                   24, 32 GB); angefangene Dateien laufen ab dem ersten fehlenden Fold weiter (--resume)
   aufgegeben    schon --max_versuche Mal ohne Ergebnis beendet                 -> nichts, wird gemeldet
+                (wartend abgebrochene Jobs, CANCELLED mit Laufzeit 0, zaehlen nicht: watch_paper.never_ran)
+Plan: Partition und Zeitlimit aus kosten.tsv, Speicher je Aufgabe und Methode nach speicher.py (Euler-MaxRSS aus
+jobs_paper/speicher_euler.tsv, sonst Mac-Messung). Je Portion ein Array mit gleicher Welle, Lauf, Partition,
+Zeitlimit und Speicher; --mem-per-cpu in GB oder bei halben Stufen in MB (1.5 GB -> 1536M).
 Abgaben stehen in jobs_paper/<lauf>/submitted.tsv (auch die alten aus submit.sh); jede Portion bekommt eine eigene,
 nie wieder geaenderte idx-Datei jobs_paper/<lauf>/arrays/teile/<zeit>_<k>.idx.
 
@@ -39,6 +43,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import speicher
 import watch_paper as wp
 
 RUNS = ("paper", "l1_270")
@@ -99,7 +104,8 @@ def portions(chosen):
 
 def sbatch_command(run, part, hours, mem, idx, n):
     return ["sbatch", "--parsable", f"--array=0-{n - 1}", f"--partition={part}", f"--time={int(hours)}:00:00",
-            f"--mem-per-cpu={int(mem)}G", f"--job-name=hpo-{run}", "jobs_paper/run_paper_job.sbatch", run, str(idx)]
+            f"--mem-per-cpu={speicher.sbatch_mem(mem)}", f"--job-name=hpo-{run}", "jobs_paper/run_paper_job.sbatch",
+            run, str(idx)]
 
 
 def submit(portion, stamp, k, dry):
@@ -118,13 +124,14 @@ def submit(portion, stamp, k, dry):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         idx.unlink()
-        print(f"  sbatch abgelehnt ({run}, {part}, {mem} GB, {len(lines)} Jobs): {result.stderr.strip()}")
+        print(f"  sbatch abgelehnt ({run}, {part}, {speicher.fmt(mem)} GB, {len(lines)} Jobs): "
+              f"{result.stderr.strip()}")
         return False
     job_id = result.stdout.strip().split(";")[0]
     with open(wp.JOBS / run / "submitted.tsv", "a") as handle:
         handle.write("\t".join(map(str, [job_id, idx, len(lines), datetime.now().strftime("%F %T"), part,
-                                         int(hours), int(mem)])) + "\n")
-    print(f"  abgeschickt: Job {job_id}, {len(lines)} Jobs, {run} {part} {hours} h {mem} GB")
+                                         int(hours), speicher.fmt(mem)])) + "\n")
+    print(f"  abgeschickt: Job {job_id}, {len(lines)} Jobs, {run} {part} {hours} h {speicher.fmt(mem)} GB")
     return True
 
 

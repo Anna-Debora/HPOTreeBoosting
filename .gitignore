@@ -112,4 +112,4 @@ jobs_paper/*/arrays/teile/
 jobs_paper/.refill.lock
 jobs_paper/refill.stop
 jobs_paper/speicher_euler.tsv
-jobs_paper/*/scancel_zu_wenig_speicher.sh
+jobs_paper/*/scancel_zu_*_speicher.sh
