@@ -1,5 +1,5 @@
 #!/bin/bash
-# Nur noch fuer die Probe. Die Wellen schickt refill.py in Portionen ab (QOS: hoechstens ~1000 Jobs in der Schlange):
+# Nur noch fuer die Probe. Die Wellen schickt refill.py in Portionen ab (Schlange bis --limit, Standard 4000):
 #   python refill.py --run beide              # siehe python refill.py --help
 #   bash jobs_paper/submit.sh paper probe     # 7 Jobs: wine_quality, Seed 27225, alle Methoden
 # Optional: DRY=1 (nur anzeigen). Merkt sich die Job-ID in jobs_paper/<lauf>/submitted.tsv (fuer watch_paper.py).
@@ -9,7 +9,7 @@ RUN=$1; WHAT=$2
 DIR=jobs_paper/$RUN
 mkdir -p jobs_paper/logs
 case "$WHAT" in
-    probe) cmd=(sbatch --parsable --array=0-6 --partition=normal.4h --time=4:00:00 --mem-per-cpu=4G
+    probe) cmd=(sbatch --parsable --account=ls_math --array=0-6 --partition=normal.4h --time=4:00:00 --mem-per-cpu=4G
                 --job-name="hpo-$RUN" jobs_paper/run_paper_job.sbatch "$RUN" "$DIR/arrays/probe.idx")
            if [ -n "${DRY:-}" ]; then echo "${cmd[*]}"; exit 0; fi
            id=$("${cmd[@]}")

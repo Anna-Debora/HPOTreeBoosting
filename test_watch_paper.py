@@ -179,5 +179,46 @@ class WaveTests(unittest.TestCase):
         self.assertEqual(list(tasks.index), ["a", "b"])               # kleine Aufgabe zuerst
 
 
+    def test_concurrent_cores(self):
+        now = watch_paper.datetime(2026, 11, 3, 12, 0, 0)
+        text = "\n".join([
+            "1_0|hpo-paper|2026-11-02T12:00:00|2026-11-03T12:00:00|1",      # ganze 24 h: 1 Kern
+            "1_1|hpo-l1_270|2026-11-03T06:00:00|Unknown|2",                 # laeuft seit 6 h mit 2 Kernen: 0.5
+            "1_2|hpo-paper|2026-11-01T00:00:00|2026-11-02T18:00:00|1",      # nur 6 h im Fenster: 0.25
+            "1_[3-9]|hpo-paper|Unknown|Unknown|1",                          # wartend
+            "2|hpo-refill|2026-11-02T12:00:00|Unknown|1",                   # Daemon zaehlt nicht
+            "3|anderes|2026-11-02T12:00:00|2026-11-03T12:00:00|64"]) + "\n"
+        self.assertAlmostEqual(watch_paper.concurrent_cores(now=now, sacct_text=text), 1.75)
+        with mock.patch("subprocess.run", side_effect=OSError):
+            self.assertIsNone(watch_paper.concurrent_cores(now=now))
+
+    def test_progress_and_forecast(self):
+        def frame(states, welle, hours, used):
+            jobs = pd.DataFrame(dict(line=range(1, len(states) + 1), datei=states, welle=welle, kernstunden=hours))
+            tries = {i + 1: [dict(sekunden=u * 3600)] for i, u in enumerate(used) if u}
+            return watch_paper.progress(jobs, tries)
+        paper = frame(["fertig", "angefangen (2/5)", "fehlt", "fehlt"], [1, 1, 2, 2], [10.0, 10.0, 20.0, 5.0],
+                      [12, 4, 0, 0])
+        self.assertEqual(paper["rest_h"].tolist(), [0.0, 6.0, 20.0, 5.0])
+        self.assertEqual(paper["verbraucht_h"].tolist(), [12, 4, 0, 0])
+        l1 = frame(["fertig", "fehlt"], [1, 2], [8.0, 30.0], [8, 0])
+        now = watch_paper.datetime(2026, 11, 3, 12, 0)
+        table, factor = watch_paper.forecast([("paper", paper), ("l1_270", l1)], cores=2, now=now)
+        self.assertIsNone(factor)                                   # zu wenige fertige Jobs
+        self.assertEqual(list(zip(table["lauf"], table["welle"])),
+                         [("paper", 1), ("l1_270", 1), ("paper", 2), ("l1_270", 2)])
+        self.assertEqual(table["verbraucht_h"].tolist(), [16, 8, 0, 0])
+        self.assertEqual(table["rest_h"].tolist(), [6.0, 0.0, 25.0, 30.0])
+        # kumuliert 6 / 2 = 3 h; l1 Welle 1 fertig; 31 / 2 = 15.5 h -> aber laengster Job 20 h; 61 / 2 = 30.5 h
+        self.assertEqual(table["fertig_am"].tolist(), ["2026-11-03 18:00", "fertig", "2026-11-04 08:00",
+                                                       "2026-11-04 18:30"])
+        self.assertEqual(watch_paper.forecast([("paper", paper)], cores=None, now=now)[0]["fertig_am"].iloc[0],
+                         "unbekannt")
+        many = frame(["fertig"] * 20 + ["fehlt"], [1] * 21, [1.0] * 20 + [10.0], [2] * 20 + [0])
+        table, factor = watch_paper.forecast([("paper", many)], cores=10, now=now)
+        self.assertAlmostEqual(factor, 2.0)
+        self.assertEqual(table["fertig_am_kal"].iloc[0], "2026-11-04 08:00")   # 10 h x 2 = 20 h (laengster Job)
+
+
 if __name__ == "__main__":
     unittest.main()

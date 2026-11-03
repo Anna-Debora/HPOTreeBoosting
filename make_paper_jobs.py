@@ -74,8 +74,10 @@ METHOD_FACTOR = {"grid_search": 0.6, "random_search": 1.0, "tpe": 1.0, "gp_bo": 
 SURROGATE_SEC = {("gp_bo", 135): 1.6, ("gp_bo", 270): 3.6, ("SMAC", 135): 0.9, ("SMAC", 270): 1.4}  # Euler, wine_quality
 DEFAULT_HOURS = 0.1
 WAVE_SIZE = 5        # Seeds je Welle
-CORES = (64, 110)    # Euler-Account: 64 Kerne je Partition, 110 in normal/bulk zusammen
-MAX_SUBMIT = 17000   # hoechstens so viele abgeschickte (wartende + laufende) Jobs (QOS: tatsaechlich ~1000, refill.py)
+# Kerne fuer die Dauer-Schaetzung: 400 ~ gleichzeitig laufend unter ls_math (3.11.2026: ~358; vorher es_mge mit
+# 64 je Partition), 8026 = ls_math-Limit in normal.120h (kleinste Kerngrenze, watch_paper.QOS_LIMITS)
+CORES = (400, 8026)
+MAX_SUBMIT = 17000   # QOS MaxSubmit ls_math: hoechstens so viele abgeschickte (wartende + laufende) Jobs
 MEM_STEPS = speicher.MEM_STEPS     # Speicherstufen je Kern in GB (Regel in speicher.py)
 
 
@@ -234,7 +236,7 @@ echo "Ende $(date '+%F %T')"
 """
 
 SUBMIT = """#!/bin/bash
-# Nur noch fuer die Probe. Die Wellen schickt refill.py in Portionen ab (QOS: hoechstens ~1000 Jobs in der Schlange):
+# Nur noch fuer die Probe. Die Wellen schickt refill.py in Portionen ab (Schlange bis --limit, Standard 4000):
 #   python refill.py --run beide              # siehe python refill.py --help
 #   bash jobs_paper/submit.sh paper probe     # 7 Jobs: wine_quality, Seed 27225, alle Methoden
 # Optional: DRY=1 (nur anzeigen). Merkt sich die Job-ID in jobs_paper/<lauf>/submitted.tsv (fuer watch_paper.py).
@@ -244,7 +246,7 @@ RUN=$1; WHAT=$2
 DIR=jobs_paper/$RUN
 mkdir -p jobs_paper/logs
 case "$WHAT" in
-    probe) cmd=(sbatch --parsable --array=0-6 --partition=normal.4h --time=4:00:00 --mem-per-cpu=4G
+    probe) cmd=(sbatch --parsable --account=ls_math --array=0-6 --partition=normal.4h --time=4:00:00 --mem-per-cpu=4G
                 --job-name="hpo-$RUN" jobs_paper/run_paper_job.sbatch "$RUN" "$DIR/arrays/probe.idx")
            if [ -n "${DRY:-}" ]; then echo "${cmd[*]}"; exit 0; fi
            id=$("${cmd[@]}")
@@ -301,8 +303,8 @@ def main(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/sp
         for c in costs.itertuples():
             summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
                            f"{' + Default' if c.welle == 1 else ''}): {c.jobs} Jobs, {c.kernstunden:,} Kernstunden, "
-                           f"bei 64 Kernen ~{c.tage_64_kerne} Tage, bei 110 Kernen ~{c.tage_110_kerne} Tage "
-                           f"(laengster Job {c.laengster_job_h} h)")
+                           + ", ".join(f"bei {k} Kernen ~{getattr(c, f'tage_{k}_kerne')} Tage" for k in CORES)
+                           + f" (laengster Job {c.laengster_job_h} h)")
         summary.append("")
     waves = pd.concat(waves, ignore_index=True)
     both = waves.groupby("welle").agg(jobs=("jobs", "sum"), kernstunden=("kernstunden", "sum"),
@@ -312,11 +314,12 @@ def main(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/sp
     waves = pd.concat([waves, both.assign(lauf="beide")], ignore_index=True)
     waves.to_csv(out / "kosten_wellen.tsv", sep="\t", index=False)
     summary += ["Beide Laeufe zusammen je Welle (teilen sich dieselben Kerne):"]
-    summary += [f"  Welle {r.welle}: {r.jobs} Jobs, {r.kernstunden:,} Kernstunden, bei 64 Kernen ~{r.tage_64_kerne} "
-                f"Tage, bei 110 Kernen ~{r.tage_110_kerne} Tage" for r in both.itertuples()]
+    summary += [f"  Welle {r.welle}: {r.jobs} Jobs, {r.kernstunden:,} Kernstunden, "
+                + ", ".join(f"bei {k} Kernen ~{getattr(r, f'tage_{k}_kerne')} Tage" for k in CORES)
+                for r in both.itertuples()]
     summary += [f"Alle Wellen beider Laeufe: {both['jobs'].sum():,} Jobs, {both['kernstunden'].sum():,} Kernstunden. "
                 "Dauer = max(Kernstunden / Kerne, laengster Job), Untergrenze ohne Wartezeit in der Warteschlange. "
-                "Abschicken: refill.py (Schlange <= 940).", ""]
+                "Abschicken: refill.py (Schlange <= --limit, Standard 4000).", ""]
     (out / "run_paper_job.sbatch").write_text(SBATCH)
     (out / "submit.sh").write_text(SUBMIT)
     (out / "logs").mkdir(exist_ok=True)

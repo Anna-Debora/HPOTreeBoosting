@@ -1,6 +1,7 @@
 """Nachfueller fuer die grossen Laeufe: schickt die Jobs aus jobs_paper/<lauf>/jobs.tsv in Portionen ab und haelt
-die eigene Schlange (squeue --me -h -r | wc -l, jede Array-Aufgabe einzeln) unter --limit (Standard 940; Euler-QOS
-erlaubt ~1000 Jobs, sonst QOSMaxSubmitJobPerUserLimit).
+die eigene Schlange (squeue --me -h -r | wc -l, jede Array-Aufgabe einzeln) unter --limit (Standard 4000, hoechstens
+15000; QOS des Accounts ls_math: MaxSubmit 17000 Jobs je Nutzer, sonst QOSMaxSubmitJobPerUserLimit). Jeder sbatch
+(Rechenjobs, Daemon, Nachfolger des Daemons) geht mit --account (Standard ls_math).
 
 Je Job (Zeile von jobs.tsv) entscheidet watch_paper.classify():
   fertig        Ergebnisdatei vollstaendig                                    -> nichts
@@ -21,13 +22,14 @@ nie wieder geaenderte idx-Datei jobs_paper/<lauf>/arrays/teile/<zeit>_<k>.idx.
 Reihenfolge: Welle 1 vor 2 vor 3 vor 4; innerhalb einer Welle zuerst Wiederholungen, dann die schnellen
 Partitionen (normal.4h, 24h, 120h), dann paper vor l1_270, dann kleine Aufgaben zuerst (Spalte reihenfolge).
 --reserve N (Standard 100): in der ersten offenen Welle bekommt jede Partition mit offenen Jobs zuerst bis zu N
-Plaetze in der Schlange (wartend + laufend), damit nicht nur normal.4h-Jobs warten, waehrend die 64-Kerne-Grenze je
-Partition die anderen Partitionen leer laesst.
+Plaetze in der Schlange (wartend + laufend), damit nicht nur normal.4h-Jobs warten, waehrend die Kerngrenze je
+Partition (ls_math: 26752 / 14045 / 8026 Kerne in normal.4h / 24h / 120h) die anderen Partitionen leer laesst.
 
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
     DRY=1 python refill.py --run beide           # nur anzeigen (auch: --dry)
     python refill.py --run paper --limit 600     # nur paper, kleinere Schlange
+    python refill.py --run beide --account es_mge  # anderer Slurm-Account
     python refill.py --run beide --daemon        # selbstfortsetzender Slurm-Job: alle 10 min nachfuellen,
                                                  # Standard normal.4h mit 4:00:00, reiht sich selbst neu ein
     python refill.py --run beide --daemon --daemon-partition normal.24h --daemon-zeit 24:00:00
@@ -109,20 +111,21 @@ def portions(chosen):
     return out
 
 
-def sbatch_command(run, part, hours, mem, idx, n):
-    return ["sbatch", "--parsable", f"--array=0-{n - 1}", f"--partition={part}", f"--time={int(hours)}:00:00",
+def sbatch_command(run, part, hours, mem, idx, n, account=wp.ACCOUNT):
+    return ["sbatch", "--parsable", f"--account={account}", f"--array=0-{n - 1}", f"--partition={part}",
+            f"--time={int(hours)}:00:00",
             f"--mem-per-cpu={speicher.sbatch_mem(mem)}", f"--job-name=hpo-{run}", "jobs_paper/run_paper_job.sbatch",
             run, str(idx)]
 
 
-def submit(portion, stamp, k, dry):
+def submit(portion, stamp, k, dry, account=wp.ACCOUNT):
     """Eine Portion abschicken; True bei Erfolg."""
     run, part, hours, mem, lines = portion
     idx = wp.JOBS / run / "arrays" / "teile" / f"{stamp}_{k}.idx"
     while idx.exists():                       # idx-Dateien sind in submitted.tsv referenziert: nie ueberschreiben
         k = f"{k}x"
         idx = idx.with_name(f"{stamp}_{k}.idx")
-    cmd = sbatch_command(run, part, hours, mem, idx, len(lines))
+    cmd = sbatch_command(run, part, hours, mem, idx, len(lines), account)
     if dry:
         print("  DRY:", " ".join(cmd), f"  ({len(lines)} Jobs, Zeilen {lines[0]}...{lines[-1]})")
         return True
@@ -150,7 +153,7 @@ def unknown_jobs(q, runs):
     return sorted({i.split("_")[0] for i in mine["id"]} - known)
 
 
-def refill(runs, limit, reserve, max_tries, dry):
+def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
     q = wp.queue()
     if q is None:
         if not dry:
@@ -173,7 +176,7 @@ def refill(runs, limit, reserve, max_tries, dry):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     sent = 0
     for k, portion in enumerate(portions(chosen)):
-        if not submit(portion, stamp, k, dry):
+        if not submit(portion, stamp, k, dry, account):
             return 1
         sent += len(portion[4])
     todo = int(jobs["aktion"].isin(["neu", "wiederholen"]).sum())
@@ -216,10 +219,11 @@ def daemon_command(args):
     if seconds <= DAEMON_MARGIN_S + 600:
         raise ValueError(f"Zeitlimit {args.daemon_zeit} zu kurz (Daemon endet {DAEMON_MARGIN_S // 60} min vorher)")
     passed = ["--run", args.run, "--limit", str(args.limit), "--reserve", str(args.reserve),
-              "--max_versuche", str(args.max_versuche)]
-    env = f"ALL,DAEMON_PARTITION={args.daemon_partition},DAEMON_TIME={args.daemon_zeit},DAEMON_SECONDS={seconds}"
-    return ["sbatch", "--parsable", f"--partition={args.daemon_partition}", f"--time={args.daemon_zeit}",
-            f"--export={env}", DAEMON_SCRIPT, *passed]
+              "--max_versuche", str(args.max_versuche), "--account", args.account]
+    env = (f"ALL,DAEMON_PARTITION={args.daemon_partition},DAEMON_TIME={args.daemon_zeit},DAEMON_SECONDS={seconds},"
+           f"DAEMON_ACCOUNT={args.account}")
+    return ["sbatch", "--parsable", f"--account={args.account}", f"--partition={args.daemon_partition}",
+            f"--time={args.daemon_zeit}", f"--export={env}", DAEMON_SCRIPT, *passed]
 
 
 def start_daemon(args):
@@ -241,7 +245,7 @@ def start_daemon(args):
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout.strip() or result.stderr.strip())
     if result.returncode == 0:
-        print(f"Daemon abgeschickt ({args.daemon_partition}, {args.daemon_zeit}); Log: "
+        print(f"Daemon abgeschickt ({args.account}, {args.daemon_partition}, {args.daemon_zeit}); Log: "
               "jobs_paper/logs/refill_<Job-ID>.out; beenden: python refill.py --stop")
     return result.returncode
 
@@ -265,10 +269,22 @@ def stop_daemon(rounds=3, pause=5):
     return 0
 
 
+def queue_limit(text):
+    """--limit: ganze Zahl von 1 bis wp.QUEUE_MAX."""
+    value = int(text)
+    if not 1 <= value <= wp.QUEUE_MAX:
+        raise argparse.ArgumentTypeError(f"{value}: erlaubt 1 bis {wp.QUEUE_MAX} (QOS MaxSubmit {wp.MAX_SUBMIT})")
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", choices=("paper", "l1_270", "beide"), default="beide")
-    parser.add_argument("--limit", type=int, default=940, help="hoechstens so viele eigene Jobs in der Schlange")
+    parser.add_argument("--limit", type=queue_limit, default=wp.QUEUE_LIMIT,
+                        help=f"hoechstens so viele eigene Jobs in der Schlange (Standard {wp.QUEUE_LIMIT}, "
+                             f"1 bis {wp.QUEUE_MAX}; QOS MaxSubmit {wp.MAX_SUBMIT})")
+    parser.add_argument("--account", default=wp.ACCOUNT,
+                        help=f"Slurm-Account fuer alle sbatch-Aufrufe (Standard {wp.ACCOUNT})")
     parser.add_argument("--reserve", type=int, default=100, help="Plaetze je Partition in der ersten offenen Welle")
     parser.add_argument("--max_versuche", type=int, default=3, help="Wiederholungen je Job bis 'aufgegeben'")
     parser.add_argument("--dry", action="store_true", default=bool(os.environ.get("DRY")), help="nur anzeigen")
@@ -286,7 +302,7 @@ def main(argv=None):
         return start_daemon(args)
     runs = list(RUNS) if args.run == "beide" else [args.run]
     if args.dry:
-        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=True)
+        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=True, account=args.account)
     wp.JOBS.mkdir(exist_ok=True)
     with open(wp.JOBS / ".refill.lock", "w") as lock:
         try:
@@ -294,7 +310,7 @@ def main(argv=None):
         except OSError:
             print("Ein anderer refill.py laeuft gerade (Sperre jobs_paper/.refill.lock) -> nichts getan")
             return 0
-        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=False)
+        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=False, account=args.account)
 
 
 if __name__ == "__main__":

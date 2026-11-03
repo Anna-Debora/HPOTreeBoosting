@@ -51,15 +51,29 @@ class DaemonScriptTests(unittest.TestCase):
         result, calls = self.run_script(running="600\n", DAEMON_PARTITION="normal.4h", DAEMON_TIME="4:00:00",
                                         DAEMON_SECONDS="14400")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls[0], "sbatch --parsable --partition=normal.4h --time=4:00:00 --export=ALL "
+        self.assertEqual(calls[0], "sbatch --parsable --account=ls_math --partition=normal.4h --time=4:00:00 "
+                                   "--export=ALL "
                                    "--dependency=afterany:600 jobs_paper/refill_daemon.sbatch --run beide")
         self.assertEqual(calls[1], "python refill.py --run beide")
         self.assertEqual(calls[2], "scancel 777")                 # Exit-Code 3: Kette zu Ende, Nachfolger weg
 
     def test_defaults_without_environment(self):
         result, calls = self.run_script(running="600\n")
-        self.assertIn("--partition=normal.4h --time=4:00:00", calls[0])
-        self.assertIn("in normal.4h, Zeitlimit 4:00:00, laeuft bis 13200 s", result.stdout)
+        self.assertIn("--account=ls_math --partition=normal.4h --time=4:00:00", calls[0])
+        self.assertIn("in normal.4h (ls_math), Zeitlimit 4:00:00, laeuft bis 13200 s", result.stdout)
+
+    def test_successor_inherits_account(self):
+        result, calls = self.run_script(running="600\n", DAEMON_ACCOUNT="anderer")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--account=anderer", calls[0])
+        self.assertIn("--dependency=afterany:600", calls[0])
+
+    def test_header_account_and_partition(self):
+        text = SCRIPT.read_text()
+        self.assertIn("#SBATCH --account=ls_math", text)
+        self.assertIn("#SBATCH --partition=normal.4h", text)
+        self.assertIn("#SBATCH --time=4:00:00", text)
+        self.assertIn("INTERVAL=${REFILL_INTERVAL:-600}", text)              # alle 10 Minuten
 
     def test_second_daemon_exits(self):
         result, calls = self.run_script(running="600\n599\n")

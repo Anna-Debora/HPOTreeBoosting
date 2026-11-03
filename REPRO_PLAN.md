@@ -257,8 +257,11 @@ python make_table5.py --run Probe_paper=Results_paper:135 --run Probe_l1=Results
 59 Aufgaben und Methoden). Kosten je Welle: `jobs_paper/kosten_wellen.tsv` (paper ≈ 4'800 Kernstunden, ~3 Tage bei
 64 Kernen; l1_270 ≈ 9'350, ~6 Tage; beide ≈ 14'150, ~9 Tage bei 64 bzw. ~5.4 Tage bei 110 Kernen).
 
-Abschicken mit `refill.py` (seit 31.10.2026): der QOS erlaubt nur ~1000 eigene Jobs in der Schlange (jeder
-Array-Teiljob zählt; sonst `QOSMaxSubmitJobPerUserLimit`). refill.py füllt die Schlange bis `--limit` (940) auf,
+Abschicken mit `refill.py` (seit 31.10.2026): seit 3.11.2026 unter dem Slurm-Account `ls_math` (`--account`,
+Standard ls_math, für alle sbatch-Aufrufe inkl. Daemon). Limits je Nutzer: normal.4h 26'752 Kerne / 87 TB, 24h
+14'045 / 46 TB, 120h 8'026 / 26 TB, MaxSubmit 17'000 Jobs (jeder Array-Teiljob zählt; sonst
+`QOSMaxSubmitJobPerUserLimit`; vorher Gastaccount es_mge: 64 Kerne je Partition, ~1000 Jobs). refill.py füllt die
+Schlange bis `--limit` (Standard 4000, höchstens 15'000) auf,
 Welle 1 vor 2, schnelle Partitionen zuerst, je Partition zuerst `--reserve` (100) Plätze; schickt nie doppelt
 (Ergebnisdateien, submitted.tsv, sacct; unbekannte hpo-Jobs in der Schlange → Abbruch) und wiederholt
 beendete Jobs ohne Ergebnis (TIMEOUT → längere Partition, OUT_OF_MEMORY → nächste Speicherstufe), höchstens

@@ -70,8 +70,10 @@ class PlanTests(unittest.TestCase):
     def test_wave_costs(self):
         waves = pd.read_csv("jobs_paper/kosten_wellen.tsv", sep="\t")
         self.assertEqual(set(waves["lauf"]), {"paper", "l1_270", "beide"})
-        for r in waves.itertuples():
-            self.assertGreaterEqual(r.tage_64_kerne, r.tage_110_kerne)
+        cols = sorted((c for c in waves if c.startswith("tage_")), key=lambda c: int(c.split("_")[1]))
+        self.assertGreaterEqual(len(cols), 2)
+        for few, many in zip(cols, cols[1:]):                   # mehr Kerne: nie laenger
+            self.assertTrue((waves[few] >= waves[many]).all(), (few, many))
 
 
 if __name__ == "__main__":

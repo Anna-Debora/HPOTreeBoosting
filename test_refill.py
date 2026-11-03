@@ -216,9 +216,13 @@ class RefillTests(unittest.TestCase):
         call = self.slurm.sbatches()[-1]
         self.assertIn("--partition=normal.4h", call)
         self.assertIn("--time=4:00:00", call)
-        self.assertIn("--export=ALL,DAEMON_PARTITION=normal.4h,DAEMON_TIME=4:00:00,DAEMON_SECONDS=14400", call)
+        self.assertIn("--account=ls_math", call)
+        self.assertIn("--export=ALL,DAEMON_PARTITION=normal.4h,DAEMON_TIME=4:00:00,DAEMON_SECONDS=14400,"
+                      "DAEMON_ACCOUNT=ls_math", call)
         i = call.index(refill.DAEMON_SCRIPT)
         self.assertEqual(call[i + 1:i + 3], ["--run", "beide"])
+        self.assertEqual(call[call.index("--limit") + 1], "4000")
+        self.assertEqual(call[call.index("--account") + 1], "ls_math")       # auch fuer refill.py im Daemon
         self.assertFalse(Path("jobs_paper/refill.stop").exists())
 
     def test_daemon_partition_and_time(self):
@@ -227,13 +231,35 @@ class RefillTests(unittest.TestCase):
         call = self.slurm.sbatches()[-1]
         self.assertIn("--partition=normal.24h", call)
         self.assertIn("--time=24:00:00", call)
-        self.assertIn("DAEMON_SECONDS=86400", call[4])
+        self.assertIn("DAEMON_SECONDS=86400", next(c for c in call if c.startswith("--export=")))
         self.slurm.queue = []
         for bad in (["--daemon-zeit", "4:00"], ["--daemon-zeit", "5:00:00"], ["--daemon-zeit", "0:25:00"],
                     ["--daemon-partition", "bulk"]):
             self.assertEqual(refill.main(["--daemon", *bad]), 1, bad)
         self.assertEqual(len(self.slurm.sbatches()), 1)
         self.assertEqual(refill.time_seconds("1-02:03:04"), 93784)
+
+    def test_default_limit_and_account(self):
+        args = []
+        with mock.patch.object(refill, "refill", side_effect=lambda *a, **kw: args.append((a, kw)) or 0):
+            refill.main(["--run", "paper"])
+            refill.main(["--run", "paper", "--limit", "15000", "--account", "es_mge"])
+        self.assertEqual(args[0][0][1], 4000)
+        self.assertEqual(args[0][1]["account"], "ls_math")
+        self.assertEqual((args[1][0][1], args[1][1]["account"]), (15000, "es_mge"))
+        for bad in ("15001", "0", "viele"):
+            with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+                refill.main(["--limit", bad])
+
+    def test_jobs_submitted_with_account(self):
+        self.run_refill("--limit", "100")
+        self.assertTrue(all("--account=ls_math" in c for c in self.slurm.sbatches()))
+        self.slurm.queue = []
+        self.slurm.calls.clear()
+        Path("jobs_paper/paper/submitted.tsv").unlink()
+        self.run_refill("--limit", "100", "--account", "es_mge")
+        self.assertTrue(self.slurm.sbatches())
+        self.assertTrue(all("--account=es_mge" in c for c in self.slurm.sbatches()))
 
     def test_stop_ends_both_variants(self):
         self.slurm.queue = ["19251384|hpo-refill|normal.24h|PENDING",              # alter 24h-Daemon

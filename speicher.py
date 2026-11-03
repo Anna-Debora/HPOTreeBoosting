@@ -1,8 +1,9 @@
 """Speicherplan der grossen Laeufe (make_paper_jobs.py, watch_paper.py, refill.py).
 
 Regel (1.11.2026): Speicher je Job = gemessene Spitze x FACTOR (1.3), mindestens MIN_GB (1 GB), aufgerundet auf die
-naechste Stufe in MEM_STEPS. Der Engpass auf Euler ist QOSMaxMemoryPerUser (Gesamtspeicher je Nutzer und
-Partition), nicht die Kernzahl: je kleiner die Anforderung, desto mehr Jobs laufen gleichzeitig.
+naechste Stufe in MEM_STEPS. Unter dem Gastaccount es_mge war QOSMaxMemoryPerUser (Gesamtspeicher je Nutzer und
+Partition) der Engpass; unter ls_math (seit 3.11.2026: 87 / 46 / 26 TB in normal.4h / 24h / 120h, siehe
+watch_paper.QOS_LIMITS) ist er es kaum noch, knapper Speicher laesst aber weiterhin mehr Jobs auf einen Knoten.
 
 Quelle der Spitze, in dieser Reihenfolge:
   1. Euler, gleiche Aufgabe und Methode (jobs_paper/speicher_euler.tsv aus watch_paper.py --speicher), wenn

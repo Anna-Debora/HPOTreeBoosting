@@ -9,6 +9,8 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
     python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
                                           # Laufzeit gegen Zeitlimit; schreibt jobs_paper/speicher_euler.tsv, aus dem
                                           # refill.py den Speicher plant (speicher.py: MaxRSS x 1.3, Stufen ab 1 GB)
+Am Ende eine Prognose je Lauf und Welle: verbrauchte Kernstunden (sacct), verbleibende (Schaetzung kosten.tsv),
+mittlere Zahl gleichzeitig laufender Kerne der letzten 24 h (sacct) und voraussichtliches Fertigstellungsdatum.
 Wartende Jobs mit anderem Speicher als im Plan meldet watch_paper.py mit scancel-Skript:
     zu wenig (wuerden wohl OOM):      bash jobs_paper/<lauf>/scancel_zu_wenig_speicher.sh
     zu viel (blockieren QOSMaxMemoryPerUser): bash jobs_paper/<lauf>/scancel_zu_viel_speicher.sh
@@ -25,8 +27,10 @@ import argparse
 import re
 import subprocess
 from collections import Counter
+from datetime import datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 import speicher
@@ -36,6 +40,14 @@ JOBS = Path("jobs_paper")
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
+# Slurm-Account ls_math (seit 3.11.2026, vorher Gastaccount es_mge mit 64 Kernen je Partition und ~1000 Jobs):
+# Limits je Nutzer, (Kerne, Speicher TB); normal.bulk wird nicht benutzt. Der Speicher zaehlt nur laufende Jobs.
+ACCOUNT = "ls_math"
+QOS_LIMITS = {"normal.4h": (26752, 87), "normal.24h": (14045, 46), "normal.120h": (8026, 26),
+              "normal.bulk": (66880, 217)}
+MAX_SUBMIT = 17000      # QOS MaxSubmit: wartende + laufende Jobs je Nutzer (jede Array-Aufgabe zaehlt)
+QUEUE_LIMIT = 4000      # Standard fuer refill.py --limit
+QUEUE_MAX = 15000       # groesster erlaubter Wert fuer refill.py --limit (Abstand zu MAX_SUBMIT)
 MEM_STEPS = speicher.MEM_STEPS
 FOLDS = 5
 QUEUED = ("PENDING", "RUNNING", "REQUEUED", "SUSPENDED", "COMPLETING", "CONFIGURING", "RESIZING", "REQUEUE_HOLD",
@@ -282,15 +294,18 @@ def task_table(jobs):
     return table.loc[order.sort_values(kind="stable").index].reset_index()
 
 
-def queue_text(limit=940):
+def queue_text(limit=QUEUE_LIMIT):
     q = queue()
     if q is None:
         return "Schlange: unbekannt (kein squeue)"
     by_name = Counter(q["name"])
     states = Counter(q["state"])
-    return (f"Schlange: {len(q)} Jobs (Limit refill.py {limit}; QOS ~1000), davon "
+    running = Counter(q.loc[q["state"] == "RUNNING", "partition"])
+    return (f"Schlange: {len(q)} Jobs (Limit refill.py {limit}; QOS MaxSubmit {MAX_SUBMIT}), davon "
             + ", ".join(f"{k} {v}" for k, v in sorted(by_name.items())) + " | "
-            + ", ".join(f"{k} {v}" for k, v in sorted(states.items())))
+            + ", ".join(f"{k} {v}" for k, v in sorted(states.items()))
+            + "\nLaufend je Partition (Kerne / QOS-Limit, Account " + ACCOUNT + "): "
+            + (", ".join(f"{p} {n}/{QOS_LIMITS.get(p, ('?',))[0]}" for p, n in sorted(running.items())) or "keine"))
 
 
 LEGACY_MEM = 4        # Abgaben ohne bekannten Speicher stammen aus der Zeit vor dem 1.11.2026: alle >= 4 GB
@@ -465,6 +480,105 @@ def pending_mismatch(run, jobs, tries):
     return out
 
 
+# ---------------------------------------------------------------- Prognose
+JOB_NAMES = ("hpo-paper", "hpo-l1_270")
+MIN_CALIBRATION_JOBS = 20     # so viele fertige Jobs braucht der Faktor tatsaechlich / Schaetzung
+
+
+def progress(jobs, tries):
+    """Spalten verbraucht_h (Laufzeit aller Versuche laut sacct, 1 Kern je Job) und rest_h (Schaetzung aus
+    kosten.tsv fuer das, was fehlt: kernstunden x fehlende Folds / 5; fertig 0)."""
+    used = [sum(a["sekunden"] for a in tries.get(line, [])) / 3600 for line in jobs["line"]]
+    rest = []
+    for datei, hours in zip(jobs["datei"], jobs["kernstunden"].astype(float)):
+        match = re.search(r"\((\d)/5\)", datei)
+        rest.append(0.0 if datei == "fertig" else hours * (FOLDS - int(match.group(1))) / FOLDS if match else hours)
+    return jobs.assign(verbraucht_h=used, rest_h=rest)
+
+
+def concurrent_cores(hours=24, now=None, sacct_text=None):
+    """Mittlere Zahl gleichzeitig belegter Kerne der Rechenjobs (JOB_NAMES) in den letzten `hours` Stunden aus
+    sacct (Start, End, NCPUS; laufende Jobs bis jetzt); None ohne sacct."""
+    now = now or datetime.now()
+    begin = now - timedelta(hours=hours)
+    if sacct_text is None:
+        cmd = ["sacct", "-n", "-P", "-X", "-S", begin.strftime("%Y-%m-%dT%H:%M:%S"), "-E",
+               now.strftime("%Y-%m-%dT%H:%M:%S"), "--format=JobID,JobName,Start,End,NCPUS"]
+        try:
+            sacct_text = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+        except (OSError, subprocess.CalledProcessError):
+            return None
+    busy = 0.0
+    for row in sacct_text.splitlines():
+        _, name, start, end, ncpus = (row.split("|") + [""] * 5)[:5]
+        if name not in JOB_NAMES:
+            continue
+        try:
+            started = datetime.fromisoformat(start)
+        except ValueError:                  # Unknown/None: nie gestartet (wartend)
+            continue
+        try:
+            ended = datetime.fromisoformat(end)
+        except ValueError:                  # Unknown: laeuft noch
+            ended = now
+        overlap = (min(ended, now) - max(started, begin)).total_seconds()
+        if overlap > 0:
+            busy += overlap * int(ncpus or 1)
+    return busy / (hours * 3600)
+
+
+def forecast(frames, cores, now=None):
+    """frames: [(lauf, jobs mit welle, kernstunden, verbraucht_h, rest_h, datei)] in refill-Reihenfolge (paper vor
+    l1_270). Je Lauf und Welle: verbraucht_h, rest_h, offene Jobs und fertig_am. Beide Laeufe teilen sich die Kerne,
+    refill.py schickt Welle vor Welle und in einer Welle paper vor l1_270: fertig_am = jetzt + (kumulierter Rest bis
+    zu dieser Welle und diesem Lauf) / cores, mindestens der laengste offene Job der Gruppe. fertig_am_kal: ebenso
+    mit dem Rest mal Faktor (verbraucht / Schaetzung der fertigen Jobs), wenn es genug fertige Jobs gibt.
+    Gibt (Tabelle, Faktor oder None) zurueck."""
+    now = now or datetime.now()
+    rows = []
+    done_used = done_est = done_n = 0
+    for nr, (run, jobs) in enumerate(frames):
+        fertig = jobs["datei"] == "fertig"
+        done_used += jobs.loc[fertig, "verbraucht_h"].sum()
+        done_est += jobs.loc[fertig, "kernstunden"].astype(float).sum()
+        done_n += int((fertig & (jobs["verbraucht_h"] > 0)).sum())
+        for welle, g in jobs.groupby("welle"):
+            rows.append(dict(lauf=run, welle=int(welle), _nr=nr, jobs=len(g), offen=int((g["rest_h"] > 0).sum()),
+                             verbraucht_h=g["verbraucht_h"].sum(), rest_h=g["rest_h"].sum(),
+                             _laengster=g["rest_h"].max()))
+    table = pd.DataFrame(rows).sort_values(["welle", "_nr"], kind="stable").reset_index(drop=True)
+    factor = done_used / done_est if done_n >= MIN_CALIBRATION_JOBS and done_est > 0 else None
+
+    def dates(scale):
+        if not cores or cores <= 0:
+            return ["unbekannt"] * len(table)
+        hours = np.maximum(table["rest_h"].cumsum() * scale / cores, table["_laengster"] * scale)
+        return ["fertig" if r <= 0 else (now + timedelta(hours=float(h))).strftime("%Y-%m-%d %H:%M")
+                for r, h in zip(table["rest_h"], hours)]
+    table["fertig_am"] = dates(1.0)
+    if factor is not None:
+        table["fertig_am_kal"] = dates(factor)
+    return table.drop(columns=["_nr", "_laengster"]), factor
+
+
+def print_forecast(frames, cores):
+    table, factor = forecast(frames, cores)
+    print("===== Prognose (beide Laeufe teilen sich die Kerne; Reihenfolge wie refill.py: Welle, dann Lauf) =====")
+    print("Kerne im Mittel der letzten 24 h (sacct, " + "/".join(JOB_NAMES) + "): "
+          + ("unbekannt (kein sacct)" if cores is None else f"{cores:,.1f}"))
+    out = table.assign(verbraucht_h=table["verbraucht_h"].round(0).astype(int),
+                       rest_h=table["rest_h"].round(0).astype(int))
+    print(out.rename(columns={"verbraucht_h": "verbraucht_kernh", "rest_h": "rest_kernh"}).to_string(index=False))
+    print(f"Zusammen: verbraucht {table['verbraucht_h'].sum():,.0f} Kernstunden, verbleibend "
+          f"{table['rest_h'].sum():,.0f} (Schaetzung kosten.tsv, angefangene Jobs anteilig nach fertigen Folds)")
+    print("fertig_am = jetzt + kumulierter Rest / Kerne (mindestens der laengste offene Job); keine Wartezeit fuer "
+          "Wiederholungen eingerechnet."
+          + (f" fertig_am_kal: Rest x {factor:.2f} (verbraucht / Schaetzung der fertigen Jobs, inkl. "
+             "Fehlversuche)." if factor is not None else
+             f" (Kalibrierung ab {MIN_CALIBRATION_JOBS} fertigen Jobs mit sacct-Laufzeit)"))
+    print()
+
+
 def watch(run, per_task=False, max_tries=3):
     jobs = load_jobs(run)
     tries, available = attempts(run)
@@ -517,6 +631,7 @@ def watch(run, per_task=False, max_tries=3):
               + ", ".join(f"Zeile {r.line} {r.method} {r.name} seed {r.seed} ({r.slurm})"
                           for r in gave_up.head(5).itertuples()))
     print()
+    return progress(jobs, tries)
 
 
 if __name__ == "__main__":
@@ -531,5 +646,6 @@ if __name__ == "__main__":
         memory_report(runs)
     else:
         print(queue_text())
-        for run in runs:
-            watch(run, args.aufgaben, args.max_versuche)
+        runs = sorted(runs, key=["paper", "l1_270"].index)     # Reihenfolge wie refill.py (paper vor l1_270)
+        frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]
+        print_forecast(frames, concurrent_cores())

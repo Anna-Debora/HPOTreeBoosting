@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=hpo-refill
+#SBATCH --account=ls_math
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --partition=normal.4h
@@ -15,8 +16,8 @@
 # Sekunden (Standard 600) refill.py laufen lassen, REFILL_MARGIN Sekunden (Standard 20 min) vor dem Zeitlimit enden.
 # Exit-Code 3 von refill.py (nichts mehr zu tun) oder die Datei jobs_paper/refill.stop beenden die Kette (der
 # Nachfolger wird gestrichen). Laeuft schon ein anderer hpo-refill-Job, endet dieser sofort (nie zwei Daemons).
-# Partition und Zeitlimit kommen aus DAEMON_PARTITION, DAEMON_TIME, DAEMON_SECONDS (von refill.py --daemon gesetzt,
-# mit --export=ALL an den Nachfolger vererbt); ohne sie gelten die #SBATCH-Werte oben.
+# Partition, Zeitlimit und Account kommen aus DAEMON_PARTITION, DAEMON_TIME, DAEMON_SECONDS, DAEMON_ACCOUNT (von
+# refill.py --daemon gesetzt, mit --export=ALL an den Nachfolger vererbt); ohne sie gelten die #SBATCH-Werte oben.
 # Speicher 1 GB: refill.py --run beide braucht ~0.25 GB (Mac, 1.11.2026).
 set -eo pipefail
 module load stack/2024-06 gcc/12.2.0 python/3.9.18
@@ -26,12 +27,13 @@ set -u
 
 PART=${DAEMON_PARTITION:-normal.4h}
 TIME=${DAEMON_TIME:-4:00:00}
+ACCOUNT=${DAEMON_ACCOUNT:-ls_math}
 SECONDS_TOTAL=${DAEMON_SECONDS:-14400}
 INTERVAL=${REFILL_INTERVAL:-600}
 MARGIN=${REFILL_MARGIN:-1200}
 LIMIT_S=$(( SECONDS_TOTAL - MARGIN ))
 START=$(date +%s)
-echo "$(date '+%F %T') Daemon $SLURM_JOB_ID in $PART, Zeitlimit $TIME, laeuft bis $LIMIT_S s"
+echo "$(date '+%F %T') Daemon $SLURM_JOB_ID in $PART ($ACCOUNT), Zeitlimit $TIME, laeuft bis $LIMIT_S s"
 
 OTHERS=$(squeue --me -h -n hpo-refill -t RUNNING -o %i | grep -vx "$SLURM_JOB_ID" || true)
 if [ -n "$OTHERS" ]; then
@@ -40,9 +42,9 @@ if [ -n "$OTHERS" ]; then
 fi
 NEXT=$(squeue --me -h -n hpo-refill -t PENDING -o %i | head -1)
 if [ -z "$NEXT" ]; then
-    NEXT=$(sbatch --parsable --partition="$PART" --time="$TIME" --export=ALL \
+    NEXT=$(sbatch --parsable --account="$ACCOUNT" --partition="$PART" --time="$TIME" --export=ALL \
            --dependency=afterany:"$SLURM_JOB_ID" jobs_paper/refill_daemon.sbatch "$@")
-    echo "Nachfolger: $NEXT ($PART, $TIME)"
+    echo "Nachfolger: $NEXT ($ACCOUNT, $PART, $TIME)"
 else
     echo "Nachfolger wartet schon: $NEXT"
 fi
