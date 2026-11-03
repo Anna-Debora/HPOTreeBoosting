@@ -5,9 +5,10 @@ die eigene Schlange (squeue --me -h -r | wc -l, jede Array-Aufgabe einzeln) unte
 
 Je Job (Zeile von jobs.tsv) entscheidet watch_paper.classify():
   fertig        Ergebnisdatei vollstaendig                                    -> nichts
-  in_schlange   letzte Abgabe wartet/laeuft oder ist sacct (noch) unbekannt   -> nichts (nie doppelt)
+  in_schlange   letzte Abgabe steht in squeue oder ist laut sacct PENDING/RUNNING/...   -> nichts (nie doppelt)
   neu           nie abgeschickt                                               -> abschicken mit Plan
-  wiederholen   letzte Abgabe beendet ohne fertige Datei (TIMEOUT, OUT_OF_MEMORY, FAILED, CANCELLED, ...)
+  wiederholen   letzte Abgabe nicht in squeue und beendet ohne fertige Datei (TIMEOUT, OUT_OF_MEMORY, FAILED,
+                CANCELLED, NODE_FAIL, ...) oder sacct unbekannt (z. B. wartend abgebrochen und nie in sacct)
                 -> abschicken mit Plan, nach TIMEOUT naechstlaengere Partition, nach OUT_OF_MEMORY naechste
                    Speicherstufe ueber dem groessten OOM-Versuch (speicher.MEM_STEPS: 1, 1.5, 2, 3, 4, 6, 8, 12, 16,
                    24, 32 GB); angefangene Dateien laufen ab dem ersten fehlenden Fold weiter (--resume)
@@ -63,15 +64,16 @@ DAEMON_PARTITION, DAEMON_TIME = "normal.4h", "4:00:00"
 DAEMON_MARGIN_S = 20 * 60          # so lange vor dem Zeitlimit endet der Daemon (refill_daemon.sbatch)
 
 
-def candidates(runs, max_tries):
-    """Alle Jobs der Laeufe mit Einordnung; bricht ab, wenn es Abgaben gibt, sacct aber fehlt."""
+def candidates(runs, max_tries, queued=None):
+    """Alle Jobs der Laeufe mit Einordnung; bricht ab, wenn es Abgaben gibt, sacct aber fehlt. queued: Aufgaben in
+    squeue (wp.queued_tasks), None = unbekannt (dann zaehlt eine sacct unbekannte Abgabe als in der Schlange)."""
     frames = []
     for number, run in enumerate(runs):
         jobs = wp.load_jobs(run)
         tries, available = wp.attempts(run)
         if tries and not available:
             raise SystemExit(f"{run}: sacct nicht verfuegbar, abgeschickte Jobs nicht pruefbar -> Abbruch")
-        jobs = wp.classify(jobs, tries, max_tries)
+        jobs = wp.classify(jobs, tries, max_tries, queued)
         frames.append(jobs.assign(lauf=run, lauf_nr=number))
     return pd.concat(frames, ignore_index=True)
 
@@ -154,7 +156,8 @@ def unknown_jobs(q, runs):
 
 
 def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
-    q = wp.queue()
+    q = wp.queue()                       # vor sacct: ein Job, der dazwischen endet, gilt nicht als verschwunden
+    no_squeue = q is None
     if q is None:
         if not dry:
             print("squeue nicht verfuegbar -> Abbruch (nur auf Euler moeglich; Vorschau: --dry)")
@@ -165,7 +168,7 @@ def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
         print(f"Unbekannte hpo-Jobs in der Schlange (nicht in submitted.tsv): {unknown[:10]} -> Abbruch, sonst "
               "koennten Jobs doppelt laufen. Pruefen mit: squeue --me")
         return 1
-    jobs = candidates(runs, max_tries)
+    jobs = candidates(runs, max_tries, None if no_squeue else wp.queued_tasks(q))
     queued_per_partition = q["partition"].value_counts().to_dict()
     free = limit - len(q)
     chosen = select(jobs, free, queued_per_partition, reserve)
@@ -182,6 +185,10 @@ def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
     todo = int(jobs["aktion"].isin(["neu", "wiederholen"]).sum())
     print(f"Abgeschickt {sent}, danach noch nachzufuellen {todo - sent}"
           + (f" (Welle {int(chosen['welle'].min())}-{int(chosen['welle'].max())})" if sent else ""))
+    lost = jobs[(jobs["aktion"] == "wiederholen") & jobs["slurm"].isin(["UNBEKANNT", "CANCELLED"])]
+    if len(lost):
+        print(f"Darunter nicht in squeue und sacct UNBEKANNT/CANCELLED (z. B. wartend abgebrochen): "
+              + ", ".join(f"{run} {n}" for run, n in lost.groupby("lauf").size().items()))
     gave_up = jobs[jobs["aktion"] == "aufgegeben"]
     if len(gave_up):
         print(f"Aufgegeben ({len(gave_up)}): " + ", ".join(f"{r.lauf} Zeile {r.line} {r.method} {r.name} ({r.slurm})"

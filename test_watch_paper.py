@@ -75,6 +75,24 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(out.loc[1, "mem_neu"], 1.5)
         self.assertEqual(out.loc[2, "aktion"], "aufgegeben")       # lief schon: zaehlt
 
+    def test_squeue_decides_unknown_jobs(self):
+        jobs = pd.DataFrame(dict(line=[1, 2, 3, 4, 5], datei="fehlt", partition="normal.4h", zeitlimit=4, mem_gb=1.0))
+        a = lambda state, index: [dict(id="7", index=index, partition="normal.4h", stunden=4, mem=1.0, state=state,
+                                       sekunden=0)]
+        tries = {1: a(None, 0), 2: a(None, 1), 3: a("CANCELLED", 2), 4: a("PENDING", 3), 5: a("NODE_FAIL", 4)}
+        q = pd.DataFrame(dict(id=["7_1", "8"], name="hpo-paper", partition="normal.4h", state=["RUNNING", "PENDING"]))
+        queued = watch_paper.queued_tasks(q)
+        self.assertEqual(queued, {("7", 1): "RUNNING"})
+        out = watch_paper.classify(jobs, tries, 3, queued).set_index("line")
+        self.assertEqual(out["aktion"].tolist(), ["wiederholen", "in_schlange", "wiederholen", "in_schlange",
+                                                  "wiederholen"])
+        self.assertEqual(out["versuche"].tolist(), [0, 0, 0, 0, 1])
+        self.assertEqual([watch_paper.status(d, s, l) for d, s, l in zip(out["datei"], out["slurm"], out["squeue"])],
+                         ["unbekannt", "laufend", "abgebrochen", "wartend", "fehlgeschlagen"])
+        old = watch_paper.classify(jobs, tries, 3).set_index("line")      # ohne squeue: wie bisher
+        self.assertEqual(old.loc[1, "aktion"], "in_schlange")
+        self.assertEqual(watch_paper.status("fehlt", "UNBEKANNT", None), "unbekannt")
+
     def test_pending_mismatch_scripts(self):
         jobs = pd.DataFrame(dict(line=[1, 2, 3, 4], slurm=["PENDING", "PENDING", "PENDING", "RUNNING"],
                                  mem_gb=[1.5, 8.0, 4.0, 1.0]))
@@ -167,6 +185,8 @@ class WaveTests(unittest.TestCase):
         waves = watch_paper.wave_table(jobs).set_index("welle")
         self.assertEqual(waves.loc[1, "fertig"], 4)
         self.assertEqual(waves.loc[1, "fehlgeschlagen"], 1)
+        self.assertEqual(list(waves.columns[1:8]), ["fertig", "laufend", "wartend", "unbekannt", "abgebrochen",
+                                                     "fehlgeschlagen", "fehlt"])
         self.assertEqual(waves.loc[1, "aufgaben_fertig"], 1)         # Aufgabe a ganz, b nicht
         self.assertEqual(waves.loc[2, "laufend"], 1)
         self.assertEqual(waves.loc[2, "aufgaben_fertig"], 0)

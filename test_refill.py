@@ -170,6 +170,35 @@ class RefillTests(unittest.TestCase):
             self.assertIn("--mem-per-cpu=1536M", retry)
             job = self.submitted()[-1].split("\t")[0]
 
+    def test_vanished_jobs_are_resubmitted(self):
+        """Wartend abgebrochen (scancel --state=PENDING), sacct kennt sie nicht oder als CANCELLED: weder in squeue
+        noch PENDING/RUNNING/COMPLETED -> neu einreichen, ohne als Fehlschlag zu zaehlen; sacct-Luecke allein (Job
+        noch in squeue) oder sacct PENDING reicht dagegen nicht."""
+        self.run_refill("--limit", "100")
+        rows = {self.lines_of(c)[0]: r.split("\t")[0] for c, r in zip(self.slurm.sbatches(), self.submitted())}
+        lost, cancelled, lagging, pending = rows[2], rows[6], rows[3], rows[5]   # 2+4 / 6 / 3 / 5
+        for _ in range(4):                                                  # oefter als --max_versuche
+            gone = (lost, cancelled)
+            self.slurm.queue = [q for q in self.slurm.queue if q.split("_")[0] not in gone + (pending,)]
+            for key in [k for k in self.slurm.sacct if k.split("_")[0] in (lost, lagging)]:
+                del self.slurm.sacct[key]                                   # UNBEKANNT (3 aber noch in squeue)
+            self.slurm.sacct[f"{cancelled}_0"] = "NODE_FAIL" if _ == 0 else "CANCELLED by 1234"
+            n = len(self.slurm.sbatches())
+            self.assertEqual(self.run_refill("--limit", "100"), 0)
+            new = sorted(l for c in self.slurm.sbatches()[n:] for l in self.lines_of(c))
+            self.assertEqual(new, [2, 4, 6])                                # nicht 3 (in squeue), nicht 5 (PENDING)
+            new_rows = self.submitted()[-2:]
+            lost = next(r.split("\t")[0] for r in new_rows if "normal.4h" in r)
+            cancelled = next(r.split("\t")[0] for r in new_rows if "normal.24h" in r)
+        jobs = refill.candidates(["paper"], 3, refill.wp.queued_tasks(refill.wp.queue())).set_index("line")
+        self.assertEqual(jobs.loc[3, "slurm"], "UNBEKANNT")
+        self.assertEqual(jobs.loc[3, "aktion"], "in_schlange")
+        self.assertEqual(jobs.loc[5, "aktion"], "in_schlange")
+        self.assertEqual(jobs.loc[6, "versuche"], 1)                       # nur NODE_FAIL zaehlt
+        # ohne squeue (Vorschau auf dem Mac): unbekannt zaehlt weiter als in der Schlange
+        del self.slurm.sacct[f"{lost}_0"]
+        self.assertEqual(refill.candidates(["paper"], 3, None).set_index("line").loc[2, "aktion"], "in_schlange")
+
     def test_sbatch_failure_stops_and_leaves_no_trace(self):
         self.slurm.fail = True
         self.assertEqual(self.run_refill("--limit", "100"), 1)

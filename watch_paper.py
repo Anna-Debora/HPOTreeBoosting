@@ -1,5 +1,6 @@
-"""Stand der grossen Laeufe (make_paper_jobs.py): pro Lauf und Welle fertig / laufend / wartend / fehlgeschlagen /
-fehlt, was refill.py noch nachfuellen muss (neu, Wiederholung, aufgegeben) und die Laenge der Schlange.
+"""Stand der grossen Laeufe (make_paper_jobs.py): pro Lauf und Welle fertig / laufend / wartend / unbekannt /
+abgebrochen / fehlgeschlagen / fehlt, was refill.py noch nachfuellen muss (neu, Wiederholung, aufgegeben) und die
+Laenge der Schlange.
 Die Logik hier (Abgaben aus submitted.tsv, sacct, Einordnung je Job) benutzt auch refill.py.
 
 Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
@@ -16,7 +17,9 @@ Wartende Jobs mit anderem Speicher als im Plan meldet watch_paper.py mit scancel
     zu viel (blockieren QOSMaxMemoryPerUser): bash jobs_paper/<lauf>/scancel_zu_viel_speicher.sh
 Danach schickt refill.py sie mit dem Plan neu ab. Ein abgebrochener Job, der nie gelaufen ist (CANCELLED,
 ElapsedRaw 0), zaehlt nicht als Fehlschlag.
-Ohne sacct (z. B. auf dem Mac nach dem Kopieren der Ergebnisse) nur der Dateistand (laufend/wartend dann unbekannt).
+laufend/wartend nach squeue (sonst sacct); unbekannt = sacct kennt die letzte Abgabe nicht, und sie steht nicht in
+squeue; abgebrochen = CANCELLED. Beide reicht refill.py neu ein.
+Ohne sacct (z. B. auf dem Mac nach dem Kopieren der Ergebnisse) nur der Dateistand (Abgaben dann 'unbekannt').
 
 submitted.tsv (je Abgabe eine Zeile, ohne Kopf): Job-ID, idx-Datei, Zahl der Teiljobs, Zeit, Partition, Stunden,
 Speicher GB. Aeltere Zeilen (submit.sh vor refill.py) haben nur die ersten vier Spalten; Partition, Stunden und
@@ -53,7 +56,9 @@ FOLDS = 5
 QUEUED = ("PENDING", "RUNNING", "REQUEUED", "SUSPENDED", "COMPLETING", "CONFIGURING", "RESIZING", "REQUEUE_HOLD",
           "REQUEUE_FED", "SIGNALING", "STAGE_OUT")
 ENDED_BAD = ["FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED", "NODE_FAIL", "PREEMPTED", "BOOT_FAIL", "DEADLINE"]
-STATES = ["fertig", "laufend", "wartend", "fehlgeschlagen", "fehlt"]
+# unbekannt: sacct kennt die letzte Abgabe nicht und squeue hat sie nicht (oder es gibt kein sacct/squeue);
+# abgebrochen: CANCELLED (z. B. scancel eines wartenden Jobs); beide fuellt refill.py nach, wenn sie nicht in squeue sind
+STATES = ["fertig", "laufend", "wartend", "unbekannt", "abgebrochen", "fehlgeschlagen", "fehlt"]
 
 
 def file_state(job):
@@ -191,24 +196,31 @@ def escalate(tries, plan):
     return dict(partition=part, stunden=int(hours), mem=mem)
 
 
-def classify(jobs, tries, max_tries=3):
-    """Spalten 'slurm' (Zustand der letzten Abgabe), 'versuche' (beendet ohne Ergebnis), 'aktion' (fertig /
-    in_schlange / neu / wiederholen / aufgegeben) und die Ressourcen der naechsten Abgabe (partition_neu,
-    stunden_neu, mem_neu). jobs braucht line, datei, partition, zeitlimit, mem_gb."""
-    slurm, failed, action, res = [], [], [], []
+def classify(jobs, tries, max_tries=3, queued=None):
+    """Spalten 'slurm' (Zustand der letzten Abgabe laut sacct), 'squeue' (Zustand laut squeue, '' = nicht in der
+    Schlange, None = squeue unbekannt), 'versuche' (beendet ohne Ergebnis), 'aktion' (fertig / in_schlange / neu /
+    wiederholen / aufgegeben) und die Ressourcen der naechsten Abgabe (partition_neu, stunden_neu, mem_neu).
+    jobs braucht line, datei, partition, zeitlimit, mem_gb. queued: {(Job-ID, Array-Index): Zustand} aus squeue
+    (queued_tasks) oder None.
+    in_schlange: letzte Abgabe steht in squeue oder ist laut sacct PENDING/RUNNING/...; ohne squeue zaehlt auch
+    eine sacct unbekannte Abgabe als in der Schlange (nie doppelt). Mit squeue ist eine Abgabe, die weder in squeue
+    steht noch laut sacct wartet/laeuft (unbekannt, CANCELLED, NODE_FAIL, ...), keine Abgabe mehr -> wiederholen."""
+    slurm, live, failed, action, res = [], [], [], [], []
     for job in jobs.itertuples():
         t = tries.get(job.line, [])
         last = t[-1] if t else None
         state = last["state"] if last else None
+        in_queue = None if queued is None else (queued.get((last["id"], last["index"]), "") if last else "")
         n_failed = sum(1 for a in t if a["state"] in ENDED_BAD + ["COMPLETED"] and not never_ran(a))
         plan = dict(partition=job.partition, stunden=int(job.zeitlimit), mem=float(job.mem_gb))
         slurm.append("nicht abgeschickt" if not t else (state or "UNBEKANNT"))
+        live.append(in_queue)
         failed.append(n_failed)
         if job.datei == "fertig":
             action.append("fertig"), res.append(plan)
         elif not t:
             action.append("neu"), res.append(plan)
-        elif state is None or state in QUEUED:          # unbekannt zaehlt als in der Schlange (nie doppelt)
+        elif in_queue or state in QUEUED or (state is None and queued is None):
             action.append("in_schlange"), res.append(plan)
         elif n_failed >= max_tries:
             action.append("aufgegeben"), res.append(plan)
@@ -216,6 +228,7 @@ def classify(jobs, tries, max_tries=3):
             action.append("wiederholen"), res.append(escalate(t, plan))
     out = jobs.copy()
     out["slurm"], out["versuche"], out["aktion"] = slurm, failed, action
+    out["squeue"] = pd.Series(live, index=out.index, dtype=object)
     out["partition_neu"] = [r["partition"] for r in res]
     out["stunden_neu"] = [r["stunden"] for r in res]
     out["mem_neu"] = [r["mem"] for r in res]
@@ -232,6 +245,18 @@ def queue():
         return None
     rows = [(line.split("|") + ["", "", ""])[:4] for line in text.splitlines() if line.strip()]
     return pd.DataFrame(rows, columns=["id", "name", "partition", "state"])
+
+
+def queued_tasks(q):
+    """{(Job-ID, Array-Index): Zustand} der Array-Aufgaben in der Schlange (squeue -r: '123_7'); None ohne squeue."""
+    if q is None:
+        return None
+    out = {}
+    for job_id, state in zip(q["id"], q["state"]):
+        base, _, index = str(job_id).partition("_")
+        if index.isdigit():
+            out[(base, int(index))] = state
+    return out
 
 
 def load_jobs(run, with_files=True):
@@ -252,14 +277,21 @@ def load_jobs(run, with_files=True):
 
 
 # ---------------------------------------------------------------- Uebersichten
-def status(datei, slurm):
-    """Zustand eines Jobs fuer die Wellen-Uebersicht."""
+def status(datei, slurm, squeue=None):
+    """Zustand eines Jobs fuer die Wellen-Uebersicht; squeue: Zustand laut squeue (Vorrang vor sacct), '' oder
+    None = nicht in der Schlange bzw. unbekannt."""
     if datei == "fertig":
         return "fertig"
+    if isinstance(squeue, str) and squeue:
+        return "laufend" if squeue in ("RUNNING", "COMPLETING") else "wartend"
     if slurm in ("RUNNING", "COMPLETING"):
         return "laufend"
-    if slurm in ("PENDING", "REQUEUED", "SUSPENDED", "UNBEKANNT"):
+    if slurm in ("PENDING", "REQUEUED", "SUSPENDED"):
         return "wartend"
+    if slurm == "UNBEKANNT":
+        return "unbekannt"
+    if slurm == "CANCELLED":
+        return "abgebrochen"
     if slurm in ENDED_BAD or slurm == "COMPLETED":     # COMPLETED ohne fertige Datei zaehlt als fehlgeschlagen
         return "fehlgeschlagen"
     return "fehlt"
@@ -579,10 +611,13 @@ def print_forecast(frames, cores):
     print()
 
 
-def watch(run, per_task=False, max_tries=3):
+def watch(run, per_task=False, max_tries=3, q=False):
+    """q: squeue-DataFrame (queue()), None ohne squeue; False = selbst abfragen. squeue vor sacct, damit ein Job,
+    der dazwischen endet, nicht als verschwunden gilt."""
+    q = queue() if q is False else q
     jobs = load_jobs(run)
     tries, available = attempts(run)
-    jobs = classify(jobs, tries, max_tries)
+    jobs = classify(jobs, tries, max_tries, queued_tasks(q))
     finished = jobs["datei"] == "fertig"
     print(f"===== Lauf {run}: {finished.sum()} von {len(jobs)} Jobs fertig ({finished.mean():.1%}) =====")
     print("Dateien:", dict(Counter(s.split(" (")[0] for s in jobs["datei"])))
@@ -593,9 +628,9 @@ def watch(run, per_task=False, max_tries=3):
               f"{jobs['kernstunden'].sum():,.0f})")
     per_method = jobs.assign(fertig=finished).groupby("method")["fertig"].agg(["sum", "size"])
     print("Fertig je Methode:", ", ".join(f"{m} {r['sum']}/{r['size']}" for m, r in per_method.iterrows()))
-    jobs["status"] = [status(d, s) for d, s in zip(jobs["datei"], jobs["slurm"])]
+    jobs["status"] = [status(d, s, l) for d, s, l in zip(jobs["datei"], jobs["slurm"], jobs["squeue"])]
     if not available:
-        print("(ohne sacct: abgeschickte Jobs als 'wartend' gezaehlt, Wiederholungen nicht erkennbar)")
+        print("(ohne sacct: abgeschickte Jobs als 'unbekannt' gezaehlt, Wiederholungen nicht erkennbar)")
     waves = wave_table(jobs)
     print(waves.to_string(index=False))
     todo = jobs[jobs["aktion"].isin(["neu", "wiederholen"])]
@@ -623,6 +658,12 @@ def watch(run, per_task=False, max_tries=3):
     if len(bad):
         last = tries[bad.iloc[0]["line"]][-1]
         print(f"  Log des ersten: jobs_paper/logs/hpo-{run}_{last['id']}_{last['index']}.err")
+    lost = jobs[(jobs["slurm"] == "UNBEKANNT") & (jobs["squeue"] == "") & ~finished]
+    if available and len(lost):
+        ids = sorted({tries[line][-1]["id"] for line in lost["line"]})
+        print(f"  UNBEKANNT und nicht in squeue: {len(lost)} Jobs aus {len(ids)} Abgaben ({', '.join(ids[:5])}"
+              f"{', ...' if len(ids) > 5 else ''}) -> refill.py reicht sie neu ein. Pruefen: sacct -X -P -j {ids[0]} "
+              "--format=JobID,State,ElapsedRaw,Submit,End")
     for line in pending_mismatch(run, jobs, tries):
         print(line)
     gave_up = jobs[jobs["aktion"] == "aufgegeben"]
@@ -647,5 +688,5 @@ if __name__ == "__main__":
     else:
         print(queue_text())
         runs = sorted(runs, key=["paper", "l1_270"].index)     # Reihenfolge wie refill.py (paper vor l1_270)
-        frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]
+        frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]   # je Lauf squeue vor sacct
         print_forecast(frames, concurrent_cores())
