@@ -36,7 +36,11 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide --daemon --daemon-partition normal.24h --daemon-zeit 24:00:00
     python refill.py --stop                      # alle hpo-refill-Jobs beenden (laufend und wartend, jede
                                                  # Partition), prueft danach, dass keiner mehr da ist
+Speicherplatz (quota.py): vor jeder Einreichung lquota (sonst df). Home ueber 80 % der Soft Quota (Platz oder Dateien)
+-> nichts einreichen, deutliche Warnung, Daemon beenden (jobs_paper/refill.stop, Exit-Code 4); Scratch ueber 80 %
+-> nur Warnung. Unbekannte Belegung (kein lquota, kein df) blockiert nicht.
 Exit-Code 0: in Ordnung; 3: nichts mehr zu tun (alles fertig oder aufgegeben, nichts in der Schlange);
+4: Home-Quota fast voll (nichts eingereicht, Daemon beendet);
 1: Fehler (z. B. sbatch abgelehnt, unbekannte hpo-Jobs in der Schlange, kein sacct).
 """
 import argparse
@@ -51,6 +55,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import quota
 import speicher
 import watch_paper as wp
 
@@ -60,6 +65,7 @@ HOURS = dict(wp.PARTITIONS)
 DAEMON = "hpo-refill"
 DAEMON_SCRIPT = "jobs_paper/refill_daemon.sbatch"
 NOTHING_LEFT = 3
+QUOTA_FULL = 4
 DAEMON_PARTITION, DAEMON_TIME = "normal.4h", "4:00:00"
 DAEMON_MARGIN_S = 20 * 60          # so lange vor dem Zeitlimit endet der Daemon (refill_daemon.sbatch)
 
@@ -155,7 +161,25 @@ def unknown_jobs(q, runs):
     return sorted({i.split("_")[0] for i in mine["id"]} - known)
 
 
+def disk_ok(dry):
+    """Home/Scratch pruefen; bei vollem Home (nicht --dry) den Daemon ueber jobs_paper/refill.stop beenden (der
+    laufende Daemon prueft die Datei vor jedem Durchgang und streicht seinen Nachfolger)."""
+    ok, lines = quota.check()
+    for line in lines:
+        print(("!" * 100 + "\n" if line.startswith("WARNUNG") else "") + line, flush=True)
+    if not ok and not dry:
+        try:
+            (wp.JOBS / "refill.stop").touch()
+            print("Daemon wird beendet (jobs_paper/refill.stop); nichts eingereicht.\n" + "!" * 100, flush=True)
+        except OSError as error:
+            print(f"jobs_paper/refill.stop nicht schreibbar ({error}); Daemon von Hand beenden: "
+                  "python refill.py --stop\n" + "!" * 100, flush=True)
+    return ok
+
+
 def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
+    if not disk_ok(dry):
+        return QUOTA_FULL
     q = wp.queue()                       # vor sacct: ein Job, der dazwischen endet, gilt nicht als verschwunden
     no_squeue = q is None
     if q is None:
@@ -234,6 +258,10 @@ def daemon_command(args):
 
 
 def start_daemon(args):
+    ok, lines = quota.check()
+    if not ok:
+        print("\n".join(lines) + "\n-> Daemon nicht gestartet")
+        return QUOTA_FULL
     running = daemon_running()
     if running:
         print(f"Daemon laeuft schon oder wartet: {running} (beenden: python refill.py --stop)")

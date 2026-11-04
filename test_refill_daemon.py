@@ -1,6 +1,6 @@
 """test_refill_daemon.py -- jobs_paper/refill_daemon.sbatch mit nachgebildeten module/squeue/sbatch/scancel/python:
 Nachfolger in gleicher Partition und mit gleichem Zeitlimit (afterany), kein zweiter Daemon, wartender Nachfolger
-wird nicht verdoppelt, Exit-Code 3 beendet die Kette. Aufruf: python test_refill_daemon.py (braucht bash)"""
+wird nicht verdoppelt, Exit-Code 3 und 4 beenden die Kette. Aufruf: python test_refill_daemon.py (braucht bash)"""
 import os
 import shutil
 import subprocess
@@ -56,6 +56,12 @@ class DaemonScriptTests(unittest.TestCase):
                                    "--dependency=afterany:600 jobs_paper/refill_daemon.sbatch --run beide")
         self.assertEqual(calls[1], "python refill.py --run beide")
         self.assertEqual(calls[2], "scancel 777")                 # Exit-Code 3: Kette zu Ende, Nachfolger weg
+
+    def test_quota_exit_code_ends_chain(self):
+        result, calls = self.run_script(running="600\n", FAKE_RC="4")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls[1:], ["python refill.py --run beide", "scancel 777"])
+        self.assertIn("Home-Quota", result.stdout)
 
     def test_defaults_without_environment(self):
         result, calls = self.run_script(running="600\n")

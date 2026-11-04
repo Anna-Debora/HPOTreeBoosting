@@ -11,12 +11,14 @@ import os
 import pandas as pd
 import numpy as np
 
+import job_io
 from methods import ParameterOptimization
 from task_types import is_classification
 
 
 
 def main(args):
+    job_io.quiet_logging()
     task_id = int(args.task_id)
     if getattr(args, "suite_id", None) is not None:
         # With --suite_id, --task_id is the real task id and no suite_*_tasks.txt is read.
@@ -59,7 +61,7 @@ def main(args):
     final_results["classification"] = 1 if is_classification(suite_id) else 0
 
     # Save the results
-    final_results.to_csv(os.path.join(args.result_folder, file_path), index=False)
+    job_io.write_csv_atomic(final_results, os.path.join(args.result_folder, file_path))   # nie halbe Dateien
 
 
 if __name__ == '__main__':

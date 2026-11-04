@@ -14,8 +14,9 @@
 # Ablauf: gleich zu Beginn einen Nachfolger mit --dependency=afterany abschicken (gleiche Partition und gleiches
 # Zeitlimit; startet erst, wenn dieser Job endet, auch nach Timeout oder Knotenausfall), dann alle REFILL_INTERVAL
 # Sekunden (Standard 600) refill.py laufen lassen, REFILL_MARGIN Sekunden (Standard 20 min) vor dem Zeitlimit enden.
-# Exit-Code 3 von refill.py (nichts mehr zu tun) oder die Datei jobs_paper/refill.stop beenden die Kette (der
-# Nachfolger wird gestrichen). Laeuft schon ein anderer hpo-refill-Job, endet dieser sofort (nie zwei Daemons).
+# Exit-Code 3 von refill.py (nichts mehr zu tun), Exit-Code 4 (Home-Quota ueber 80 %, quota.py) oder die Datei
+# jobs_paper/refill.stop beenden die Kette (der Nachfolger wird gestrichen). Laeuft schon ein anderer
+# hpo-refill-Job, endet dieser sofort (nie zwei Daemons).
 # Partition, Zeitlimit und Account kommen aus DAEMON_PARTITION, DAEMON_TIME, DAEMON_SECONDS, DAEMON_ACCOUNT (von
 # refill.py --daemon gesetzt, mit --export=ALL an den Nachfolger vererbt); ohne sie gelten die #SBATCH-Werte oben.
 # Speicher 1 GB: refill.py --run beide braucht ~0.25 GB (Mac, 1.11.2026).
@@ -61,6 +62,7 @@ while [ $(( $(date +%s) - START )) -lt "$LIMIT_S" ]; do
     RC=$?
     set -e
     [ "$RC" -eq 3 ] && stop_chain "nichts mehr zu tun"
+    [ "$RC" -eq 4 ] && stop_chain "Home-Quota fast voll (siehe oben)"
     [ "$RC" -ne 0 ] && echo "$(date '+%F %T') refill.py Exit-Code $RC (naechster Versuch in $INTERVAL s)"
     [ $(( $(date +%s) - START + INTERVAL )) -lt "$LIMIT_S" ] || break
     sleep "$INTERVAL"

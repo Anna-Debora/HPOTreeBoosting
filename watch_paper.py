@@ -36,6 +36,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import quota
 import speicher
 from run_ablation import expected_rows
 
@@ -324,6 +325,14 @@ def task_table(jobs):
                     for row in table.to_numpy()]
     order = jobs.groupby(["suite", "task", "name"])["kernstunden"].sum()     # kleine Aufgaben zuerst
     return table.loc[order.sort_values(kind="stable").index].reset_index()
+
+
+def disk_text():
+    """Kopfzeile Home/Scratch (quota.py: lquota, sonst df) mit Warnungen ueber 80 %."""
+    info = quota.usage()
+    _, warnings_ = quota.check(info)
+    return "\n".join(["Speicher: " + quota.describe("home", info["home"]) + "; "
+                      + quota.describe("scratch", info["scratch"])] + [w for w in warnings_ if w.startswith("WARN")])
 
 
 def queue_text(limit=QUEUE_LIMIT):
@@ -686,6 +695,7 @@ if __name__ == "__main__":
     if args.speicher:
         memory_report(runs)
     else:
+        print(disk_text())
         print(queue_text())
         runs = sorted(runs, key=["paper", "l1_270"].index)     # Reihenfolge wie refill.py (paper vor l1_270)
         frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]   # je Lauf squeue vor sacct

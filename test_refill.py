@@ -2,6 +2,7 @@
 Wiederholung mit mehr Speicher/Zeit, aufgegeben, sbatch-Fehler, Reserve je Partition, Vorschau, halbe
 Speicherstufen, wartend abgebrochene Jobs (kein Fehlschlag, Neuabgabe mit kleinerem Plan).
 Aufruf: python test_refill.py"""
+import io
 import os
 import tempfile
 import unittest
@@ -26,9 +27,14 @@ class FakeSlurm:
     def __init__(self):
         self.queue, self.sacct, self.calls, self.next_id, self.fail = [], {}, [], 500, False
         self.respawn = False
+        self.lquota = None                 # None: lquota/df nicht vorhanden (Belegung unbekannt, blockiert nicht)
 
-    def __call__(self, cmd, capture_output=True, text=True, check=False):
+    def __call__(self, cmd, capture_output=True, text=True, check=False, timeout=None):
         self.calls.append(cmd)
+        if cmd[0] in ("lquota", "df"):
+            if self.lquota is None or cmd[0] == "df":
+                raise OSError("nicht vorhanden")
+            return SimpleNamespace(stdout=self.lquota, returncode=0)
         if cmd[0] == "squeue":
             return SimpleNamespace(stdout="".join(f"{q}\n" for q in self.queue), returncode=0)
         if cmd[0] == "sacct":
@@ -198,6 +204,42 @@ class RefillTests(unittest.TestCase):
         # ohne squeue (Vorschau auf dem Mac): unbekannt zaehlt weiter als in der Schlange
         del self.slurm.sacct[f"{lost}_0"]
         self.assertEqual(refill.candidates(["paper"], 3, None).set_index("line").loc[2, "aktion"], "in_schlange")
+
+    def lquota_home(self, used_gb, files=9000):
+        env = mock.patch.dict(os.environ, SCRATCH="/cluster/scratch/x")
+        env.start()
+        self.addCleanup(env.stop)
+        home = os.environ["HOME"]
+        self.slurm.lquota = (
+            "| Storage location:   | Quota type: | Used:   | Soft quota: | Hard quota: |\n"
+            f"| {home} | space | {used_gb:.2f} GB | 50.00 GB | 55.00 GB |\n"
+            f"| {home} | files | {files} | 160000 | 200000 |\n"
+            "| /cluster/scratch/x | space | 2.40 TB | 2.50 TB | 2.70 TB |\n")
+
+    def test_home_quota_blocks_submission_and_stops_daemon(self):
+        self.lquota_home(41.0)                                              # 82 % > 80 %
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(self.run_refill("--limit", "100"), refill.QUOTA_FULL)
+        self.assertEqual(self.slurm.sbatches(), [])
+        self.assertIn("WARNUNG", out.getvalue())
+        self.assertTrue(Path("jobs_paper/refill.stop").exists())            # Daemon endet beim naechsten Durchgang
+        self.assertFalse(any(c[0] == "squeue" for c in self.slurm.calls))   # vor allem anderen geprueft
+        Path("jobs_paper/refill.stop").unlink()
+        self.assertEqual(self.run_refill("--limit", "100", "--dry"), refill.QUOTA_FULL)
+        self.assertFalse(Path("jobs_paper/refill.stop").exists())           # Vorschau beendet nichts
+        self.lquota_home(10.0, files=150000)                                # Dateizahl 94 % zaehlt auch
+        self.assertEqual(self.run_refill("--limit", "100"), refill.QUOTA_FULL)
+        self.assertEqual(refill.main(["--run", "paper", "--daemon"]), refill.QUOTA_FULL)   # kein Neustart
+        self.assertEqual(self.slurm.sbatches(), [])
+
+    def test_quota_ok_or_unknown_submits_and_scratch_only_warns(self):
+        self.lquota_home(39.0)                                              # 78 %; Scratch 96 %: nur Warnung
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(self.run_refill("--limit", "100"), 0)
+        self.assertEqual(len(self.slurm.sbatches()), 4)
+        self.assertIn("Scratch", out.getvalue())
+        self.slurm.lquota = None                                            # kein lquota, kein df
+        self.assertEqual(self.run_refill("--limit", "100"), 0)
 
     def test_sbatch_failure_stops_and_leaves_no_trace(self):
         self.slurm.fail = True

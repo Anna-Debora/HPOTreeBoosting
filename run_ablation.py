@@ -30,6 +30,8 @@ Wie die Einstellungen ohne Codeaenderung greifen (nur in diesem Prozess):
                     das 135er-Gitter des Paper-Codes (bagging_fraction = 1). Das aendert auch best_iter, das fuer
                     die Test-Refits aller Gitterpunkte gilt; deshalb reicht die Teilmenge des Testlaufs nicht.
 SMAC schreibt seine Zwischendateien unter <result_folder>/smac3_output statt ins Arbeitsverzeichnis.
+Logs: nur Start, Fehler und Ende (job_io.quiet_logging, quiet_methods: optuna, SMAC, gpboost, Zufallsgitter leise).
+Ergebnisdateien werden atomar geschrieben (job_io.write_csv_atomic: .tmp, dann umbenennen).
 Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3), ausser mit --resume:
   vollstaendige Datei (alle Folds)  -> nichts tun, Exit-Code 0
   angefangene Datei (Zeitlimit)     -> fertige Folds behalten, ab dem ersten fehlenden Fold weiterrechnen.
@@ -43,6 +45,7 @@ Ausgabe: <result_folder>/<method>/seed_<seed>/gpboost/<suite>_<task>__num_leaves
          nach jedem Fold angehaengt, damit ein Abbruch durch das Zeitlimit die fertigen Folds behaelt.
 """
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -51,6 +54,7 @@ import numpy as np
 import optuna
 import pandas as pd
 
+import job_io
 import methods
 import SMAC_method
 from run_experiments import RESULT_COLUMNS
@@ -71,6 +75,15 @@ def gp_minimize_without(name, gp_minimize):
         result.x = insert(list(result.x))
         return result
     return wrapped
+
+
+def quiet_methods():
+    """SMAC auf WARNING (sonst setzt jeder HPOFacade-Aufruf das Logging auf INFO zurueck) und das Zufallsgitter
+    ohne Ausgabe je Kombination und je cv-Runde (verbose_eval=3 in methods.py; Fehler druckt es bei 0 weiter)."""
+    facade = SMAC_method.HPOFacade
+    SMAC_method.HPOFacade = lambda *a, **kw: facade(*a, **{"logging_level": logging.WARNING, **kw})
+    grid = methods.modified_grid_search_tune_parameters
+    methods.modified_grid_search_tune_parameters = lambda *a, **kw: grid(*a, **{**kw, "verbose_eval": 0})
 
 
 def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output):
@@ -149,7 +162,7 @@ def finished_folds(output, n_rows):
         n_rows = sizes.max()
     done = {int(f) for f, n in sizes.items() if n == n_rows}
     if len(done) < len(sizes):
-        old[old["fold"].isin(done)].to_csv(output, index=False)
+        job_io.write_csv_atomic(old[old["fold"].isin(done)], output)
         print(f"  unvollstaendige Folds {sorted(set(sizes.index) - done)} verworfen", flush=True)
     if not done:
         output.unlink()
@@ -175,6 +188,8 @@ def main(args):
         if done:
             print(f"WEITER: {output} hat die Folds {sorted(done)}", flush=True)
     folder.mkdir(parents=True, exist_ok=True)
+    job_io.quiet_logging()
+    quiet_methods()
     apply_settings(args.method, args.trials, args.no_lambda_l1, args.paper_grid,
                    Path(args.result_folder) / "smac3_output")
 
@@ -201,9 +216,9 @@ def main(args):
         results["library"] = LIBRARY
         results["classification"] = 1 if is_classification(int(args.suite_id)) else 0
         results = results.reindex(columns=[*RESULT_COLUMNS, *[c for c in results.columns if c not in RESULT_COLUMNS]])
-        first = not output.exists()
-        results.to_csv(output, index=False, mode="w" if first else "a", header=first)
-        print(f"  Fold {fold}: {len(results)} Versuche, bester Test-Wert {results['test_score'].max():.4f}", flush=True)
+        job_io.write_csv_atomic(results, output, append=True)
+        done.add(fold)
+    print(f"Folds fertig: {sorted(done)} -> {output}", flush=True)
 
 
 if __name__ == "__main__":
