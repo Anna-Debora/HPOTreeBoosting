@@ -1,0 +1,11 @@
+Lauf extra -> Results_extra/: 3540 Jobs (bohb, dehb, hebo x 59 Aufgaben x 20 Seeds), geschaetzt 12,875 Kernstunden (Zeitlimits zusammen 27,640 h)
+  je Methode: {'bohb': 4867, 'dehb': 3245, 'hebo': 4763}
+  teuerste Jobs: superconduct bohb 18.6 h, Allstate_Claims_Severity bohb 17.6 h, MiniBooNE bohb 16.7 h, superconduct hebo 15.2 h, Allstate_Claims_Severity hebo 14.4 h
+  Partitionen: normal.4h 1740, normal.24h 1620, normal.120h 180
+  Speicher je Job: 1 GB 760, 1.5 GB 960, 2 GB 840, 3 GB 480, 4 GB 180, 6 GB 60, 8 GB 140, 12 GB 120
+  Probe: 6 Jobs (Zeilen 421, 441, 461, 3481, 3501, 3521): analcatdata_supreme bohb 0.32 h, analcatdata_supreme dehb 0.11 h, analcatdata_supreme hebo 1.11 h, heloc bohb 0.31 h, heloc dehb 0.11 h, heloc hebo 1.10 h
+  Welle 1 (Seeds 1-5): 885 Jobs, 3,219 Kernstunden, bei 400 Kernen ~0.8 Tage, bei 8026 Kernen ~0.8 Tage (laengster Job 18.6 h)
+  Welle 2 (Seeds 6-10): 885 Jobs, 3,219 Kernstunden, bei 400 Kernen ~0.8 Tage, bei 8026 Kernen ~0.8 Tage (laengster Job 18.6 h)
+  Welle 3 (Seeds 11-15): 885 Jobs, 3,219 Kernstunden, bei 400 Kernen ~0.8 Tage, bei 8026 Kernen ~0.8 Tage (laengster Job 18.6 h)
+  Welle 4 (Seeds 16-20): 885 Jobs, 3,219 Kernstunden, bei 400 Kernen ~0.8 Tage, bei 8026 Kernen ~0.8 Tage (laengster Job 18.6 h)
+Alle Wellen: 3,540 Jobs, 12,876 Kernstunden. Abschicken: python refill.py --run extra (oder --run alle). Probe zuerst: bash jobs_paper/submit_extra.sh probe

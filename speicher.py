@@ -17,6 +17,14 @@ Quelle der Spitze, in dieser Reihenfolge:
   4. Gar keine Messung: UNKNOWN_GB.
 Ein OUT_OF_MEMORY auf Euler bei m GB (gleiche Aufgabe, HPO-Methoden bzw. Default) hebt den Plan auf mindestens die
 Stufe ueber m. Wiederholungen nach OUT_OF_MEMORY eskalieren je Job weiter (watch_paper.escalate).
+
+Lauf "extra" (EXTRA_METHODS: bohb, dehb, hebo, in .venv_extra): eigene Art "extra", damit ihre Messungen und OOM-Faelle
+den Plan der sieben Methoden von paper/l1_270 nicht veraendern. Quelle fuer eine Extra-Methode:
+  1. Euler, gleiche Aufgabe und Methode (mindestens MIN_JOBS_METHOD Jobs), wie oben.
+  2. sonst wie oben fuer die HPO-Methoden der Aufgabe (Euler, sonst Mac) plus EXTRA_OVERHEAD_GB der Methode
+     (zusaetzliche Pakete: torch/GPy fuer HEBO, KDE-Modelle fuer BOHB, Populationen fuer DEHB; Mac-Messung
+     measure_extra.py), mindestens aber die Euler-Messung dieser Methode (auch mit weniger als 5 Jobs).
+  OOM: das groessere von Extra- und HPO-OOM derselben Aufgabe.
 """
 import math
 from pathlib import Path
@@ -33,6 +41,15 @@ MIN_JOBS_TASK = 3
 EULER = Path("jobs_paper/speicher_euler.tsv")
 MAC = Path("jobs_paper/speicher_mac.tsv")
 EULER_COLUMNS = ["suite", "task", "name", "method", "jobs", "maxrss_gb", "oom", "oom_bei"]
+EXTRA_METHODS = ("bohb", "dehb", "hebo")
+# Zusaetzliche Spitze gegenueber Hyperband derselben Aufgabe (GB), Mac-Messung 10.11.2026 (measure_extra.py, 4 Aufgaben,
+# Maximum): BOHB -0.03, DEHB +0.05, HEBO +0.56 (torch, GPy, GP-Modell); mit kleiner Reserve
+EXTRA_OVERHEAD_GB = {"bohb": 0.1, "dehb": 0.1, "hebo": 0.6}
+
+
+def kind_of(method):
+    """'default', 'extra' (Lauf extra) oder 'hpo'."""
+    return "default" if method == "default" else "extra" if method in EXTRA_METHODS else "hpo"
 
 
 def step(gb):
@@ -89,7 +106,7 @@ class Plan:
         self.method, self.task, self.oom = {}, {}, {}
         for r in euler.itertuples():
             key = (int(r.suite), int(r.task))
-            kind = "default" if r.method == "default" else "hpo"
+            kind = kind_of(r.method)
             if int(r.jobs) > 0:
                 self.method[(*key, r.method)] = (float(r.maxrss_gb), int(r.jobs))
                 peak, n = self.task.get((*key, kind), (0.0, 0))
@@ -99,6 +116,8 @@ class Plan:
 
     def source(self, suite, task, method):
         """(Spitze in GB oder None, Quelle)."""
+        if method in EXTRA_METHODS:
+            return self._extra_source(suite, task, method)
         kind = "default" if method == "default" else "hpo"
         peak, n = self.method.get((suite, task, method), (None, 0))
         if peak is not None and n >= MIN_JOBS_METHOD:
@@ -113,9 +132,25 @@ class Plan:
             return mac, "mac"
         return None, "unbekannt"
 
+    def _extra_source(self, suite, task, method):
+        peak, n = self.method.get((suite, task, method), (None, 0))
+        if peak is not None and n >= MIN_JOBS_METHOD:
+            return peak, f"euler_methode({n})"
+        base, label = self.source(suite, task, "hpo")
+        if base is None:
+            return None, label
+        peak = base + EXTRA_OVERHEAD_GB.get(method, 0.0)
+        label = f"{label}+{EXTRA_OVERHEAD_GB.get(method, 0.0):g}"
+        own, n = self.method.get((suite, task, method), (None, 0))
+        if own is not None and own > peak:
+            return own, f"euler_methode({n})"
+        return peak, label
     def __call__(self, suite, task, method):
         suite, task = int(suite), int(task)
         peak, _ = self.source(suite, task, method)
         gb = UNKNOWN_GB if peak is None else from_peak(peak)
+        if method in EXTRA_METHODS:
+            oom = max(self.oom.get((suite, task, "extra"), 0.0), self.oom.get((suite, task, "hpo"), 0.0))
+            return max(gb, next_step(oom)) if oom else gb
         oom = self.oom.get((suite, task, "default" if method == "default" else "hpo"), 0.0)
         return max(gb, next_step(oom)) if oom else gb

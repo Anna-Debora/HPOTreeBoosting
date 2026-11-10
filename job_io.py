@@ -9,10 +9,13 @@ quiet_logging(): Logs je Job nur Start, Fehler und Ende (Euler: 39 GB Job-Logs h
 write_csv_atomic(): Ergebnis-CSV erst in <datei>.tmp schreiben (bei append: alte Datei kopieren und anhaengen),
   auf die Platte zwingen und dann umbenennen; ein Abbruch (Zeitlimit, Disk quota exceeded) hinterlaesst nie eine
   halbe Datei, hoechstens eine .tmp-Datei, die check_results.py meldet.
+temp_dir(): neuer Ordner fuer Zwischendateien der Bibliotheken (DEHB-Log) in $TMPDIR, sonst $SCRATCH, sonst im
+  System-Temp, nie unter $HOME (Quota); der Aufrufer loescht ihn.
 """
 import logging
 import os
 import shutil
+import tempfile
 import warnings
 from pathlib import Path
 
@@ -70,3 +73,16 @@ def write_csv_atomic(frame, path, append=False):
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
+
+
+def temp_dir(prefix="hpo_"):
+    """Neuer temporaerer Ordner (Path) in $TMPDIR (Euler: je Job), sonst $SCRATCH, sonst tempfile.gettempdir();
+    Orte unter $HOME werden uebersprungen."""
+    home = os.path.realpath(os.path.expanduser("~"))
+    for base in (os.environ.get("TMPDIR"), os.environ.get("SCRATCH"), tempfile.gettempdir()):
+        if not base or not os.path.isdir(base) or not os.access(base, os.W_OK):
+            continue
+        if (os.path.realpath(base) + os.sep).startswith(home + os.sep):
+            continue
+        return Path(tempfile.mkdtemp(prefix=prefix, dir=base))
+    raise OSError("kein temporaerer Ordner ausserhalb von $HOME ($TMPDIR, $SCRATCH, /tmp)")

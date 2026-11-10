@@ -29,6 +29,13 @@ Wie die Einstellungen ohne Codeaenderung greifen (nur in diesem Prozess):
                     aber bagging_fraction = [0.5, 1] (270 Punkte). --paper_grid nimmt bagging_fraction heraus ->
                     das 135er-Gitter des Paper-Codes (bagging_fraction = 1). Das aendert auch best_iter, das fuer
                     die Test-Refits aller Gitterpunkte gilt; deshalb reicht die Teilmenge des Testlaufs nicht.
+Zusaetzliche Methoden (Lauf "extra", nur in .venv_extra: hpbandster, dehb, HEBO; methods.py):
+  bohb, dehb  im Rahmen von Hyperband (R = --hyperband_R, eta = 2.8): gleiche Brackets, Budgets (Boosting-Runden),
+              Zahl der Konfigurationen je Rung und 11 Ergebniszeilen je Fold; --trials wird ignoriert
+  hebo        --trials volle Auswertungen (single-fidelity) wie TPE/SMAC/GP-BO
+  lambda_l1   --no_lambda_l1: lambda_l1 nicht im Suchraum, fest 0 (Argument lambda_l1=False der Methoden)
+  Alle sequentiell, 1 Kern (torch 1 Thread, kein Dask, BOHB ohne Nameserver), Seed = --seed je Fold neu gesetzt.
+  DEHB schreibt sein Log in einen temporaeren Ordner unter $TMPDIR bzw. $SCRATCH (job_io.temp_dir), nie ins Home.
 SMAC schreibt seine Zwischendateien unter <result_folder>/smac3_output statt ins Arbeitsverzeichnis.
 Logs: nur Start, Fehler und Ende (job_io.quiet_logging, quiet_methods: optuna, SMAC, gpboost, Zufallsgitter leise).
 Ergebnisdateien werden atomar geschrieben (job_io.write_csv_atomic: .tmp, dann umbenennen).
@@ -38,7 +45,8 @@ Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3), 
   Das ergibt dieselben Zahlen wie ein Lauf am Stueck: jede Methode setzt ihren Sampler pro Fold neu mit dem
   Seed auf (TPESampler, gp_minimize, SMAC-Scenario, RandomState) und min_score/best_iter pro Aufruf zurueck.
 
-Aufruf:  python run_ablation.py --method {random_search,tpe,SMAC,gp_bo,hyperband,grid_search} --seed 27225 \
+Aufruf:  python run_ablation.py --method {random_search,tpe,SMAC,gp_bo,hyperband,grid_search,bohb,dehb,hebo} \
+             --seed 27225 \
              --result_folder Results_ablation/A [--trials 135] [--no_lambda_l1] [--paper_grid] [--folds 5] \
              [--suite_id 336 --task_id 361076] [--hyperband_R 2150] [--resume]
 Ausgabe: <result_folder>/<method>/seed_<seed>/gpboost/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
@@ -62,6 +70,7 @@ from SMAC_method import ParameterOptimizationSMAC
 from task_types import is_classification
 
 LIBRARY = "gpboost"
+EXTRA_METHODS = ("bohb", "dehb", "hebo")       # Lauf "extra", nur in .venv_extra
 STRATEGY = dict(try_max_depth=False, try_num_leaves=True, joint_tuning_depth_leaves=False, try_num_iter=False)
 
 
@@ -84,6 +93,9 @@ def quiet_methods():
     SMAC_method.HPOFacade = lambda *a, **kw: facade(*a, **{"logging_level": logging.WARNING, **kw})
     grid = methods.modified_grid_search_tune_parameters
     methods.modified_grid_search_tune_parameters = lambda *a, **kw: grid(*a, **{**kw, "verbose_eval": 0})
+    # BOHB: hpbandster meldet jeden Rueckfall auf eine Zufallskonfiguration als Warnung; gezaehlt wird er in
+    # obj.model_based_picks und je Fold einmal ausgegeben
+    logging.getLogger("hpbandster").setLevel(logging.ERROR)
 
 
 def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output):
@@ -123,7 +135,7 @@ def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output):
         space={**space, "lambda_l1": 0.0} if space and "lambda_l1" in space else space, **kw)
 
 
-def run_fold(obj, method, trials, train_index, test_index, hyperband_R):
+def run_fold(obj, method, trials, train_index, test_index, hyperband_R, lambda_l1=True):
     data = dict(X_train_full=obj.X.iloc[train_index], y_train_full=obj.y.iloc[train_index],
                 X_test=obj.X.iloc[test_index], y_test=obj.y.iloc[test_index])
     if method == "random_search":
@@ -136,13 +148,22 @@ def run_fold(obj, method, trials, train_index, test_index, hyperband_R):
         return obj.gp_bo_method(**data)
     if method == "hyperband":
         return obj.hyperband_method(**data, R=hyperband_R).drop(columns="param_ind")
+    if method == "bohb":
+        return obj.bohb_method(**data, R=hyperband_R, lambda_l1=lambda_l1)
+    if method == "dehb":
+        return obj.dehb_method(**data, R=hyperband_R, lambda_l1=lambda_l1)
+    if method == "hebo":
+        return obj.hebo_method(**data, n_trials=trials, lambda_l1=lambda_l1)
     return obj.run_smac(**data)
 
 
-def expected_rows(method, trials, paper_grid):
-    """Zeilen pro fertigem Fold; None, wo die Zahl nicht vorab feststeht (Hyperband, SMAC)."""
-    if method in ("random_search", "tpe", "gp_bo"):
+def expected_rows(method, trials, paper_grid, hyperband_R=2150):
+    """Zeilen pro fertigem Fold; None, wo die Zahl nicht vorab feststeht (Hyperband, SMAC). BOHB und DEHB: die
+    Ergebniszeilen des Hyperband-Rahmens (11 bei R = 2150)."""
+    if method in ("random_search", "tpe", "gp_bo", "hebo"):
         return trials
+    if method in ("bohb", "dehb"):
+        return methods.hyperband_rows(hyperband_R)
     if method == "grid_search":
         return 135 if paper_grid else 270
     return None
@@ -181,7 +202,7 @@ def main(args):
         if not args.resume:
             print(f"ABBRUCH: {output} existiert schon und wird nicht ueberschrieben", file=sys.stderr)
             sys.exit(3)
-        done = finished_folds(output, expected_rows(args.method, args.trials, args.paper_grid))
+        done = finished_folds(output, expected_rows(args.method, args.trials, args.paper_grid, args.hyperband_R))
         if len(done) >= args.folds:
             print(f"SCHON FERTIG: {output} ({len(done)} Folds)", flush=True)
             return
@@ -204,7 +225,10 @@ def main(args):
         if fold in done:
             continue
         results = run_fold(obj, args.method, args.trials, train_index, test_index,
-                           args.hyperband_R).reset_index(drop=True)
+                           args.hyperband_R, lambda_l1=not args.no_lambda_l1).reset_index(drop=True)
+        if args.method == "bohb":
+            print(f"  Fold {fold}: BOHB {obj.model_based_picks[0]} von {obj.model_based_picks[1]} Konfigurationen "
+                  "modellbasiert (Rest zufaellig: random_fraction 1/3, Modell noch nicht da)", flush=True)
         results.insert(0, "iter", results.index)
         if args.no_lambda_l1:
             results["lambda_l1"] = 0.0
@@ -223,8 +247,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--method", choices=("random_search", "tpe", "SMAC", "gp_bo", "hyperband", "grid_search"),
-                        required=True)
+    parser.add_argument("--method", choices=("random_search", "tpe", "SMAC", "gp_bo", "hyperband", "grid_search",
+                                             *EXTRA_METHODS), required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--result_folder", required=True, help="z. B. Results_ablation/A")
     parser.add_argument("--trials", type=int, default=135)

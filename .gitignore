@@ -113,3 +113,8 @@ jobs_paper/.refill.lock
 jobs_paper/refill.stop
 jobs_paper/speicher_euler.tsv
 jobs_paper/*/scancel_zu_*_speicher.sh
+
+# Lauf extra (BOHB, DEHB, HEBO): eigenes Environment und Ergebnisse
+.venv_extra/
+Results_extra/
+/data

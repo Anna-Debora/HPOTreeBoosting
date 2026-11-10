@@ -912,7 +912,298 @@ class ParameterOptimization:
         #reorder the columns
         #print('Here are the columns:',df_trials.columns)
         df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
-        return df_trials 
+        return df_trials
+
+    # ------------------------------------------------------------ BOHB, DEHB, HEBO (Lauf "extra")
+    # Die Bibliotheken (hpbandster, dehb, hebo) liegen nur in .venv_extra und werden erst hier importiert.
+    # Suchraum wie TPE/SMAC (_extra_space), Zielfunktion _train_model_for_validation, Test-Refits _compute_test_scores.
+    # BOHB und DEHB laufen im Rahmen von hyperband_method: dieselben 8 Brackets (R = 2150 Boosting-Runden,
+    # eta = 2.8), dieselbe Zahl von Konfigurationen und Boosting-Runden je Rung, dieselben Ergebniszeilen je
+    # Bracket (11 je Fold), dieselbe Laufzeit-Verteilung und derselbe best_iter fuer die Test-Refits (der beste
+    # Ueberlebende des letzten Brackets). Nur die Wahl der Konfigurationen unterscheidet sich (Hyperband: zufaellig).
+
+    def run_bohb(self, lambda_l1=True):
+        return self._run_folds("bohb", lambda **data: self.bohb_method(**data, lambda_l1=lambda_l1))
+
+    def run_dehb(self, lambda_l1=True):
+        return self._run_folds("dehb", lambda **data: self.dehb_method(**data, lambda_l1=lambda_l1))
+
+    def run_hebo(self, n_trials=270, lambda_l1=True):
+        return self._run_folds("hebo", lambda **data: self.hebo_method(**data, n_trials=n_trials,
+                                                                         lambda_l1=lambda_l1))
+
+    def _run_folds(self, name, method):
+        """Wie run_hyperband: die Methode auf allen 5 Folds, Spalten fold und method, Index als iter."""
+        frames = []
+        for fold, (full_train_index, test_index) in enumerate(self.splits):
+            trials = method(X_train_full=self.X.iloc[full_train_index], y_train_full=self.y.iloc[full_train_index],
+                            X_test=self.X.iloc[test_index], y_test=self.y.iloc[test_index])
+            frames.append(trials.assign(fold=fold, method=name))
+        final_results = pd.concat(frames)
+        final_results.reset_index(inplace=True)
+        final_results.rename(columns={"index": "iter"}, inplace=True)
+        return final_results
+
+    def _extra_space(self, lambda_l1=True):
+        """(Suchraum, feste Werte) wie tpe_method/run_smac: Liste von dict(name, kind = float/int/cat, low, high,
+        choices, log). Alle Bereiche linear wie bei TPE, SMAC und GP-BO (log immer False); max_depth ist
+        kategorisch wie bei TPE und SMAC. lambda_l1=False: lambda_l1 = 0 fest (Suchraum des Papers). Ein
+        Ganzzahlbereich mit nur einem Wert (max_bin bei hoechstens 255 Zeilen) wird zum festen Wert."""
+        def num(name, kind, low, high):
+            return dict(name=name, kind=kind, low=low, high=high, choices=None, log=False)
+
+        space = [num('learning_rate', 'float', 0.001, 1.0), num('min_data_in_leaf', 'int', 1, 1000),
+                 num('lambda_l2', 'float', 0.0, 100.0)]
+        fixed = {}
+        if lambda_l1:
+            space.append(num('lambda_l1', 'float', 0.0, 100.0))
+        else:
+            fixed['lambda_l1'] = 0.0
+        space += [num('max_bin', 'int', 255, int(self.max_bin_val)), num('bagging_fraction', 'float', 0.5, 1.0),
+                  num('feature_fraction', 'float', 0.5, 1.0)]
+        if self.try_num_leaves or self.joint_tuning_depth_leaves:
+            space.append(num('num_leaves', 'int', 2, 1024))
+        if self.joint_tuning_depth_leaves:
+            space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=[-1, *range(1, 11)],
+                              log=False))
+        if self.try_max_depth:
+            space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=list(range(1, 11)),
+                              log=False))
+        if self.try_num_iter:
+            space.append(num('n_iter', 'int', 1, 1000))
+        for p in list(space):
+            if p['kind'] != 'cat' and p['low'] >= p['high']:
+                space.remove(p)
+                fixed[p['name']] = int(p['low']) if p['kind'] == 'int' else float(p['low'])
+        return space, fixed
+
+    @staticmethod
+    def _extra_params(space, fixed, values):
+        """Trainingsparameter aus den Werten einer Bibliothek: Ganzzahlen als int, Fliesskommazahlen als float,
+        kategorische Werte als int (max_depth), feste Werte (lambda_l1 = 0) dazu."""
+        params = {}
+        for p in space:
+            value = values[p['name']]
+            if p['kind'] == 'int':
+                value = int(round(float(value)))
+            elif p['kind'] == 'float':
+                value = float(value)
+            else:
+                value = int(value)
+            params[p['name']] = value
+        params.update(fixed)
+        return params
+
+    @staticmethod
+    def _extra_configspace(space, seed):
+        """ConfigSpace fuer BOHB und DEHB."""
+        from ConfigSpace import Categorical, ConfigurationSpace, Float, Integer
+        cs = ConfigurationSpace(seed=int(seed))
+        for p in space:
+            if p['kind'] == 'float':
+                cs.add(Float(p['name'], (p['low'], p['high']), log=p['log']))
+            elif p['kind'] == 'int':
+                cs.add(Integer(p['name'], (int(p['low']), int(p['high'])), log=p['log']))
+            else:
+                cs.add(Categorical(p['name'], p['choices']))
+        return cs
+
+    def _check_multi_fidelity(self, name):
+        if self.try_num_iter:
+            raise ValueError(f"{name}: Budget = Boosting-Runden, nicht mit try_num_iter (wie hyperband_method)")
+
+    def _finish_hb_trials(self, frames, X_train_full, y_train_full, X_test, y_test):
+        """Wie das Ende von hyperband_method: feste Spalten, Test-Refits mit self.best_iter, Spaltenreihenfolge
+        (ohne param_ind)."""
+        df_trials = pd.concat(frames)
+        df_trials = self._modify_df_for_hyperband(df_trials)
+        df_trials = self._compute_test_scores(
+            X_train_full=X_train_full, y_train_full=y_train_full, X_test=X_test, y_test=y_test,
+            df=df_trials, best_iter=self.best_iter
+        )
+        df_trials.reset_index(drop=True, inplace=True)
+        df_trials['try_num_leaves'] = self.try_num_leaves
+        df_trials['joint_tuning_depth_leaves'] = self.joint_tuning_depth_leaves
+        df_trials['try_num_iter'] = self.try_num_iter
+        return df_trials[HB_COLUMNS]
+
+    @staticmethod
+    def _bracket_frame(param_config, scores, last_end):
+        """Ergebniszeilen eines Brackets wie in hyperband_method (Laufzeit = Wanduhr des Brackets / Zeilen)."""
+        df_temp = pd.DataFrame.from_dict(param_config, orient='index')
+        df_temp['val_score'] = list(scores.values())
+        df_temp.insert(df_temp.columns.get_loc('val_score') + 1, 'runtime',
+                       (time.perf_counter() - last_end) / len(df_temp))
+        return df_temp
+
+    def bohb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=True):
+        """BOHB (Falkner et al. 2018): KDE-Modell von hpbandster (Standardwerte: top_n_percent 15, num_samples 64,
+        random_fraction 1/3, bandwidth_factor 3, min_bandwidth 1e-3, min_points_in_model = Parameter + 1), im
+        Rahmen von hyperband_method (Schleife unten = Schleife dort). Wie hpbandster mit einem Worker: die
+        Konfigurationen der ersten Rung werden einzeln gezogen, jede nach dem Ergebnis der vorigen; jedes Ergebnis
+        (jede Rung) geht mit seinem Budget (Boosting-Runden) an das Modell. Ohne Nameserver, ohne Dateien.
+        hpbandster zieht mit dem globalen numpy-Zufall und ConfigSpace(seed): beide mit self.seed zu Beginn jedes
+        Folds. self.model_based_picks = [modellbasiert gezogen, alle gezogen]."""
+        from types import SimpleNamespace
+        from hpbandster.optimizers.config_generators.bohb import BOHB as BOHBGenerator
+
+        self._check_multi_fidelity("BOHB")
+        self.min_score = float('inf')
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
+        )
+        space, fixed = self._extra_space(lambda_l1)
+        np.random.seed(self.seed)
+        generator = BOHBGenerator(configspace=self._extra_configspace(space, self.seed))
+        self.model_based_picks = [0, 0]
+        s_max = int(np.floor(np.log(R) / np.log(factor)))
+        B = (s_max + 1)*R
+        s_values = np.arange(s_max, -1, -1)
+        frames = []
+        last_end = time.perf_counter()
+        for s in s_values:
+            n = int(np.ceil(B/R*factor**(s)/(s+1)))
+            r = R*1/(factor**(s))
+            param_config, samples = {}, {}
+            for k in range(s+1):
+                n_k = np.floor(n*factor**(-k))
+                r_k = int(np.floor(r*factor**k))
+                scores, best_iter = {}, {}
+                for ind in (range(n) if k == 0 else list(param_config)):
+                    if k == 0:
+                        samples[ind], info = generator.get_config(budget=r_k)
+                        param_config[ind] = self._extra_params(space, fixed, samples[ind])
+                        self.model_based_picks[0] += bool(info.get('model_based_pick'))
+                        self.model_based_picks[1] += 1
+                    scores[ind], best_iter[ind] = self._train_model_for_validation(
+                        X_train, y_train, X_val, y_val, params=param_config[ind], num_boost_round=r_k
+                    )
+                    generator.new_result(SimpleNamespace(
+                        kwargs={'budget': r_k, 'config': samples[ind]}, result={'loss': scores[ind]},
+                        exception=None, timestamps={}, id=(int(s), k, ind)))
+                if len(param_config) > 1 and int(np.floor(n_k/factor)) > 0:
+                    param_config, scores = truncate(param_config, scores, int(np.floor(n_k/factor)))
+                else:
+                    break
+            frames.append(self._bracket_frame(param_config, scores, last_end))
+            best_ind = min(scores, key=scores.get)
+            self.best_iter = best_iter[best_ind]
+            last_end = time.perf_counter()
+        return self._finish_hb_trials(frames, X_train_full, y_train_full, X_test, y_test)
+
+    def dehb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=True):
+        """DEHB (Awad et al. 2021) mit der Bibliothek dehb (Standardwerte: mutation_factor 0.5, crossover_prob 0.5,
+        rand1_bin, boundary_fix_type random), sequentiell ueber ask/tell (n_workers = 1, kein Dask-Client).
+        Brackets, Konfigurationen je Rung und Budgets (Boosting-Runden) aus hyperband_schedule(R, factor) statt
+        DEHBs eigener Hyperband-Formel; DEHB waehlt die Konfigurationen (Evolution, Befoerderung). Ergebniszeilen
+        je Bracket wie hyperband_method: die besten `rows` der letzten Rung. Log von DEHB (dehb.log) in einem
+        temporaeren Ordner unter $TMPDIR bzw. $SCRATCH (job_io.temp_dir), danach geloescht."""
+        import shutil
+        import job_io
+
+        self._check_multi_fidelity("DEHB")
+        self.min_score = float('inf')
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
+        )
+        space, fixed = self._extra_space(lambda_l1)
+        schedule = hyperband_schedule(R, factor)
+        tmp = job_io.temp_dir("dehb_")
+        try:
+            dehb = scheduled_dehb_class()(
+                schedule=schedule, cs=self._extra_configspace(space, self.seed), f=None,
+                min_fidelity=float(schedule[0]['rungs'][0][1]), max_fidelity=float(R), eta=factor,
+                n_workers=1, client=None, seed=int(self.seed), output_path=str(tmp), save_freq="end",
+                log_level="WARNING")
+            frames = []
+            last_end = time.perf_counter()
+            for number, bracket in enumerate(schedule):
+                last_fidelity = float(bracket['rungs'][-1][1])
+                param_config, scores, best_iter = {}, {}, {}
+                for _ in range(sum(n for n, _ in bracket['rungs'])):
+                    job = dehb.ask()
+                    if job['bracket_id'] != number:
+                        raise RuntimeError(f"DEHB: Bracket {job['bracket_id']} statt {number}")
+                    fidelity = float(job['fidelity'])
+                    params = self._extra_params(space, fixed, dict(job['config']))
+                    start = time.perf_counter()
+                    score, iteration = self._train_model_for_validation(
+                        X_train, y_train, X_val, y_val, params=params, num_boost_round=int(round(fidelity))
+                    )
+                    dehb.tell(job, {'fitness': float(score), 'cost': time.perf_counter() - start})
+                    if fidelity == last_fidelity:
+                        ind = len(param_config)
+                        param_config[ind], scores[ind], best_iter[ind] = params, score, iteration
+                if bracket['rows'] < len(param_config):
+                    param_config, scores = truncate(param_config, scores, bracket['rows'])
+                frames.append(self._bracket_frame(param_config, scores, last_end))
+                best_ind = min(scores, key=scores.get)
+                self.best_iter = best_iter[best_ind]
+                last_end = time.perf_counter()
+        finally:
+            try:
+                from loguru import logger
+                logger.remove()          # Dateiausgabe von DEHB schliessen, bevor der Ordner geloescht wird
+            except Exception:
+                pass
+            shutil.rmtree(tmp, ignore_errors=True)
+        return self._finish_hb_trials(frames, X_train_full, y_train_full, X_test, y_test)
+
+    def hebo_method(self, X_train_full, y_train_full, X_test, y_test, n_trials=270, lambda_l1=True):
+        """HEBO (Cowen-Rivers et al. 2022) mit der Bibliothek HEBO, Standardwerte (Modell 'gp', MACE, NSGA-II,
+        Sobol-Startdesign mit Parameterzahl + 1 Punkten), eine Konfiguration je Schritt, n_trials volle
+        Auswertungen (single-fidelity, 1000 Runden mit early stopping wie TPE/SMAC/GP-BO). 1 Thread (torch).
+        Zufall: torch, numpy und das Sobol-Startdesign mit self.seed zu Beginn jedes Folds. Laufzeit je Versuch
+        wie GP-BO: Wanduhr seit dem Ende des vorigen Versuchs (Training + Modell + Vorschlag)."""
+        import torch
+        try:
+            from pymoo.config import Config
+            Config.warnings['not_compiled'] = False
+        except Exception:
+            pass
+        from hebo.design_space.design_space import DesignSpace
+        from hebo.optimizers.hebo import HEBO
+
+        torch.set_num_threads(1)
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+        random.seed(self.seed)
+        self.min_score = float('inf')
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
+        )
+        space, fixed = self._extra_space(lambda_l1)
+        hebo_types = {('float', False): 'num', ('float', True): 'pow', ('int', False): 'int', ('int', True): 'pow_int'}
+        design = DesignSpace().parse([
+            dict(name=p['name'], type='cat', categories=p['choices']) if p['kind'] == 'cat' else
+            dict(name=p['name'], type=hebo_types[(p['kind'], p['log'])], lb=p['low'], ub=p['high'])
+            for p in space])
+        optimizer = HEBO(design, scramble_seed=int(self.seed))
+        rows, runtimes = [], []
+        last_end = time.perf_counter()
+        for _ in range(n_trials):
+            suggestion = optimizer.suggest(n_suggestions=1)
+            params = self._extra_params(space, fixed, suggestion.iloc[0].to_dict())
+            score, best_iter = self._train_model_for_validation(X_train, y_train, X_val, y_val, params)
+            optimizer.observe(suggestion, np.array([[float(score)]]))
+            if score < self.min_score:
+                self.min_score = score
+                self.best_iter = best_iter
+            rows.append({**params, 'val_score': score})
+            now = time.perf_counter()
+            runtimes.append(now - last_end)
+            last_end = now
+        df_trials = pd.DataFrame(rows)
+        df_trials.insert(df_trials.columns.get_loc('val_score') + 1, 'runtime', runtimes)
+        df_trials = self._modify_df_for_hyperband(df_trials)      # feste Spalten max_depth = -1 bzw. num_leaves
+        df_trials = self._compute_test_scores(
+            X_train_full=X_train_full, y_train_full=y_train_full, X_test=X_test, y_test=y_test,
+            df=df_trials, best_iter=self.best_iter
+        )
+        df_trials['try_num_leaves'] = self.try_num_leaves
+        df_trials['joint_tuning_depth_leaves'] = self.joint_tuning_depth_leaves
+        df_trials['try_num_iter'] = self.try_num_iter
+        return df_trials
 
 
     def _generate_local_seeds(self):
@@ -1227,3 +1518,68 @@ class ParameterOptimization:
             df['max_depth'] = -1
             
         return df
+
+# ---------------------------------------------------------------- BOHB, DEHB, HEBO: gemeinsame Hilfen
+HB_COLUMNS = ['learning_rate', 'min_data_in_leaf', 'max_depth', 'lambda_l2', 'lambda_l1', 'num_leaves', 'max_bin',
+              'bagging_fraction', 'feature_fraction', 'val_score', 'runtime', 'test_score', 'test_log_loss',
+              'test_f1_score', 'test_rmse', 'current_best_test_score', 'current_best_test_log_loss',
+              'current_best_test_f1_score', 'current_best_test_rmse', 'try_num_leaves', 'joint_tuning_depth_leaves',
+              'try_num_iter']    # Spalten von hyperband_method ohne param_ind
+
+
+def hyperband_schedule(R=2150, factor=2.8):
+    """Die Brackets von ParameterOptimization.hyperband_method, ohne zu rechnen (gleiche Formeln, gleiche
+    Reihenfolge s = s_max ... 0): je Bracket dict(s, n, rungs = [(Zahl der Konfigurationen, Boosting-Runden r_k)],
+    rows = Zahl der Ergebniszeilen = Ueberlebende nach der letzten Rung). R = 2150, factor = 2.8: 8 Brackets,
+    3573 Auswertungen, 11 Zeilen; Budgets 1, 4, 12, 34, 97, 274, 767, 2150 Runden."""
+    s_max = int(np.floor(np.log(R) / np.log(factor)))
+    B = (s_max + 1)*R
+    out = []
+    for s in np.arange(s_max, -1, -1):
+        n = int(np.ceil(B/R*factor**(s)/(s+1)))
+        r = R*1/(factor**(s))
+        m, rungs = n, []
+        for k in range(s+1):
+            n_k = np.floor(n*factor**(-k))
+            r_k = int(np.floor(r*factor**k))
+            rungs.append((m, r_k))
+            if m > 1 and int(np.floor(n_k/factor)) > 0:
+                m = min(m, int(np.floor(n_k/factor)))       # utils.truncate behaelt die besten k
+            else:
+                break
+        out.append(dict(s=int(s), n=n, rungs=rungs, rows=m))
+    return out
+
+
+def hyperband_rows(R=2150, factor=2.8):
+    """Ergebniszeilen je Fold von Hyperband, BOHB und DEHB (11 bei R = 2150, factor = 2.8)."""
+    return sum(b['rows'] for b in hyperband_schedule(R, factor))
+
+
+_SCHEDULED_DEHB = None
+
+
+def scheduled_dehb_class():
+    """Unterklasse von dehb.DEHB, deren Brackets (Konfigurationen je Rung, Budgets) aus hyperband_schedule kommen
+    statt aus DEHBs eigener Formel (n0 = floor(max_SH_iter / (s + 1)) * eta^s, Budgets max * eta^-i ohne
+    Abrunden). Alles andere (Populationen je Budget, Befoerderung im ersten Hyperband-Durchgang, Mutation,
+    Crossover, Selektion) ist DEHB. Ein Durchgang = len(schedule) Brackets wie bei hyperband_method."""
+    global _SCHEDULED_DEHB
+    if _SCHEDULED_DEHB is None:
+        from dehb import DEHB
+
+        class ScheduledDEHB(DEHB):
+            def __init__(self, schedule, **kwargs):
+                self._schedule = schedule
+                super().__init__(**kwargs)
+
+            def _pre_compute_fidelity_spacing(self):
+                self.max_SH_iter = len(self._schedule)
+                self.fidelities = np.array(sorted({float(r) for b in self._schedule for _, r in b['rungs']}))
+
+            def _get_next_iteration(self, iteration):
+                bracket = self._schedule[iteration % len(self._schedule)]
+                return [int(n) for n, _ in bracket['rungs']], np.array([float(r) for _, r in bracket['rungs']])
+
+        _SCHEDULED_DEHB = ScheduledDEHB
+    return _SCHEDULED_DEHB

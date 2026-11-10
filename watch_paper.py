@@ -4,7 +4,9 @@ Laenge der Schlange.
 Die Logik hier (Abgaben aus submitted.tsv, sacct, Einordnung je Job) benutzt auch refill.py.
 
 Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
-    python watch_paper.py                 # beide Laeufe
+    python watch_paper.py                 # paper und l1_270, dazu extra (BOHB, DEHB, HEBO), sobald
+                                          # jobs_paper/extra/jobs.tsv existiert (make_paper_jobs.py --run extra)
+    python watch_paper.py --run extra     # nur extra
     python watch_paper.py --run paper     # nur einer
     python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
     python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
@@ -41,6 +43,7 @@ import speicher
 from run_ablation import expected_rows
 
 JOBS = Path("jobs_paper")
+RUN_ORDER = ["paper", "l1_270", "extra"]      # Reihenfolge wie refill.py
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
@@ -522,7 +525,7 @@ def pending_mismatch(run, jobs, tries):
 
 
 # ---------------------------------------------------------------- Prognose
-JOB_NAMES = ("hpo-paper", "hpo-l1_270")
+JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra")
 MIN_CALIBRATION_JOBS = 20     # so viele fertige Jobs braucht der Faktor tatsaechlich / Schaetzung
 
 
@@ -604,7 +607,7 @@ def forecast(frames, cores, now=None):
 
 def print_forecast(frames, cores):
     table, factor = forecast(frames, cores)
-    print("===== Prognose (beide Laeufe teilen sich die Kerne; Reihenfolge wie refill.py: Welle, dann Lauf) =====")
+    print("===== Prognose (alle Laeufe teilen sich die Kerne; Reihenfolge wie refill.py: Welle, dann Lauf) =====")
     print("Kerne im Mittel der letzten 24 h (sacct, " + "/".join(JOB_NAMES) + "): "
           + ("unbekannt (kein sacct)" if cores is None else f"{cores:,.1f}"))
     out = table.assign(verbraucht_h=table["verbraucht_h"].round(0).astype(int),
@@ -686,17 +689,17 @@ def watch(run, per_task=False, max_tries=3, q=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run", choices=("paper", "l1_270"), action="append")
+    parser.add_argument("--run", choices=tuple(RUN_ORDER), action="append")
     parser.add_argument("--aufgaben", action="store_true", help="Stand je Aufgabe und Welle ausgeben")
     parser.add_argument("--speicher", action="store_true", help="MaxRSS je Aufgabe, schreibt speicher_euler.tsv")
     parser.add_argument("--max_versuche", type=int, default=3)
     args = parser.parse_args()
-    runs = args.run or ["paper", "l1_270"]
+    runs = args.run or ["paper", "l1_270", *(["extra"] if (JOBS / "extra" / "jobs.tsv").exists() else [])]
     if args.speicher:
         memory_report(runs)
     else:
         print(disk_text())
         print(queue_text())
-        runs = sorted(runs, key=["paper", "l1_270"].index)     # Reihenfolge wie refill.py (paper vor l1_270)
+        runs = sorted(runs, key=RUN_ORDER.index)     # Reihenfolge wie refill.py (paper vor l1_270 vor extra)
         frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]   # je Lauf squeue vor sacct
         print_forecast(frames, concurrent_cores())

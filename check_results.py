@@ -17,6 +17,7 @@ Dateien von Jobs, die gerade in squeue stehen (wartend oder laufend), werden ueb
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python check_results.py                    # nur auflisten (beide Laeufe)
     python check_results.py --run paper
+    python check_results.py --run extra        # Lauf extra (BOHB/DEHB: 11 Zeilen je Fold, HEBO: --trials)
     python check_results.py --loeschen         # defekte Dateien und .tmp-Reste loeschen; refill.py rechnet sie neu
 Exit-Code 0: nichts defekt (oder alles geloescht); 1: defekte Dateien gefunden und nicht geloescht;
 2: --loeschen ohne squeue (Abbruch: laufende Jobs nicht erkennbar).
@@ -144,12 +145,13 @@ def scan(runs, queued):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", choices=(*RUNS, "beide"), default="beide")
+    parser.add_argument("--run", choices=(*RUNS, "extra", "beide", "alle"), default="beide",
+                        help="beide = paper + l1_270 (Standard), alle = dazu extra")
     parser.add_argument("--loeschen", action="store_true",
                         help="defekte Dateien und .tmp-Reste loeschen (smac3_output nie)")
     parser.add_argument("--alle", action="store_true", help="alle defekten Dateien auflisten (sonst die ersten 50)")
     args = parser.parse_args(argv)
-    runs = list(RUNS) if args.run == "beide" else [args.run]
+    runs = list(RUNS) if args.run == "beide" else [*RUNS, "extra"] if args.run == "alle" else [args.run]
     queued = wp.queued_tasks(wp.queue())
     if queued is None:
         if args.loeschen:
