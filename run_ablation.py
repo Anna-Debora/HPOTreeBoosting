@@ -36,6 +36,15 @@ Zusaetzliche Methoden (Lauf "extra", nur in .venv_extra: hpbandster, dehb, HEBO;
   lambda_l1   --no_lambda_l1: lambda_l1 nicht im Suchraum, fest 0 (Argument lambda_l1=False der Methoden)
   Alle sequentiell, 1 Kern (torch 1 Thread, kein Dask, BOHB ohne Nameserver), Seed = --seed je Fold neu gesetzt.
   DEHB schreibt sein Log in einen temporaeren Ordner unter $TMPDIR bzw. $SCRATCH (job_io.temp_dir), nie ins Home.
+Skalen (--scales, methods.SCALES; Bereiche gleich, nur die Skala nicht):
+  paper    Standard, alter Zustand (alle Zahl-Parameter linear), bitgleich zu den Laeufen vor dieser Option.
+  gpboost  wie GPBoost (engine.py, _parse_tuning_search_space): log fuer learning_rate, lambda_l1, lambda_l2
+           (untere Grenze 0 -> 1e-8), num_leaves, min_data_in_leaf, max_bin; linear fuer bagging_fraction,
+           feature_fraction, max_depth; n_iter unveraendert. TPE/Hyperband: suggest_*(log=True); GP-BO:
+           prior='log-uniform'; SMAC, BOHB, DEHB: ConfigSpace log=True; HEBO: pow / pow_int. Zufallsgitter und
+           deterministisches Gitter (feste Wertelisten) bleiben gleich. --l1 off: TPE, GP-BO, SMAC, Hyperband lassen
+           lambda_l1 selbst weg (fest 0; SMAC als Konstante wie oben), das Zufallsgitter wie oben ohne lambda_l1.
+           Eigenen --result_folder verwenden (die Ergebnisdateien haben keine Spalte fuer die Skala).
 SMAC schreibt seine Zwischendateien unter <result_folder>/smac3_output statt ins Arbeitsverzeichnis.
 Logs: nur Start, Fehler und Ende (job_io.quiet_logging, quiet_methods: optuna, SMAC, gpboost, Zufallsgitter leise).
 Ergebnisdateien werden atomar geschrieben (job_io.write_csv_atomic: .tmp, dann umbenennen).
@@ -47,7 +56,8 @@ Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3), 
 
 Aufruf:  python run_ablation.py --method {random_search,tpe,SMAC,gp_bo,hyperband,grid_search,bohb,dehb,hebo} \
              --seed 27225 \
-             --result_folder Results_ablation/A [--trials 135] [--no_lambda_l1] [--paper_grid] [--folds 5] \
+             --result_folder Results_ablation/A [--trials 135] [--l1 on|off] [--no_lambda_l1] [--paper_grid] \
+             [--scales paper|gpboost] [--folds 5] \
              [--suite_id 336 --task_id 361076] [--hyperband_R 2150] [--resume]
 Ausgabe: <result_folder>/<method>/seed_<seed>/gpboost/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
          nach jedem Fold angehaengt, damit ein Abbruch durch das Zeitlimit die fertigen Folds behaelt.
@@ -98,8 +108,10 @@ def quiet_methods():
     logging.getLogger("hpbandster").setLevel(logging.ERROR)
 
 
-def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output):
-    """Setzt Versuchszahl und lambda_l1 fuer diesen Prozess, ohne die Module auf der Platte zu aendern."""
+def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output, scales="paper"):
+    """Setzt Versuchszahl und lambda_l1 fuer diesen Prozess, ohne die Module auf der Platte zu aendern.
+    scales="gpboost": TPE, GP-BO, SMAC und Hyperband lassen lambda_l1 selbst weg (ParameterOptimization(
+    lambda_l1=False)), hier wird dann nur noch das Zufallsgitter angepasst."""
     if method != "hyperband":   # Hyperband ruft optimize mit der Zahl der Brackets auf
         optimize = optuna.study.Study.optimize
         optuna.study.Study.optimize = lambda self, func, n_trials=None, **kw: optimize(self, func, n_trials=trials,
@@ -119,20 +131,22 @@ def apply_settings(method, trials, no_lambda_l1, paper_grid, smac_output):
 
     if not no_lambda_l1:
         return
-    suggest_float = optuna.trial.Trial.suggest_float
-    optuna.trial.Trial.suggest_float = lambda self, name, low, high, **kw: (
-        suggest_float(self, name, 0.0, 0.0, **kw) if name == "lambda_l1" or name.startswith("lambda_l1_")
-        else suggest_float(self, name, low, high, **kw))
+    if scales == "paper":
+        suggest_float = optuna.trial.Trial.suggest_float
+        optuna.trial.Trial.suggest_float = lambda self, name, low, high, **kw: (
+            suggest_float(self, name, 0.0, 0.0, **kw) if name == "lambda_l1" or name.startswith("lambda_l1_")
+            else suggest_float(self, name, low, high, **kw))
 
-    methods.gp_minimize = gp_minimize_without("lambda_l1", methods.gp_minimize)
+        methods.gp_minimize = gp_minimize_without("lambda_l1", methods.gp_minimize)
 
     grid_search = methods.modified_grid_search_tune_parameters
     methods.modified_grid_search_tune_parameters = lambda param_grid, *a, **kw: grid_search(
         {k: v for k, v in param_grid.items() if k != "lambda_l1"}, *a, **kw)
 
-    configuration_space = SMAC_method.ConfigurationSpace
-    SMAC_method.ConfigurationSpace = lambda space=None, **kw: configuration_space(
-        space={**space, "lambda_l1": 0.0} if space and "lambda_l1" in space else space, **kw)
+    if scales == "paper":
+        configuration_space = SMAC_method.ConfigurationSpace
+        SMAC_method.ConfigurationSpace = lambda space=None, **kw: configuration_space(
+            space={**space, "lambda_l1": 0.0} if space and "lambda_l1" in space else space, **kw)
 
 
 def run_fold(obj, method, trials, train_index, test_index, hyperband_R, lambda_l1=True):
@@ -212,14 +226,16 @@ def main(args):
     job_io.quiet_logging()
     quiet_methods()
     apply_settings(args.method, args.trials, args.no_lambda_l1, args.paper_grid,
-                   Path(args.result_folder) / "smac3_output")
+                   Path(args.result_folder) / "smac3_output", scales=args.scales)
 
     X = pd.read_csv(data_x)
     y = pd.read_csv(os.path.join(path, f"{args.suite_id}_{args.task_id}_y.csv"))
     categorical_indicator = np.load(os.path.join(path, f"{args.suite_id}_{args.task_id}_categorical_indicator.npy"))
     obj = ParameterOptimizationSMAC(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=int(args.suite_id),
-                                    seed=int(args.seed), library=LIBRARY, **STRATEGY)
+                                    seed=int(args.seed), library=LIBRARY, scales=args.scales,
+                                    lambda_l1=args.scales == "paper" or not args.no_lambda_l1, **STRATEGY)
     print(f"{args.method} seed={args.seed} trials={args.trials} lambda_l1={'aus' if args.no_lambda_l1 else 'an'} "
+          f"Skalen={args.scales} "
           f"{'Paper-Gitter ' if args.paper_grid else ''}-> {output}", flush=True)
     for fold, (train_index, test_index) in enumerate(list(obj.splits)[:args.folds]):
         if fold in done:
@@ -245,14 +261,21 @@ def main(args):
     print(f"Folds fertig: {sorted(done)} -> {output}", flush=True)
 
 
-if __name__ == "__main__":
+def parse_args(argv=None):
+    """Argumente; --l1 off und --no_lambda_l1 setzen beide args.no_lambda_l1."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--method", choices=("random_search", "tpe", "SMAC", "gp_bo", "hyperband", "grid_search",
                                              *EXTRA_METHODS), required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--result_folder", required=True, help="z. B. Results_ablation/A")
     parser.add_argument("--trials", type=int, default=135)
-    parser.add_argument("--no_lambda_l1", action="store_true", help="lambda_l1 = 0 fest (Suchraum des Papers)")
+    parser.add_argument("--no_lambda_l1", action="store_true", help="wie --l1 off (alter Name, in jobs.tsv)")
+    parser.add_argument("--l1", choices=("on", "off"), default=None,
+                        help="off: lambda_l1 nicht im Suchraum, fest 0 (Paper-Setting); Standard on, mit "
+                             "--no_lambda_l1 off")
+    parser.add_argument("--scales", choices=methods.SCALES, default="paper",
+                        help="paper: alle Skalen linear wie im Paper (Standard, bitgleich); gpboost: Log-Skalen wie "
+                             "GPBoost fuer TPE, GP-BO, SMAC, Hyperband, BOHB, DEHB, HEBO (Gitter unveraendert)")
     parser.add_argument("--paper_grid", action="store_true",
                         help="deterministisches Gitter ohne bagging_fraction (135 Punkte wie im Paper-Code)")
     parser.add_argument("--folds", type=int, default=5, help="nur fuer lokale Proben kleiner als 5")
@@ -261,4 +284,12 @@ if __name__ == "__main__":
                         help="fertige Datei ueberspringen, angefangene ab dem ersten fehlenden Fold fortsetzen")
     parser.add_argument("--suite_id", default="336")
     parser.add_argument("--task_id", default="361076")
-    main(parser.parse_args())
+    args = parser.parse_args(argv)
+    if args.l1 == "on" and args.no_lambda_l1:
+        parser.error("--l1 on und --no_lambda_l1 widersprechen sich")
+    args.no_lambda_l1 = args.no_lambda_l1 or args.l1 == "off"
+    return args
+
+
+if __name__ == "__main__":
+    main(parse_args())

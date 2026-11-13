@@ -42,6 +42,20 @@ Lauf "extra" (eigener Aufruf, aendert nichts an paper/l1_270 und an den gemeinsa
   Ausgabe: jobs_paper/extra/{jobs.tsv, kosten.tsv, kosten_wellen.tsv, zusammenfassung.txt, arrays/probe.idx},
            jobs_paper/run_extra_job.sbatch, jobs_paper/submit_extra.sh
 
+Lauf "gpb" (eigener Aufruf, aendert nichts an paper/l1_270/extra und an den gemeinsamen Dateien in jobs_paper/):
+  gpb     korrekte Skalen (run_ablation.py --scales gpboost: log fuer learning_rate, lambda_l2, num_leaves,
+          min_data_in_leaf, max_bin) ohne lambda_l1 (--l1 off, fest in jobs.tsv, damit der Standard --l1 on nie
+          greift), sonst Einstellungen von paper (GPBoost, 135 Versuche, 20 Seeds, 5 Folds, num_leaves, Kategorien
+          nativ). Nur TPE, GP-BO, SMAC, Hyperband; Default, deterministisches Gitter und Zufallsgitter haengen nicht
+          von der Skala ab und kommen aus Results_paper (make_table5.py --gpb)          -> Results_gpb/
+  59 x 20 x 4 = 4720 Jobs, gleiche Wellen, Zeitlimit- und Speicherregeln wie oben, Kosten mit GPB_COST_FACTOR
+  (kleine Lernraten auf der Log-Skala brauchen mehr Boosting-Runden), sbatch-Skript run_paper_job.sbatch (.venv),
+  Job-Name hpo-gpb. Probe: jobs_paper/gpb/arrays/probe.idx = 4 Methoden x 2 kleine Aufgaben (GPB_PROBE) x Seed
+  27225, abschicken mit bash jobs_paper/submit_gpb.sh probe.
+  Aufruf: python make_paper_jobs.py --run gpb
+  Ausgabe: jobs_paper/gpb/{jobs.tsv, kosten.tsv, kosten_wellen.tsv, zusammenfassung.txt, arrays/probe.idx},
+           jobs_paper/submit_gpb.sh
+
 Aufruf:  python make_paper_jobs.py [--out jobs_paper]
 Ausgabe: <out>/<lauf>/jobs.tsv (eine Zeile je Job, ohne Kopfzeile, fuer das sbatch-Skript)
          <out>/<lauf>/kosten.tsv (mit Kopfzeile: Schaetzung, Partition, Zeitlimit, Speicher, Welle, Reihenfolge,
@@ -69,10 +83,18 @@ RUNS = {"paper": dict(folder="Results_paper", trials=135, flags="--no_lambda_l1 
 PROBE = (336, 361076, 27225)   # wine_quality: klein, im Testlauf und in den Ablationslaeufen schon gerechnet
 EXTRA_METHODS = ("bohb", "dehb", "hebo")
 EXTRA_RUN = dict(folder="Results_extra", trials=135, flags="--no_lambda_l1", methods=EXTRA_METHODS)
-ALL_RUNS = {**RUNS, "extra": EXTRA_RUN}
+GPB_METHODS = ("tpe", "gp_bo", "SMAC", "hyperband")
+# Mac, 4 Aufgaben (analcatdata_supreme, heloc, wine_quality, eye_movements), Fold 0, 40 Versuche, --l1 off, Wanduhr
+# inkl. Test-Refits, gpboost / paper (13.11.2026): TPE 7.2 (411 / 57 s), GP-BO 2.7, SMAC 3.3, Hyperband 1.7 (R = 200);
+# einzelne Aufgaben bis 9 (TPE eye_movements). Mit Reserve aufgerundet; nur fuer den Lauf gpb.
+GPB_COST_FACTOR = {"tpe": 7.5, "gp_bo": 3.0, "SMAC": 3.5, "hyperband": 2.0}
+GPB_RUN = dict(folder="Results_gpb", trials=135, flags="--l1 off --scales gpboost", methods=GPB_METHODS,
+               cost_factor=GPB_COST_FACTOR)
+ALL_RUNS = {**RUNS, "extra": EXTRA_RUN, "gpb": GPB_RUN}
 ALL_METHODS = METHODS + EXTRA_METHODS
 # Probe des Laufs extra: die zwei schnellsten Aufgaben laut zeitmessung_mac.tsv (Regression, Klassifikation)
 EXTRA_PROBE = ((335, 361093), (337, 361278))   # analcatdata_supreme (Regression), heloc (Klassifikation); Seed 27225
+GPB_PROBE = EXTRA_PROBE        # Probe des Laufs gpb: dieselben zwei Aufgaben, Seed 27225, alle 4 Methoden
 FOLDS = 5
 # Partitionen auf Euler: (Name, laengstes Zeitlimit in Stunden)
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
@@ -161,6 +183,8 @@ def build(run, sec, task_list, memory=None):
         for method in settings.get("methods", METHODS):
             for seed in ([0] if method == "default" else SEEDS):
                 hours = kosten(method, settings["trials"], sec[(t.suite, t.task)])
+                if "cost_factor" in settings:         # nur gpb; paper, l1_270, extra unveraendert
+                    hours *= settings["cost_factor"][method]
                 name, limit = partition(hours)
                 rows.append(dict(method=method, seed=seed, suite=t.suite, task=t.task, trials=settings["trials"],
                                  flags=settings["flags"] if method != "default" else "", folder=settings["folder"],
@@ -403,6 +427,81 @@ def main_extra(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_pa
     return jobs
 
 
+SUBMIT_GPB = """#!/bin/bash
+# Probe des Laufs gpb: {n} Jobs (tpe, gp_bo, SMAC, hyperband x {names}, Seed {seed}), {part}, {hours} h, {mem} je Kern.
+#   bash jobs_paper/submit_gpb.sh probe          (DRY=1: nur anzeigen)
+# Merkt sich die Job-ID in jobs_paper/gpb/submitted.tsv (watch_paper.py zeigt sie, refill.py schickt sie nie doppelt).
+# Die Wellen schickt refill.py:  python refill.py --run gpb   (nicht in --run alle)
+set -euo pipefail
+cd "$HOME/HPOTreeBoosting" 2>/dev/null || true
+WHAT=${{1:-}}
+DIR=jobs_paper/gpb
+mkdir -p jobs_paper/logs
+case "$WHAT" in
+    probe) cmd=(sbatch --parsable --account=ls_math --array=0-{last} --partition={part} --time={hours}:00:00
+                --mem-per-cpu={mem} --job-name=hpo-gpb jobs_paper/run_paper_job.sbatch gpb "$DIR/arrays/probe.idx")
+           if [ -n "${{DRY:-}}" ]; then echo "${{cmd[*]}}"; exit 0; fi
+           id=$("${{cmd[@]}}")
+           printf '%s\\t%s\\t%s\\t%s\\t{part}\\t{hours}\\t{mem_gb}\\n' "$id" "$DIR/arrays/probe.idx" {n} "$(date '+%F %T')" \\
+               >> "$DIR/submitted.tsv"
+           echo "abgeschickt: Job $id (Probe gpb, {n} Teiljobs)" ;;
+    *)     echo "Aufruf: bash jobs_paper/submit_gpb.sh probe   (Wellen: python refill.py --run gpb)"; exit 1 ;;
+esac
+"""
+
+
+def main_gpb(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/speicher_euler.tsv"):
+    """Lauf gpb (korrekte Skalen ohne lambda_l1; TPE, GP-BO, SMAC, Hyperband): schreibt nur jobs_paper/gpb/ und
+    submit_gpb.sh (sbatch-Skript: run_paper_job.sbatch aus main())."""
+    out = Path(out)
+    folder = out / "gpb"
+    (folder / "arrays").mkdir(parents=True, exist_ok=True)
+    sec = seconds_per_trial(timing)
+    peaks = speicher.Plan(mac=speicher.mac_peaks(memory), euler=speicher.euler_measurements(euler))
+    jobs = plan(build("gpb", sec, tasks(), peaks))
+    jobs[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
+        folder / "jobs.tsv", sep="\t", index=False, header=False)
+    probe = jobs[np.array([(s, t) in GPB_PROBE for s, t in zip(jobs["suite"], jobs["task"])]) & (jobs["seed"] == PROBE[2])]
+    probe_lines = [i + 1 for i in probe.index]
+    if not (folder / "arrays" / "probe.idx").exists():
+        (folder / "arrays" / "probe.idx").write_text("\n".join(map(str, probe_lines)) + "\n")
+    jobs["array"] = ""
+    jobs.drop(columns="sek_versuch").to_csv(folder / "kosten.tsv", sep="\t", index=False)
+    costs = wave_costs("gpb", jobs)
+    costs.to_csv(folder / "kosten_wellen.tsv", sep="\t", index=False)
+    by_method = jobs.groupby("method")["kernstunden"].sum().round(0).astype(int).to_dict()
+    summary = [f"Lauf gpb -> {GPB_RUN['folder']}/: {len(jobs)} Jobs ({', '.join(GPB_METHODS)} x "
+               f"{jobs['task'].nunique()} Aufgaben x {jobs['seed'].nunique()} Seeds), Flags '{GPB_RUN['flags']}', "
+               f"geschaetzt {jobs['kernstunden'].sum():,.0f} Kernstunden (Zeitlimits zusammen "
+               f"{jobs['stunden'].sum():,} h; Faktoren gegenueber paper {GPB_COST_FACTOR})",
+               f"  je Methode: {by_method}",
+               "  teuerste Jobs: " + ", ".join(
+                   f"{r.name} {r.method} {r.kernstunden:.1f} h" for r in
+                   jobs.sort_values("kernstunden", ascending=False).drop_duplicates(["task", "method"])
+                   .head(5).itertuples()),
+               "  Partitionen: " + ", ".join(f"{p} {n}" for p, n in jobs["partition"].value_counts().items()),
+               "  Speicher je Job: " + ", ".join(f"{speicher.fmt(m)} GB {n}" for m, n in
+                                                jobs["mem_gb"].value_counts().sort_index().items()),
+               f"  Probe: {len(probe)} Jobs (Zeilen {', '.join(map(str, probe_lines))}): "
+               + ", ".join(f"{r.name} {r.method} {r.kernstunden:.2f} h" for r in probe.itertuples())]
+    for c in costs.itertuples():
+        summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}): {c.jobs} Jobs, "
+                       f"{c.kernstunden:,} Kernstunden, "
+                       + ", ".join(f"bei {k} Kernen ~{getattr(c, f'tage_{k}_kerne')} Tage" for k in CORES)
+                       + f" (laengster Job {c.laengster_job_h} h)")
+    summary += [f"Alle Wellen: {len(jobs):,} Jobs, {costs['kernstunden'].sum():,} Kernstunden. Abschicken: "
+                "python refill.py --run gpb. Probe zuerst: bash jobs_paper/submit_gpb.sh probe", ""]
+    hours = int(probe["zeitlimit"].max())
+    part = next(name for name, longest in PARTITIONS if hours <= longest)
+    mem_gb = max(float(probe["mem_gb"].max()), 2.0)
+    (out / "submit_gpb.sh").write_text(SUBMIT_GPB.format(
+        n=len(probe), last=len(probe) - 1, names=", ".join(probe["name"].unique()), seed=PROBE[2], part=part,
+        hours=hours, mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb)))
+    (folder / "zusammenfassung.txt").write_text("\n".join(summary))
+    print("\n".join(summary))
+    return jobs
+
+
 def main(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/speicher_euler.tsv"):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -480,10 +579,13 @@ if __name__ == "__main__":
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
     parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
     parser.add_argument("--euler", default="jobs_paper/speicher_euler.tsv", help="aus watch_paper.py --speicher")
-    parser.add_argument("--run", choices=("paper+l1_270", "extra"), default="paper+l1_270",
-                        help="extra: nur den Lauf extra (BOHB, DEHB, HEBO) schreiben; Standard: paper und l1_270")
+    parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb"), default="paper+l1_270",
+                        help="extra: nur den Lauf extra (BOHB, DEHB, HEBO) schreiben; gpb: nur den Lauf gpb (korrekte "
+                             "Skalen ohne lambda_l1); Standard: paper und l1_270")
     args = parser.parse_args()
     if args.run == "extra":
         main_extra(args.out, args.timing, args.memory, args.euler)
+    elif args.run == "gpb":
+        main_gpb(args.out, args.timing, args.memory, args.euler)
     else:
         main(args.out, args.timing, args.memory, args.euler)

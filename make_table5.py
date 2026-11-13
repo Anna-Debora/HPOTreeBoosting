@@ -41,11 +41,20 @@ Tabelle bleibt unveraendert):
                     Zeile), HEBO wie TPE. Paper-Spalte nur fuer die 7 Methoden des Papers. Ausgabe table5_extra.*
                     (--out aendert den Namen). --seeds und --partial wie oben.
 
+Lauf "gpb" (korrekte Skalen ohne lambda_l1, make_paper_jobs.py --run gpb):
+  --gpb [Ordner]    Default, deterministisches Gitter und Zufallsgitter aus Results_paper (--paper_folder; sie haengen
+                    nicht von --scales ab), TPE, GP-BO, SMAC, Hyperband aus Results_gpb: die 7 Spalten des Papers,
+                    gemeinsamer Pool der Normierung, Budget --budget (135), Differenz zum Paper wie bei der
+                    7-Methoden-Tabelle. Ausgabe table5_gpb.*. Ordner koennen allgemein auf Methoden beschraenkt
+                    werden: --run 'Name=Ordner[default,grid_search]+Ordner2[tpe]:135' (load_folders).
+
 Aufruf:  python make_table5.py                                   # Paper=Results_paper:135, L1_270=Results_l1_270:135,270
          python make_table5.py --seeds 1-5 --partial --out table5_welle1
          python make_table5.py --run Testlauf=Results_repro:135 --out table5_testlauf
          python make_table5.py --extra                          # Results_paper + Results_extra -> table5_extra.*
          python make_table5.py --extra --seeds 1-5 --partial    # Zwischenstand nach Welle 1
+         python make_table5.py --gpb                            # Results_paper (Default, Gitter) + Results_gpb
+         python make_table5.py --gpb --seeds 1-5 --partial      #   (TPE, GP-BO, SMAC, Hyperband) -> table5_gpb.*
 Ausgabe: <out>.csv (alle Zahlen, lang), <out>.md (Tabellen wie im Paper und Differenzen), <out>.pdf,
          <out>_datensaetze.csv und .md (je Aufgabe x Methode: Test-Score R2/Accuracy bei T, Mittel ueber die
          vorhandenen Seeds, mit Zahl der Seeds)
@@ -387,10 +396,37 @@ def parse_run(spec):
     return name, folder, [int(b) for b in (budgets or "135").split(",")]
 
 
+FOLDER_SPEC = re.compile(r"^(?P<folder>[^\[\]]+?)(?:\[(?P<methods>[^\[\]]*)\])?$")
+
+
 def load_folders(folder):
-    """load() fuer einen Ordner oder mehrere, mit '+' verbunden (--extra: Results_paper+Results_extra)."""
-    frames = [load(f) for f in folder.split("+")]
+    """load() fuer einen Ordner oder mehrere, mit '+' verbunden (--extra: Results_paper+Results_extra). Ein Ordner
+    kann auf Methoden beschraenkt werden: 'Ordner[methode,...]' mit den Namen der Ergebnisordner (default,
+    grid_search, random_search, tpe, gp_bo, SMAC, hyperband, bohb, dehb, hebo), z. B. --gpb:
+    Results_paper[default,grid_search,random_search]+Results_gpb[tpe,gp_bo,SMAC,hyperband]."""
+    frames = []
+    for part in folder.split("+"):
+        match = FOLDER_SPEC.match(part)
+        if not match:
+            raise ValueError(f"Ordnerangabe {part!r}: erwartet Ordner oder Ordner[methode,...]")
+        data = load(match["folder"])
+        if match["methods"] is not None:
+            wanted = [m.strip() for m in match["methods"].split(",") if m.strip()]
+            unknown = [m for m in wanted if m not in NAMES]
+            if unknown:
+                raise ValueError(f"{part}: unbekannte Methoden {unknown} (erlaubt: {', '.join(NAMES)})")
+            data = data[data["method"].isin([NAMES[m] for m in wanted])]
+        frames.append(data)
     return pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+
+
+GPB_FROM_PAPER = ("default", "grid_search", "random_search")       # haengen nicht von --scales ab
+GPB_METHODS = ("tpe", "gp_bo", "SMAC", "hyperband")
+
+
+def gpb_spec(paper_folder="Results_paper", gpb_folder="Results_gpb"):
+    """Ordnerangabe der zusammengefuehrten Tabelle des Laufs gpb (load_folders)."""
+    return f"{paper_folder}[{','.join(GPB_FROM_PAPER)}]+{gpb_folder}[{','.join(GPB_METHODS)}]"
 
 
 def main(runs, out, pool="code", quantiles=(10, 90), paper_path="paper_table5.csv", seeds=None, partial=False,
@@ -404,7 +440,7 @@ def main(runs, out, pool="code", quantiles=(10, 90), paper_path="paper_table5.cs
     long, sections, datasets, dataset_sections = [], [], [], []
     with PdfPages(f"{out}.pdf", keep_empty=False) as pdf:
         for name, folder, budgets in runs:
-            data = load(folder) if not keep_all else load_folders(folder)
+            data = load_folders(folder)        # ein Ordner ohne '+' und '[...]': wie load(folder)
             if data.empty:
                 sections.append(f"## {name}\n\nKeine Ergebnisse in {folder}.\n")
                 print(f"{name}: keine Ergebnisse in {folder}")
@@ -466,10 +502,20 @@ if __name__ == "__main__":
     parser.add_argument("--extra", nargs="?", const="Results_extra", metavar="ORDNER",
                         help="zusammengefuehrte Tabelle 7 + 3 Methoden (BOHB, DEHB, HEBO aus ORDNER, Standard "
                              "Results_extra) -> table5_extra.*; die 7-Methoden-Tabelle wird dabei nicht geschrieben")
-    parser.add_argument("--paper_folder", default="Results_paper", help="mit --extra: Ordner der 7 Methoden")
-    parser.add_argument("--budget", type=int, default=135, help="mit --extra: Budget T (Standard 135)")
+    parser.add_argument("--gpb", nargs="?", const="Results_gpb", metavar="ORDNER",
+                        help="Lauf gpb (korrekte Skalen ohne lambda_l1): Default, deterministisches Gitter und "
+                             "Zufallsgitter aus --paper_folder, TPE, GP-BO, SMAC, Hyperband aus ORDNER (Standard "
+                             "Results_gpb); 7 Methoden, gemeinsamer Pool -> table5_gpb.*")
+    parser.add_argument("--paper_folder", default="Results_paper",
+                        help="mit --extra: Ordner der 7 Methoden; mit --gpb: Ordner von Default und Gittern")
+    parser.add_argument("--budget", type=int, default=135, help="mit --extra/--gpb: Budget T (Standard 135)")
     args = parser.parse_args()
-    if args.extra:
+    if args.extra and args.gpb:
+        parser.error("--extra und --gpb nur einzeln")
+    if args.gpb:
+        main([("Paper+GPB", gpb_spec(args.paper_folder, args.gpb), [args.budget])], args.out or "table5_gpb",
+             args.pool, tuple(args.quantiles), seeds=args.seeds, partial=args.partial)
+    elif args.extra:
         main([("Paper+Extra", f"{args.paper_folder}+{args.extra}", [args.budget])], args.out or "table5_extra",
              args.pool, tuple(args.quantiles), seeds=args.seeds, partial=args.partial, columns=EXTRA_METHODS)
     else:

@@ -34,14 +34,34 @@ from task_types import is_classification
 
 CATBOOST_MAX_BORDER_COUNT = 1024
 
+# Skalen der Suchraeume (--scales in run_ablation.py). Bereiche (Grenzen) sind in beiden gleich, nur die Skala nicht.
+#   paper    Stand des Papers: alle Zahl-Parameter linear (bitgleich zum alten Code).
+#   gpboost  Skalen wie GPBoost (python-package/gpboost/engine.py, _parse_tuning_search_space, _TUNING_PARAMS_*):
+#            log: learning_rate, lambda_l1, lambda_l2, num_leaves, min_data_in_leaf, max_bin;
+#            linear: bagging_fraction, feature_fraction, max_depth (ganzzahlig). Untere Grenze 0 wird bei
+#            lambda_l1/lambda_l2 durch 1e-8 ersetzt, bei min_data_in_leaf durch 1. n_iter bleibt linear.
+#            Gilt fuer TPE, GP-BO, SMAC, Hyperband, BOHB, DEHB, HEBO; Zufallsgitter und deterministisches Gitter
+#            (feste Wertelisten) und Default bleiben unveraendert.
+SCALES = ("paper", "gpboost")
+GPBOOST_LOG_PARAMS = ("learning_rate", "lambda_l1", "lambda_l2", "num_leaves", "min_data_in_leaf", "max_bin")
+GPBOOST_LOG_ZERO_FLOAT = 1e-8      # Ersatz fuer die untere Grenze 0 (lambda_l1, lambda_l2)
+GPBOOST_LOG_ZERO_INT = 1           # Ersatz fuer die untere Grenze 0 (min_data_in_leaf)
+
 
 class ParameterOptimization:
     """This class is used to perform hyperparameter tuning using the proposed methods and to evaluate the model obtained using the best hyperparameters."""
 
     def __init__(self, X, y, categorical_indicator, suite_id, test_size=0.2, val_size=0.2, try_num_leaves=False, seed=42,joint_tuning_depth_leaves = False,try_num_iter = False, 
-                hyperband = False, try_max_depth = True, library="gpboost"):
+                hyperband = False, try_max_depth = True, library="gpboost", scales="paper", lambda_l1=True):
         if  (try_max_depth and try_num_leaves) or (try_num_leaves and joint_tuning_depth_leaves) or (try_max_depth and joint_tuning_depth_leaves):
             raise ValueError("You can only perform num_leaves, max_depth or joint_tuning at the same time.")
+        if scales not in SCALES:
+            raise ValueError(f"scales must be one of {SCALES}, not {scales!r}")
+        if scales == "paper" and not lambda_l1:
+            # Paper-Skalen ohne lambda_l1 laufen wie bisher ueber run_ablation.apply_settings (bitgleich zu Results_paper)
+            raise ValueError("lambda_l1=False only with scales='gpboost' (paper: run_ablation.py --l1 off)")
+        self.scales = scales
+        self.lambda_l1 = lambda_l1
         self.seed = seed
         self.fixed_seeds = self._generate_local_seeds()
 
@@ -615,29 +635,35 @@ class ParameterOptimization:
             X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
         )
 
+        if self.scales == "gpboost":
+            space, fixed = self._extra_space(self.lambda_l1)
+
         # Define the objective function
         def objective_opt(trial):
             """Objective function for the Optuna optimization."""
-            #initialize param_grid with all possible parameters
-            param_grid = {
-                    'learning_rate': trial.suggest_float('learning_rate', 0.001, 1),
-                    'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 1000),
-                    'lambda_l2': trial.suggest_float('lambda_l2', 0, 100),
-                    'lambda_l1': trial.suggest_float('lambda_l1', 0, 100),
-                    'max_bin': trial.suggest_int('max_bin', 255, self.max_bin_val),
-                    'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1),
-                    'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1)
-                }
-            # Adjust the grid for the case where we tune the 'num_leaves' parameter
-            if self.try_num_leaves:
-                param_grid['num_leaves'] = trial.suggest_int('num_leaves', 2, 1024)
-            if self.joint_tuning_depth_leaves:
-                param_grid['num_leaves'] = trial.suggest_int('num_leaves', 2, 1024)
-                param_grid['max_depth'] = trial.suggest_categorical('max_depth',[-1,1,2,3,4,5,6,7,8,9,10])
-            if self.try_max_depth:
-                param_grid['max_depth'] = trial.suggest_categorical('max_depth',[1,2,3,4,5,6,7,8,9,10])
-            if self.try_num_iter:
-                param_grid['n_iter'] =trial.suggest_int('n_iter',1,1000) 
+            if self.scales == "gpboost":
+                param_grid = self._suggest_optuna(trial, space, fixed)
+            else:
+                #initialize param_grid with all possible parameters
+                param_grid = {
+                        'learning_rate': trial.suggest_float('learning_rate', 0.001, 1),
+                        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 1000),
+                        'lambda_l2': trial.suggest_float('lambda_l2', 0, 100),
+                        'lambda_l1': trial.suggest_float('lambda_l1', 0, 100),
+                        'max_bin': trial.suggest_int('max_bin', 255, self.max_bin_val),
+                        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1),
+                        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1)
+                    }
+                # Adjust the grid for the case where we tune the 'num_leaves' parameter
+                if self.try_num_leaves:
+                    param_grid['num_leaves'] = trial.suggest_int('num_leaves', 2, 1024)
+                if self.joint_tuning_depth_leaves:
+                    param_grid['num_leaves'] = trial.suggest_int('num_leaves', 2, 1024)
+                    param_grid['max_depth'] = trial.suggest_categorical('max_depth',[-1,1,2,3,4,5,6,7,8,9,10])
+                if self.try_max_depth:
+                    param_grid['max_depth'] = trial.suggest_categorical('max_depth',[1,2,3,4,5,6,7,8,9,10])
+                if self.try_num_iter:
+                    param_grid['n_iter'] =trial.suggest_int('n_iter',1,1000)
             # Train the model
             #print('\n Here is the param_grid:',param_grid)
             score, best_iter = self._train_model_for_validation(
@@ -678,7 +704,10 @@ class ParameterOptimization:
         # else:
         #     score = root_mean_squared_error(self.y_test, y_pred)
 
-        df_trials = self._modify_df_for_tpe(df)
+        if self.scales == "gpboost":
+            df_trials = self._optuna_df_by_name(df, fixed)
+        else:
+            df_trials = self._modify_df_for_tpe(df)
 
         # Compute the test scores
         df_trials = self._compute_test_scores(
@@ -695,31 +724,37 @@ class ParameterOptimization:
 
     def gp_bo_method(self, X_train_full, y_train_full, X_test, y_test):
         """This function performs hyperparameter tuning using the GP-BO method."""
-        # Define the hyperparameter space
-        space = [
-            Real(0.001, 1, name='learning_rate'),
-            Integer(1, 1000, name='min_data_in_leaf'),
-            Integer(1, 10, name='max_depth'),
-            Real(0, 100, name='lambda_l2'),
-            Real(0, 100, name='lambda_l1'),
-            Integer(255, self.max_bin_val, name='max_bin'),
-            Real(0.5, 1, name='bagging_fraction'),
-            Real(0.5, 1, name='feature_fraction')
-        ]
+        fixed = {}
+        if self.scales == "gpboost":
+            extra_space, fixed = self._extra_space(self.lambda_l1)
+            space = [self._skopt_dimension(p) for p in extra_space]
+        else:
+            # Define the hyperparameter space
+            space = [
+                Real(0.001, 1, name='learning_rate'),
+                Integer(1, 1000, name='min_data_in_leaf'),
+                Integer(1, 10, name='max_depth'),
+                Real(0, 100, name='lambda_l2'),
+                Real(0, 100, name='lambda_l1'),
+                Integer(255, self.max_bin_val, name='max_bin'),
+                Real(0.5, 1, name='bagging_fraction'),
+                Real(0.5, 1, name='feature_fraction')
+            ]
         self.min_score = float('inf')
         self._gp_runtimes = []
         self._gp_objective_runtimes = []
 
         # Adjust the space for the case where we tune the 'num_leaves' parameter
-        if self.try_num_leaves:
-            space.remove(Integer(1, 10, name='max_depth'))
-            space.append(Integer(2, 1024, name='num_leaves'))
-        if self.joint_tuning_depth_leaves:
-            space.remove(Integer(1, 10, name='max_depth'))
-            space.append(Categorical(categories=[-1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], name='max_depth'))
-            space.append(Integer(2, 1024, name='num_leaves'))
-        if self.try_num_iter:
-            space.append(Integer(1,1000, name = 'n_iter')) 
+        if self.scales != "gpboost":
+            if self.try_num_leaves:
+                space.remove(Integer(1, 10, name='max_depth'))
+                space.append(Integer(2, 1024, name='num_leaves'))
+            if self.joint_tuning_depth_leaves:
+                space.remove(Integer(1, 10, name='max_depth'))
+                space.append(Categorical(categories=[-1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], name='max_depth'))
+                space.append(Integer(2, 1024, name='num_leaves'))
+            if self.try_num_iter:
+                space.append(Integer(1,1000, name = 'n_iter'))
 
 
         # Split the full training set into training and validation sets
@@ -735,9 +770,11 @@ class ParameterOptimization:
         def objective_gp_bo(**params):
             """Objective function for the GP-BO optimization."""
 
+            if fixed:   # gpboost-Skalen: feste Werte (lambda_l1 = 0 bei --l1 off) dazu
+                params = {**params, **fixed}
             runtime_start = time.perf_counter()
             score, best_iter = self._train_model_for_validation(
-                X_train, y_train, X_val, y_val, 
+                X_train, y_train, X_val, y_val,
                 params
             )
             runtime_end = time.perf_counter()
@@ -782,7 +819,15 @@ class ParameterOptimization:
         # else:
         #     score = root_mean_squared_error(self.y_test, y_pred)
 
-        df_trials = self._convert_array_to_df(result.x_iters, result.func_vals, runtimes=self._gp_runtimes) #x_iters are the parameter values where the objective function was evaluated
+        if self.scales == "gpboost":
+            df_trials = pd.DataFrame(result.x_iters, columns=[d.name for d in space])
+            for name, value in fixed.items():
+                df_trials[name] = value
+            df_trials = self._modify_df_for_hyperband(df_trials)     # feste Spalten max_depth = -1 bzw. num_leaves
+            df_trials['val_score'] = result.func_vals
+            df_trials.insert(df_trials.columns.get_loc('val_score') + 1, 'runtime', self._gp_runtimes)
+        else:
+            df_trials = self._convert_array_to_df(result.x_iters, result.func_vals, runtimes=self._gp_runtimes) #x_iters are the parameter values where the objective function was evaluated
 
         # Compute the test scores
         df_trials = self._compute_test_scores(
@@ -813,7 +858,10 @@ class ParameterOptimization:
         s_max = int(np.floor(np.log(R) / np.log(factor))) 
         B = (s_max + 1)*R
         s_values = np.arange(s_max, -1, -1)
-        
+        if self.scales == "gpboost":
+            space, fixed = self._extra_space(self.lambda_l1)
+            space = [p for p in space if p['name'] != 'n_iter']     # wie bisher: Hyperband tuned n_iter nicht
+
         def objective_opt(trial):
             bracket_runtime = 0.0
             n = int(np.ceil(B/R*factor**(s_values[trial.number])/(s_values[trial.number]+1)))
@@ -823,6 +871,9 @@ class ParameterOptimization:
             param_config = {}
             for i in range(n):
                 #Note different names are such that optuna samples n different parameters and not just one parameter config n-times!!!
+                if self.scales == "gpboost":
+                    param_config[i] = self._suggest_optuna(trial, space, fixed, suffix=f'_{trial.number}_{i}')
+                    continue
                 param_grid = {
                         'learning_rate': trial.suggest_float(f'learning_rate_{trial.number}_{i}', 0.001, 1),
                         'min_data_in_leaf': trial.suggest_int(f'min_data_in_leaf_{trial.number}_{i}', 1, 1000),
@@ -922,13 +973,13 @@ class ParameterOptimization:
     # Bracket (11 je Fold), dieselbe Laufzeit-Verteilung und derselbe best_iter fuer die Test-Refits (der beste
     # Ueberlebende des letzten Brackets). Nur die Wahl der Konfigurationen unterscheidet sich (Hyperband: zufaellig).
 
-    def run_bohb(self, lambda_l1=True):
+    def run_bohb(self, lambda_l1=None):
         return self._run_folds("bohb", lambda **data: self.bohb_method(**data, lambda_l1=lambda_l1))
 
-    def run_dehb(self, lambda_l1=True):
+    def run_dehb(self, lambda_l1=None):
         return self._run_folds("dehb", lambda **data: self.dehb_method(**data, lambda_l1=lambda_l1))
 
-    def run_hebo(self, n_trials=270, lambda_l1=True):
+    def run_hebo(self, n_trials=270, lambda_l1=None):
         return self._run_folds("hebo", lambda **data: self.hebo_method(**data, n_trials=n_trials,
                                                                          lambda_l1=lambda_l1))
 
@@ -944,13 +995,26 @@ class ParameterOptimization:
         final_results.rename(columns={"index": "iter"}, inplace=True)
         return final_results
 
-    def _extra_space(self, lambda_l1=True):
-        """(Suchraum, feste Werte) wie tpe_method/run_smac: Liste von dict(name, kind = float/int/cat, low, high,
-        choices, log). Alle Bereiche linear wie bei TPE, SMAC und GP-BO (log immer False); max_depth ist
-        kategorisch wie bei TPE und SMAC. lambda_l1=False: lambda_l1 = 0 fest (Suchraum des Papers). Ein
-        Ganzzahlbereich mit nur einem Wert (max_bin bei hoechstens 255 Zeilen) wird zum festen Wert."""
+    def _extra_space(self, lambda_l1=None):
+        """(Suchraum, feste Werte): Liste von dict(name, kind = float/int/cat, low, high, choices, log).
+        Bereiche wie tpe_method/run_smac. Skala nach self.scales:
+          paper    alle Bereiche linear wie bei TPE, SMAC und GP-BO (log immer False); max_depth kategorisch wie
+                   bei TPE und SMAC (so laufen BOHB, DEHB, HEBO im Lauf "extra").
+          gpboost  log fuer GPBOOST_LOG_PARAMS (untere Grenze 0 -> 1e-8 bzw. 1), sonst linear; max_depth bei
+                   try_max_depth ganzzahlig linear (1, 10) wie in GPBoost; bei joint_tuning_depth_leaves bleibt
+                   max_depth kategorisch (-1 = ohne Grenze liegt auf keiner Skala). Quelle fuer TPE, GP-BO, SMAC,
+                   Hyperband, BOHB, DEHB und HEBO.
+        lambda_l1=False: lambda_l1 = 0 fest (Suchraum des Papers). Ein Ganzzahlbereich mit nur einem Wert (max_bin
+        bei hoechstens 255 Zeilen) wird zum festen Wert."""
+        gpboost = self.scales == "gpboost"
+        if lambda_l1 is None:
+            lambda_l1 = self.lambda_l1
+
         def num(name, kind, low, high):
-            return dict(name=name, kind=kind, low=low, high=high, choices=None, log=False)
+            log = gpboost and name in GPBOOST_LOG_PARAMS
+            if log and low <= 0:
+                low = GPBOOST_LOG_ZERO_FLOAT if kind == 'float' else GPBOOST_LOG_ZERO_INT
+            return dict(name=name, kind=kind, low=low, high=high, choices=None, log=log)
 
         space = [num('learning_rate', 'float', 0.001, 1.0), num('min_data_in_leaf', 'int', 1, 1000),
                  num('lambda_l2', 'float', 0.0, 100.0)]
@@ -967,8 +1031,11 @@ class ParameterOptimization:
             space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=[-1, *range(1, 11)],
                               log=False))
         if self.try_max_depth:
-            space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=list(range(1, 11)),
-                              log=False))
+            if gpboost:
+                space.append(num('max_depth', 'int', 1, 10))
+            else:
+                space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=list(range(1, 11)),
+                                  log=False))
         if self.try_num_iter:
             space.append(num('n_iter', 'int', 1, 1000))
         for p in list(space):
@@ -976,6 +1043,45 @@ class ParameterOptimization:
                 space.remove(p)
                 fixed[p['name']] = int(p['low']) if p['kind'] == 'int' else float(p['low'])
         return space, fixed
+
+    @staticmethod
+    def _suggest_optuna(trial, space, fixed, suffix=''):
+        """Eine Konfiguration aus space mit optuna (TPE, Hyperband) auf der Skala von p['log']; Name des optuna-
+        Parameters = name + suffix (Hyperband: _<bracket>_<i>), feste Werte dazu."""
+        params = {}
+        for p in space:
+            name = p['name'] + suffix
+            if p['kind'] == 'float':
+                params[p['name']] = trial.suggest_float(name, p['low'], p['high'], log=p['log'])
+            elif p['kind'] == 'int':
+                params[p['name']] = trial.suggest_int(name, int(p['low']), int(p['high']), log=p['log'])
+            else:
+                params[p['name']] = trial.suggest_categorical(name, p['choices'])
+        params.update(fixed)
+        return params
+
+    @staticmethod
+    def _skopt_dimension(p):
+        """skopt-Dimension fuer GP-BO: log-uniform bei p['log'] (Real und Integer), sonst uniform."""
+        prior = 'log-uniform' if p['log'] else 'uniform'
+        if p['kind'] == 'float':
+            return Real(p['low'], p['high'], prior=prior, name=p['name'])
+        if p['kind'] == 'int':
+            return Integer(int(p['low']), int(p['high']), prior=prior, name=p['name'])
+        return Categorical(categories=p['choices'], name=p['name'])
+
+    def _optuna_df_by_name(self, df, fixed):
+        """trials_dataframe von optuna -> Ergebniszeilen wie _modify_df_for_tpe, aber ueber die Namen der Spalten
+        (params_<name>) statt ueber ihre Position; feste Werte und feste Spalten (max_depth = -1 bzw.
+        num_leaves = 1024) dazu."""
+        df = df.drop(columns=['number', 'datetime_start', 'datetime_complete', 'state'], errors='ignore')
+        df = df[[c for c in df.columns if not c.startswith('system_attrs_')]].copy()
+        df['duration'] = df['duration'].dt.total_seconds()
+        df = df.rename(columns={'value': 'val_score', 'duration': 'runtime'})
+        df = df.rename(columns=lambda c: c[len('params_'):] if c.startswith('params_') else c)
+        for name, value in fixed.items():
+            df[name] = value
+        return self._modify_df_for_hyperband(df)
 
     @staticmethod
     def _extra_params(space, fixed, values):
@@ -1036,7 +1142,7 @@ class ParameterOptimization:
                        (time.perf_counter() - last_end) / len(df_temp))
         return df_temp
 
-    def bohb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=True):
+    def bohb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=None):
         """BOHB (Falkner et al. 2018): KDE-Modell von hpbandster (Standardwerte: top_n_percent 15, num_samples 64,
         random_fraction 1/3, bandwidth_factor 3, min_bandwidth 1e-3, min_points_in_model = Parameter + 1), im
         Rahmen von hyperband_method (Schleife unten = Schleife dort). Wie hpbandster mit einem Worker: die
@@ -1052,7 +1158,7 @@ class ParameterOptimization:
         X_train, X_val, y_train, y_val = train_test_split(
             X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
         )
-        space, fixed = self._extra_space(lambda_l1)
+        space, fixed = self._extra_space(self.lambda_l1 if lambda_l1 is None else lambda_l1)
         np.random.seed(self.seed)
         generator = BOHBGenerator(configspace=self._extra_configspace(space, self.seed))
         self.model_based_picks = [0, 0]
@@ -1091,7 +1197,7 @@ class ParameterOptimization:
             last_end = time.perf_counter()
         return self._finish_hb_trials(frames, X_train_full, y_train_full, X_test, y_test)
 
-    def dehb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=True):
+    def dehb_method(self, X_train_full, y_train_full, X_test, y_test, R=2150, factor=2.8, lambda_l1=None):
         """DEHB (Awad et al. 2021) mit der Bibliothek dehb (Standardwerte: mutation_factor 0.5, crossover_prob 0.5,
         rand1_bin, boundary_fix_type random), sequentiell ueber ask/tell (n_workers = 1, kein Dask-Client).
         Brackets, Konfigurationen je Rung und Budgets (Boosting-Runden) aus hyperband_schedule(R, factor) statt
@@ -1106,7 +1212,7 @@ class ParameterOptimization:
         X_train, X_val, y_train, y_val = train_test_split(
             X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
         )
-        space, fixed = self._extra_space(lambda_l1)
+        space, fixed = self._extra_space(self.lambda_l1 if lambda_l1 is None else lambda_l1)
         schedule = hyperband_schedule(R, factor)
         tmp = job_io.temp_dir("dehb_")
         try:
@@ -1149,7 +1255,7 @@ class ParameterOptimization:
             shutil.rmtree(tmp, ignore_errors=True)
         return self._finish_hb_trials(frames, X_train_full, y_train_full, X_test, y_test)
 
-    def hebo_method(self, X_train_full, y_train_full, X_test, y_test, n_trials=270, lambda_l1=True):
+    def hebo_method(self, X_train_full, y_train_full, X_test, y_test, n_trials=270, lambda_l1=None):
         """HEBO (Cowen-Rivers et al. 2022) mit der Bibliothek HEBO, Standardwerte (Modell 'gp', MACE, NSGA-II,
         Sobol-Startdesign mit Parameterzahl + 1 Punkten), eine Konfiguration je Schritt, n_trials volle
         Auswertungen (single-fidelity, 1000 Runden mit early stopping wie TPE/SMAC/GP-BO). 1 Thread (torch).
@@ -1172,7 +1278,7 @@ class ParameterOptimization:
         X_train, X_val, y_train, y_val = train_test_split(
             X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
         )
-        space, fixed = self._extra_space(lambda_l1)
+        space, fixed = self._extra_space(self.lambda_l1 if lambda_l1 is None else lambda_l1)
         hebo_types = {('float', False): 'num', ('float', True): 'pow', ('int', False): 'int', ('int', True): 'pow_int'}
         design = DesignSpace().parse([
             dict(name=p['name'], type='cat', categories=p['choices']) if p['kind'] == 'cat' else

@@ -32,9 +32,16 @@ mit jobs_paper/run_extra_job.sbatch (.venv_extra) und dem Namen hpo-extra ab; Sc
 Wiederholungen, Speicher- und Zeitregeln wie oben (eine gemeinsame Schlange fuer alle Laeufe). In einer Welle kommt
 extra nach paper und l1_270.
 
+Lauf gpb (korrekte Skalen ohne lambda_l1: TPE, GP-BO, SMAC, Hyperband; make_paper_jobs.py --run gpb): nur mit
+--run gpb oder in einer Liste mit Komma (z. B. --run extra,gpb); "beide" und "alle" bleiben wie bisher, damit ein
+laufender Daemon nach git pull nichts von gpb abschickt. gpb-Jobs gehen mit jobs_paper/run_paper_job.sbatch (.venv)
+und dem Namen hpo-gpb ab; --l1 off und --scales gpboost stehen in jobs_paper/gpb/jobs.tsv (Spalte flags).
+
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
     python refill.py --run extra                 # nur den Lauf extra
+    python refill.py --run gpb                   # nur den Lauf gpb
+    python refill.py --run alle,gpb --daemon     # Daemon fuer paper, l1_270, extra und gpb
     python refill.py --run alle --daemon         # Daemon fuer alle drei Laeufe (vorher: python refill.py --stop)
     DRY=1 python refill.py --run beide           # nur anzeigen (auch: --dry)
     python refill.py --run paper --limit 600     # nur paper, kleinere Schlange
@@ -69,6 +76,8 @@ import watch_paper as wp
 
 RUNS = ("paper", "l1_270")                 # --run beide
 ALL_RUNS = RUNS + ("extra",)               # --run alle
+KNOWN_RUNS = ALL_RUNS + ("gpb",)           # alle Laeufe mit jobs_paper/<lauf>/submitted.tsv (gpb nur ausdruecklich)
+RUN_GROUPS = {"beide": RUNS, "alle": ALL_RUNS}
 SBATCH_SCRIPTS = {"extra": "jobs_paper/run_extra_job.sbatch"}      # sonst jobs_paper/run_paper_job.sbatch
 MAX_ARRAY = 1000
 HOURS = dict(wp.PARTITIONS)
@@ -133,7 +142,7 @@ def sbatch_command(run, part, hours, mem, idx, n, account=wp.ACCOUNT):
     return ["sbatch", "--parsable", f"--account={account}", f"--array=0-{n - 1}", f"--partition={part}",
             f"--time={int(hours)}:00:00",
             f"--mem-per-cpu={speicher.sbatch_mem(mem)}", f"--job-name=hpo-{run}",
-            SBATCH_SCRIPTS.get(run, "jobs_paper/run_paper_job.sbatch"), run, str(idx)]
+            SBATCH_SCRIPTS.get(run, "jobs_paper/run_paper_job.sbatch"), run, str(idx)]      # gpb: run_paper_job
 
 
 def submit(portion, stamp, k, dry, account=wp.ACCOUNT):
@@ -166,7 +175,7 @@ def submit(portion, stamp, k, dry, account=wp.ACCOUNT):
 def unknown_jobs(q, runs):
     """hpo-Jobs in der Schlange, die in keiner submitted.tsv stehen (z. B. von Hand abgeschickt). Geprueft werden
     die Namen von paper und l1_270 und der verlangten Laeufe (mit --run beide also wie bisher nur diese zwei)."""
-    known = {s["id"] for run in ALL_RUNS for s in wp.submissions(run)}
+    known = {s["id"] for run in KNOWN_RUNS for s in wp.submissions(run)}
     names = {f"hpo-{run}" for run in (*RUNS, *runs)}
     mine = q[q["name"].isin(names)]
     return sorted({i.split("_")[0] for i in mine["id"]} - known)
@@ -323,10 +332,23 @@ def queue_limit(text):
     return value
 
 
+def parse_runs(text):
+    """--run: ein Lauf, 'beide', 'alle' oder eine Liste mit Komma (z. B. 'alle,gpb') -> Laeufe ohne Doppelte."""
+    runs = []
+    for part in text.split(","):
+        part = part.strip()
+        if part not in (*KNOWN_RUNS, *RUN_GROUPS):
+            raise argparse.ArgumentTypeError(
+                f"{part!r}: erlaubt {', '.join((*KNOWN_RUNS, *RUN_GROUPS))} oder eine Liste mit Komma")
+        runs += [r for r in RUN_GROUPS.get(part, (part,)) if r not in runs]
+    return runs
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", choices=("paper", "l1_270", "extra", "beide", "alle"), default="beide",
-                        help="beide = paper + l1_270 (Standard), alle = paper + l1_270 + extra")
+    parser.add_argument("--run", default="beide",
+                        help="paper, l1_270, extra, gpb, beide = paper + l1_270 (Standard), alle = paper + l1_270 + "
+                             "extra (ohne gpb); mehrere mit Komma, z. B. alle,gpb")
     parser.add_argument("--limit", type=queue_limit, default=wp.QUEUE_LIMIT,
                         help=f"hoechstens so viele eigene Jobs in der Schlange (Standard {wp.QUEUE_LIMIT}, "
                              f"1 bis {wp.QUEUE_MAX}; QOS MaxSubmit {wp.MAX_SUBMIT})")
@@ -343,11 +365,14 @@ def main(argv=None):
                              "der Nachfolger uebernimmt")
     parser.add_argument("--stop", action="store_true", help="Daemon beenden (laufend und wartend)")
     args = parser.parse_args(argv)
+    try:
+        runs = parse_runs(args.run)
+    except argparse.ArgumentTypeError as error:
+        parser.error(f"--run {error}")
     if args.stop:
         return stop_daemon()
     if args.daemon:
         return start_daemon(args)
-    runs = list(RUNS) if args.run == "beide" else list(ALL_RUNS) if args.run == "alle" else [args.run]
     if args.dry:
         return refill(runs, args.limit, args.reserve, args.max_versuche, dry=True, account=args.account)
     wp.JOBS.mkdir(exist_ok=True)

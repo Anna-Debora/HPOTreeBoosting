@@ -10,7 +10,7 @@ import os
 import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from ConfigSpace import ConfigurationSpace, Integer, Categorical
+from ConfigSpace import ConfigurationSpace, Integer, Categorical, Float, Constant
 from smac.facade.hyperparameter_optimization_facade import HyperparameterOptimizationFacade as HPOFacade
 from smac import Scenario
 
@@ -32,6 +32,27 @@ def _align_config_runtimes(configurations, runtime_by_configuration):
         aligned_runtimes.append(sum(durations))
     return aligned_runtimes
 
+
+
+def smac_configspace(space, fixed):
+    """ConfigSpace fuer SMAC mit --scales gpboost aus ParameterOptimization._extra_space: Float/Integer mit
+    log=True fuer die Log-Parameter, sonst linear, max_depth kategorisch bzw. ganzzahlig. Default jedes Parameters
+    = Default von ConfigSpace: Mitte des Bereichs, bei log=True das geometrische Mittel der Grenzen (immer positiv,
+    z. B. learning_rate 0.0316, lambda_l1/lambda_l2 1e-3, min_data_in_leaf 32, num_leaves 45). SMAC wertet den
+    Default nicht aus (Scenario.use_default_config = False), er muss nur im Bereich liegen. Feste Werte (lambda_l1 = 0
+    bei --l1 off) als Constant wie im Paper-Lauf (run_ablation.apply_settings): gleiche Parameterzahl, also gleiche
+    Groesse des Sobol-Startdesigns min(10 x Parameter, 0.25 x n_trials); Konstanten zieht Sobol nicht."""
+    cs = ConfigurationSpace()
+    for p in space:
+        if p['kind'] == 'float':
+            cs.add(Float(p['name'], (p['low'], p['high']), log=p['log']))
+        elif p['kind'] == 'int':
+            cs.add(Integer(p['name'], (int(p['low']), int(p['high'])), log=p['log']))
+        else:
+            cs.add(Categorical(p['name'], p['choices']))
+    for name, value in fixed.items():
+        cs.add(Constant(name, value))
+    return cs
 
 
 class ParameterOptimizationSMAC(ParameterOptimization):
@@ -67,29 +88,33 @@ class ParameterOptimizationSMAC(ParameterOptimization):
         X_train, X_val, y_train, y_val = train_test_split(
             X_train_full, y_train_full, test_size=self.val_size, random_state=self.fixed_seeds[2]
         )
-        param = ConfigurationSpace(
-            space = {
-            'learning_rate': (0.001, 1.0),
-            'min_data_in_leaf': (1, 1000),
-            'lambda_l1':  (0.0, 100.0),
-            'lambda_l2':  (0.0, 100.0),
-            'max_bin': (255, int(self.max_bin_val)),
-            'bagging_fraction': (0.5, 1.0),
-            'feature_fraction': (0.5, 1.0)
-        })
-        if self.try_num_leaves:
-            num_leaves = Integer(name='num_leaves',bounds = (2,1024))
-            param.add([num_leaves])
-        if self.joint_tuning_depth_leaves:
+        if self.scales == "gpboost":
+            space, fixed = self._extra_space(self.lambda_l1)
+            param = smac_configspace(space, fixed)
+        else:
+            param = ConfigurationSpace(
+                space = {
+                'learning_rate': (0.001, 1.0),
+                'min_data_in_leaf': (1, 1000),
+                'lambda_l1':  (0.0, 100.0),
+                'lambda_l2':  (0.0, 100.0),
+                'max_bin': (255, int(self.max_bin_val)),
+                'bagging_fraction': (0.5, 1.0),
+                'feature_fraction': (0.5, 1.0)
+            })
+            if self.try_num_leaves:
                 num_leaves = Integer(name='num_leaves',bounds = (2,1024))
-                max_depth = Categorical(name='max_depth',items=[-1,1,2,3,4,5,6,7,8,9,10])
-                param.add([num_leaves,max_depth])
-        if self.try_max_depth:
-                max_depth = Categorical(name='max_depth',items=[1,2,3,4,5,6,7,8,9,10])
-                param.add([max_depth])
-        if self.try_num_iter:
-                n_iter = Integer(name='n_iter', bounds = (1,1000))
-                param.add([n_iter])
+                param.add([num_leaves])
+            if self.joint_tuning_depth_leaves:
+                    num_leaves = Integer(name='num_leaves',bounds = (2,1024))
+                    max_depth = Categorical(name='max_depth',items=[-1,1,2,3,4,5,6,7,8,9,10])
+                    param.add([num_leaves,max_depth])
+            if self.try_max_depth:
+                    max_depth = Categorical(name='max_depth',items=[1,2,3,4,5,6,7,8,9,10])
+                    param.add([max_depth])
+            if self.try_num_iter:
+                    n_iter = Integer(name='n_iter', bounds = (1,1000))
+                    param.add([n_iter])
         runtime_by_configuration = {}
         last_end = [time.perf_counter()]  # Wall-Clock-Referenz: Ende des vorigen Aufrufs (bzw. Start von SMAC)
 

@@ -7,6 +7,8 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
     python watch_paper.py                 # paper und l1_270, dazu extra (BOHB, DEHB, HEBO), sobald
                                           # jobs_paper/extra/jobs.tsv existiert (make_paper_jobs.py --run extra)
     python watch_paper.py --run extra     # nur extra
+    python watch_paper.py --run gpb       # nur gpb (korrekte Skalen ohne lambda_l1); ohne --run ist gpb dabei,
+                                          # sobald jobs_paper/gpb/jobs.tsv existiert (make_paper_jobs.py --run gpb)
     python watch_paper.py --run paper     # nur einer
     python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
     python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
@@ -43,7 +45,7 @@ import speicher
 from run_ablation import expected_rows
 
 JOBS = Path("jobs_paper")
-RUN_ORDER = ["paper", "l1_270", "extra"]      # Reihenfolge wie refill.py
+RUN_ORDER = ["paper", "l1_270", "extra", "gpb"]      # Reihenfolge wie refill.py
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
@@ -525,7 +527,7 @@ def pending_mismatch(run, jobs, tries):
 
 
 # ---------------------------------------------------------------- Prognose
-JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra")
+JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra", "hpo-gpb")
 MIN_CALIBRATION_JOBS = 20     # so viele fertige Jobs braucht der Faktor tatsaechlich / Schaetzung
 
 
@@ -694,12 +696,12 @@ if __name__ == "__main__":
     parser.add_argument("--speicher", action="store_true", help="MaxRSS je Aufgabe, schreibt speicher_euler.tsv")
     parser.add_argument("--max_versuche", type=int, default=3)
     args = parser.parse_args()
-    runs = args.run or ["paper", "l1_270", *(["extra"] if (JOBS / "extra" / "jobs.tsv").exists() else [])]
+    runs = args.run or ["paper", "l1_270", *[r for r in ("extra", "gpb") if (JOBS / r / "jobs.tsv").exists()]]
     if args.speicher:
         memory_report(runs)
     else:
         print(disk_text())
         print(queue_text())
-        runs = sorted(runs, key=RUN_ORDER.index)     # Reihenfolge wie refill.py (paper vor l1_270 vor extra)
+        runs = sorted(runs, key=RUN_ORDER.index)     # Reihenfolge wie refill.py (paper, l1_270, extra, gpb)
         frames = [(run, watch(run, args.aufgaben, args.max_versuche)) for run in runs]   # je Lauf squeue vor sacct
         print_forecast(frames, concurrent_cores())
