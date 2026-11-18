@@ -37,10 +37,17 @@ Lauf gpb (korrekte Skalen ohne lambda_l1: TPE, GP-BO, SMAC, Hyperband; make_pape
 laufender Daemon nach git pull nichts von gpb abschickt. gpb-Jobs gehen mit jobs_paper/run_paper_job.sbatch (.venv)
 und dem Namen hpo-gpb ab; --l1 off und --scales gpboost stehen in jobs_paper/gpb/jobs.tsv (Spalte flags).
 
+Lauf gpb_l1 (wie gpb mit lambda_l1 auf der Log-Skala und 270 Versuchen: Zufallsgitter, TPE, GP-BO, SMAC;
+make_paper_jobs.py --run gpb_l1): nur mit --run gpb_l1 (oder in einer Liste mit Komma), Job-Name hpo-gpb_l1,
+run_paper_job.sbatch. Reihenfolge: laengste Jobs zuerst (LONGEST_FIRST): fuer diesen Lauf zaehlt nur die Spalte
+reihenfolge (geschaetzte Kernstunden absteigend, ueber alle Wellen), nicht Welle und Partition; Wiederholungen
+weiter zuerst. In einer Liste mit anderen Laeufen kommen seine Jobs vor deren Wellen.
+
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
     python refill.py --run extra                 # nur den Lauf extra
     python refill.py --run gpb                   # nur den Lauf gpb
+    python refill.py --run gpb_l1                # nur den Lauf gpb_l1 (laengste Jobs zuerst)
     python refill.py --run alle,gpb --daemon     # Daemon fuer paper, l1_270, extra und gpb
     python refill.py --run alle --daemon         # Daemon fuer alle drei Laeufe (vorher: python refill.py --stop)
     DRY=1 python refill.py --run beide           # nur anzeigen (auch: --dry)
@@ -76,7 +83,8 @@ import watch_paper as wp
 
 RUNS = ("paper", "l1_270")                 # --run beide
 ALL_RUNS = RUNS + ("extra",)               # --run alle
-KNOWN_RUNS = ALL_RUNS + ("gpb",)           # alle Laeufe mit jobs_paper/<lauf>/submitted.tsv (gpb nur ausdruecklich)
+KNOWN_RUNS = ALL_RUNS + ("gpb", "gpb_l1")  # alle Laeufe mit jobs_paper/<lauf>/submitted.tsv (gpb, gpb_l1 nur ausdruecklich)
+LONGEST_FIRST = ("gpb_l1",)                # Abgabe nur nach Spalte reihenfolge (laengste zuerst), nicht nach Welle
 RUN_GROUPS = {"beide": RUNS, "alle": ALL_RUNS}
 SBATCH_SCRIPTS = {"extra": "jobs_paper/run_extra_job.sbatch"}      # sonst jobs_paper/run_paper_job.sbatch
 MAX_ARRAY = 1000
@@ -104,9 +112,12 @@ def candidates(runs, max_tries, queued=None):
 
 
 def order(todo):
-    """Abgabe-Reihenfolge (siehe Kopf)."""
-    return todo.assign(_retry=todo["aktion"] != "wiederholen", _part=todo["partition_neu"].map(HOURS)) \
-        .sort_values(["welle", "_retry", "_part", "lauf_nr", "reihenfolge"], kind="stable")
+    """Abgabe-Reihenfolge (siehe Kopf). Laeufe in LONGEST_FIRST: Welle und Partition zaehlen nicht (0), nur
+    Wiederholungen zuerst und dann die Spalte reihenfolge (laengste Jobs zuerst)."""
+    lpt = todo["lauf"].isin(LONGEST_FIRST) if "lauf" in todo else pd.Series(False, index=todo.index)
+    return todo.assign(_welle=todo["welle"].where(~lpt, 0), _retry=todo["aktion"] != "wiederholen",
+                       _part=todo["partition_neu"].map(HOURS).where(~lpt, 0)) \
+        .sort_values(["_welle", "_retry", "_part", "lauf_nr", "reihenfolge"], kind="stable")
 
 
 def select(jobs, free, queued_per_partition=None, reserve=100):
@@ -347,7 +358,7 @@ def parse_runs(text):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", default="beide",
-                        help="paper, l1_270, extra, gpb, beide = paper + l1_270 (Standard), alle = paper + l1_270 + "
+                        help="paper, l1_270, extra, gpb, gpb_l1, beide = paper + l1_270 (Standard), alle = paper + l1_270 + "
                              "extra (ohne gpb); mehrere mit Komma, z. B. alle,gpb")
     parser.add_argument("--limit", type=queue_limit, default=wp.QUEUE_LIMIT,
                         help=f"hoechstens so viele eigene Jobs in der Schlange (Standard {wp.QUEUE_LIMIT}, "

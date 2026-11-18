@@ -118,4 +118,5 @@ jobs_paper/*/scancel_zu_*_speicher.sh
 .venv_extra/
 Results_extra/
 Results_gpb/
+Results_gpb_l1/
 /data

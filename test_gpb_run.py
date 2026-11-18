@@ -89,8 +89,9 @@ class RefillTests(unittest.TestCase):
         self.assertEqual(refill.parse_runs("gpb"), ["gpb"])
         self.assertEqual(refill.parse_runs("alle,gpb"), ["paper", "l1_270", "extra", "gpb"])
         self.assertEqual(refill.parse_runs("paper,beide"), ["paper", "l1_270"])
+        self.assertEqual(refill.parse_runs("gpb_l1"), ["gpb_l1"])                    # seit Lauf gpb_l1
         with self.assertRaises(argparse.ArgumentTypeError):
-            refill.parse_runs("gpb_l1")
+            refill.parse_runs("gpb_l2")
 
     def test_sbatch_command(self):
         cmd = refill.sbatch_command("gpb", "normal.24h", 12, 2, "x.idx", 5)
@@ -110,7 +111,7 @@ class RefillTests(unittest.TestCase):
 
 class WatchCheckTests(unittest.TestCase):
     def test_watch_paper(self):
-        self.assertEqual(wp.RUN_ORDER, ["paper", "l1_270", "extra", "gpb"])
+        self.assertEqual(wp.RUN_ORDER[:4], ["paper", "l1_270", "extra", "gpb"])
         self.assertIn("hpo-gpb", wp.JOB_NAMES)
         jobs = wp.load_jobs("gpb", with_files=False)
         self.assertEqual(len(jobs), 4720)

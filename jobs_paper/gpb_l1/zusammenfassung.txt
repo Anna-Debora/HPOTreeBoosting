@@ -1,0 +1,12 @@
+Lauf gpb_l1 -> Results_gpb_l1/: 4720 Jobs (random_search, tpe, gp_bo, SMAC x 59 Aufgaben x 20 Seeds), Flags '--l1 on --scales gpboost', 270 Versuche, geschaetzt 114,666 Kernstunden (Zeitlimits zusammen 185,100 h; Faktoren gegenueber paper {'tpe': 7.5, 'gp_bo': 3.0, 'SMAC': 3.5, 'hyperband': 2.0, 'random_search': 1.0})
+  je Methode: {'SMAC': 27303, 'gp_bo': 26323, 'random_search': 7181, 'tpe': 53859}
+  teuerste Jobs: superconduct tpe 213.0 h, Allstate_Claims_Severity tpe 201.6 h, MiniBooNE tpe 191.0 h, Airlines_DepDelay_1M tpe 147.2 h, Higgs tpe 129.1 h
+  Partitionen: normal.120h 2180, normal.24h 2020, normal.4h 520
+  Speicher je Job: 1 GB 1920, 1.5 GB 1600, 2 GB 320, 3 GB 320, 4 GB 160, 6 GB 80, 8 GB 160, 12 GB 160
+  Probe: 8 Jobs (Zeilen 561, 581, 601, 621, 4641, 4661, 4681, 4701): analcatdata_supreme random_search 0.23 h, analcatdata_supreme tpe 1.69 h, analcatdata_supreme gp_bo 4.72 h, analcatdata_supreme SMAC 2.62 h, heloc random_search 0.21 h, heloc tpe 1.60 h, heloc gp_bo 4.69 h, heloc SMAC 2.59 h
+  Reihenfolge: laengste Jobs zuerst (geschaetzte Kernstunden absteigend, ueber alle Wellen)
+  Welle 1 (Seeds 1-5): 1180 Jobs, 28,666 Kernstunden, bei 400 Kernen ~8.9 Tage, bei 8026 Kernen ~8.9 Tage (laengster Job 213.0 h)
+  Welle 2 (Seeds 6-10): 1180 Jobs, 28,666 Kernstunden, bei 400 Kernen ~8.9 Tage, bei 8026 Kernen ~8.9 Tage (laengster Job 213.0 h)
+  Welle 3 (Seeds 11-15): 1180 Jobs, 28,666 Kernstunden, bei 400 Kernen ~8.9 Tage, bei 8026 Kernen ~8.9 Tage (laengster Job 213.0 h)
+  Welle 4 (Seeds 16-20): 1180 Jobs, 28,666 Kernstunden, bei 400 Kernen ~8.9 Tage, bei 8026 Kernen ~8.9 Tage (laengster Job 213.0 h)
+Alle Wellen: 4,720 Jobs, 114,664 Kernstunden. Abschicken: python refill.py --run gpb_l1. Probe zuerst: bash jobs_paper/submit_gpb_l1.sh probe
