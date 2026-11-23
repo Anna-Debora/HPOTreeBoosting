@@ -40,6 +40,7 @@ MIN_JOBS_METHOD = 5
 MIN_JOBS_TASK = 3
 EULER = Path("jobs_paper/speicher_euler.tsv")
 MAC = Path("jobs_paper/speicher_mac.tsv")
+MAC_NEU = Path("jobs_paper/speicher_neu_mac.tsv")    # 286 neue Aufgaben (Lauf gpb_alle), andere Schluessel als MAC
 EULER_COLUMNS = ["suite", "task", "name", "method", "jobs", "maxrss_gb", "oom", "oom_bei"]
 EXTRA_METHODS = ("bohb", "dehb", "hebo")
 # Zusaetzliche Spitze gegenueber Hyperband derselben Aufgabe (GB), Mac-Messung 10.11.2026 (measure_extra.py, 4 Aufgaben,
@@ -78,11 +79,14 @@ def fmt(gb):
 
 
 def mac_peaks(path=MAC):
-    """{(suite, task): Spitze in GB}; leer, wenn die Datei fehlt."""
-    if not Path(path).exists():
-        return {}
-    frame = pd.read_csv(path, sep="\t").dropna(subset=["peak_gb"])
-    return {(int(r.suite), int(r.task)): float(r.peak_gb) for r in frame.itertuples()}
+    """{(suite, task): Spitze in GB}; leer, wenn die Datei fehlt. Mit dem Standardpfad kommen die neuen Aufgaben aus
+    MAC_NEU dazu (andere Aufgaben, aendert nichts an den 59 alten)."""
+    peaks = {}
+    for file in ([MAC_NEU, path] if Path(path) == MAC else [path]):
+        if Path(file).exists():
+            frame = pd.read_csv(file, sep="\t").dropna(subset=["peak_gb"])
+            peaks.update({(int(r.suite), int(r.task)): float(r.peak_gb) for r in frame.itertuples()})
+    return peaks
 
 
 def euler_measurements(path=EULER):

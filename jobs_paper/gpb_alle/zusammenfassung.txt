@@ -1,0 +1,29 @@
+Lauf gpb_alle -> Results_gpb_alle/: 55,306 Jobs, GPBoost, Skalen gpboost, ohne lambda_l1, T = 135, 20 Seeds, 5 Folds, num_leaves; geschaetzt 161,578 Kernstunden (Zeitlimits zusammen 349,226 h)
+  59 alte Aufgaben: 3,540 Jobs (bohb, dehb, hebo x 20 Seeds), 24,038 Kernstunden
+  286 neue Aufgaben: 51,766 Jobs (Default + 9 Methoden x 20 Seeds), 137,540 Kernstunden
+  Flags: Default keine; grid_search, random_search '--no_lambda_l1 --paper_grid'; tpe, gp_bo, hyperband, SMAC, bohb, dehb, hebo '--l1 off --scales gpboost'
+  Faktoren gegenueber paper: {'default': 1.0, 'grid_search': 1.0, 'random_search': 1.0, 'tpe': 7.5, 'gp_bo': 3.0, 'SMAC': 3.5, 'hyperband': 2.0, 'bohb': 2.0, 'dehb': 2.5, 'hebo': 1.3}
+  je Methode: {'SMAC': 21603, 'bohb': 25203, 'default': 29, 'dehb': 19989, 'gp_bo': 20770, 'grid_search': 3124, 'hebo': 20351, 'hyperband': 6249, 'random_search': 5207, 'tpe': 39053}
+  Kernstunden nach Quelle der Sekunden je Versuch: {'alt gemessen': 24038, 'hochgerechnet': 116707, 'neu gemessen': 20833} (hochgerechnet = mit Reserve)
+  teuerste Jobs: gas_turbine_CO_and_NOx_emission tpe 107.4 h, BNG(mv) tpe 85.6 h, BNG(stock) tpe 78.2 h, Large-scale_Wave_Energy_Farm_Sydney_49 tpe 76.4 h, NASA_PHM2008 tpe 75.3 h
+  Partitionen: normal.4h 40026, normal.24h 12260, normal.120h 3020
+  Speicher je Job: 1 GB 34576, 1.5 GB 8382, 2 GB 7248, 3 GB 3496, 4 GB 902, 6 GB 261, 8 GB 321, 12 GB 120
+  Probe: 23 Jobs (Zeilen 421, 441, 461, 16392, 16393, 16413, 16433, 16453, 16473, 16493, 16513, 16533, 16553, 38836, 38837, 38857, 38877, 38897, 38917, 38937, 38957, 38977, 38997): analcatdata_supreme bohb 0.63 h, analcatdata_supreme dehb 0.28 h, analcatdata_supreme hebo 1.44 h, housing_price_prediction default 0.10 h, housing_price_prediction grid_search 0.02 h, housing_price_prediction random_search 0.04 h, housing_price_prediction tpe 0.30 h, housing_price_prediction gp_bo 1.02 h, housing_price_prediction hyperband 0.05 h, housing_price_prediction SMAC 0.73 h, housing_price_prediction bohb 0.44 h, housing_price_prediction dehb 0.12 h, housing_price_prediction hebo 1.34 h, Customer_Personality_Analysis default 0.10 h, Customer_Personality_Analysis grid_search 0.02 h, Customer_Personality_Analysis random_search 0.04 h, Customer_Personality_Analysis tpe 0.27 h, Customer_Personality_Analysis gp_bo 1.01 h, Customer_Personality_Analysis hyperband 0.04 h, Customer_Personality_Analysis SMAC 0.72 h, Customer_Personality_Analysis bohb 0.43 h, Customer_Personality_Analysis dehb 0.11 h, Customer_Personality_Analysis hebo 1.34 h
+  Reihenfolge: laengste Jobs zuerst (geschaetzte Kernstunden absteigend, ueber alle Wellen)
+  Welle 1 (Seeds 1-5 + Default): 14,041 Jobs, 40,416 Kernstunden, bei 400 Kernen ~4.5 Tage, bei 8026 Kernen ~4.5 Tage (laengster Job 107.4 h)
+  Welle 2 (Seeds 6-10): 13,755 Jobs, 40,387 Kernstunden, bei 400 Kernen ~4.5 Tage, bei 8026 Kernen ~4.5 Tage (laengster Job 107.4 h)
+  Welle 3 (Seeds 11-15): 13,755 Jobs, 40,387 Kernstunden, bei 400 Kernen ~4.5 Tage, bei 8026 Kernen ~4.5 Tage (laengster Job 107.4 h)
+  Welle 4 (Seeds 16-20): 13,755 Jobs, 40,387 Kernstunden, bei 400 Kernen ~4.5 Tage, bei 8026 Kernen ~4.5 Tage (laengster Job 107.4 h)
+Alle Wellen: 55,306 Jobs, 161,577 Kernstunden. Abschicken: python refill.py --run gpb_alle. Probe zuerst: bash jobs_paper/submit_gpb_alle.sh probe
+Neu gegenueber gpb: 286 neue Datensaetze (alle Methoden inkl. Default und Gitter), BOHB/DEHB/HEBO mit Skalen gpboost (auch auf den 59 alten Aufgaben). Gleich: Skalen, ohne lambda_l1, T = 135, Seeds.
+Vor dem Start auf Euler: neue Daten (bash euler_setup.sh), .venv_extra (bash euler_install_extra.sh).
+
+Pruefung der wiederverwendeten Ergebnisse (59 alte Aufgaben):
+  tpe           aus Results_gpb: 1180 Jobs, Seeds gleich, T = [135], Flags '--l1 off --scales gpboost' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180, learning_rate < 0.01 in 36.0% der Startversuche (log ~33 %, linear ~1 %; Log-Skala) -> ok
+  gp_bo         aus Results_gpb: 1180 Jobs, Seeds gleich, T = [135], Flags '--l1 off --scales gpboost' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180, learning_rate < 0.01 in 37.0% der Startversuche (log ~33 %, linear ~1 %; Log-Skala) -> ok
+  SMAC          aus Results_gpb: 1180 Jobs, Seeds gleich, T = [135], Flags '--l1 off --scales gpboost' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180, learning_rate < 0.01 in 34.0% der Startversuche (log ~33 %, linear ~1 %; Log-Skala) -> ok
+  hyperband     aus Results_gpb: 1180 Jobs, Seeds gleich, T = [135], Flags '--l1 off --scales gpboost' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180, learning_rate < 0.01 in 6.8% der Zeilen (Results_paper, linear: 0.0%; Log-Skala) -> ok
+  default       aus Results_paper: 59 Jobs, Seeds gleich, T = [135], Flags '' (gleich), Aufgaben alle 59; Dateien 59/59 vollstaendig, lambda_l1 = 0 in 0/0 -> ok
+  grid_search   aus Results_paper: 1180 Jobs, Seeds gleich, T = [135], Flags '--no_lambda_l1 --paper_grid' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180 -> ok
+  random_search aus Results_paper: 1180 Jobs, Seeds gleich, T = [135], Flags '--no_lambda_l1 --paper_grid' (gleich), Aufgaben alle 59; Dateien 1180/1180 vollstaendig, lambda_l1 = 0 in 1180/1180 -> ok
+  Ergebnis: alle Einstellungen gleich, Wiederverwendung ok

@@ -20,6 +20,7 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python check_results.py --run extra        # Lauf extra (BOHB/DEHB: 11 Zeilen je Fold, HEBO: --trials)
     python check_results.py --run gpb          # Lauf gpb (korrekte Skalen ohne lambda_l1, Results_gpb)
     python check_results.py --run gpb_l1       # Lauf gpb_l1 (mit lambda_l1 log, 270 Versuche, Results_gpb_l1)
+    python check_results.py --run gpb_alle     # Lauf gpb_alle (alle Methoden und Datensaetze, Results_gpb_alle)
     python check_results.py --loeschen         # defekte Dateien und .tmp-Reste loeschen; refill.py rechnet sie neu
 Exit-Code 0: nichts defekt (oder alles geloescht); 1: defekte Dateien gefunden und nicht geloescht;
 2: --loeschen ohne squeue (Abbruch: laufende Jobs nicht erkennbar).
@@ -147,8 +148,8 @@ def scan(runs, queued):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", choices=(*RUNS, "extra", "gpb", "gpb_l1", "beide", "alle"), default="beide",
-                        help="beide = paper + l1_270 (Standard), alle = dazu extra (ohne gpb, gpb_l1)")
+    parser.add_argument("--run", choices=(*RUNS, "extra", "gpb", "gpb_l1", "gpb_alle", "beide", "alle"), default="beide",
+                        help="beide = paper + l1_270 (Standard), alle = dazu extra (ohne gpb, gpb_l1, gpb_alle)")
     parser.add_argument("--loeschen", action="store_true",
                         help="defekte Dateien und .tmp-Reste loeschen (smac3_output nie)")
     parser.add_argument("--alle", action="store_true", help="alle defekten Dateien auflisten (sonst die ersten 50)")

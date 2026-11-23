@@ -6,6 +6,8 @@ Die Messung ist eine Untergrenze fuer den echten Job (dort kommen Python-Objekte
 make_paper_jobs.memory_gb() schlaegt deshalb Reserve auf.
 
 Aufruf:  python measure_memory.py [--out jobs_paper/speicher_mac.tsv] [--only 337_361068 ...]
+         python measure_memory.py --tasks jobs_paper/aufgaben_neu.tsv --out jobs_paper/speicher_neu_mac.tsv
+         (--tasks: andere Aufgabenliste mit Spalten suite, task, name; Standard jobs_paper/aufgaben.tsv)
 Jede Aufgabe laeuft in einem eigenen Prozess (ru_maxrss gilt pro Prozess).
 """
 import argparse
@@ -38,8 +40,8 @@ def one(name):
     print(f"{resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale / 1e9:.3f}")
 
 
-def main(out, only):
-    tasks = pd.read_csv("jobs_paper/aufgaben.tsv", sep="\t")
+def main(out, only, task_file="jobs_paper/aufgaben.tsv"):
+    tasks = pd.read_csv(task_file, sep="\t")
     rows = []
     for t in tasks.itertuples():
         name = f"{t.suite}_{t.task}"
@@ -57,8 +59,9 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="jobs_paper/speicher_mac.tsv")
     parser.add_argument("--only", nargs="*")
     parser.add_argument("--one")
+    parser.add_argument("--tasks", default="jobs_paper/aufgaben.tsv", help="Aufgabenliste (suite, task, name)")
     args = parser.parse_args()
     if args.one:
         one(args.one)
     else:
-        main(args.out, args.only)
+        main(args.out, args.only, args.tasks)

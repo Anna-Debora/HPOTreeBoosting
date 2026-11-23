@@ -71,6 +71,27 @@ Lauf "gpb_l1" (eigener Aufruf, aendert nichts an den anderen Laeufen und an den 
   Ausgabe: jobs_paper/gpb_l1/{jobs.tsv, kosten.tsv, kosten_wellen.tsv, zusammenfassung.txt, arrays/probe.idx},
            jobs_paper/submit_gpb_l1.sh
 
+Lauf "gpb_alle" (eigener Aufruf, aendert nichts an den anderen Laeufen und an den gemeinsamen Dateien):
+  gpb_alle  GPBoost auf allen 345 Datensaetzen (59 alte Suiten 334-337 + 286 neue 1001/1002) mit allen Methoden
+          (Default, deterministisches Gitter, Zufallsgitter, TPE, GP-BO, SMAC, Hyperband, BOHB, DEHB, HEBO), Skalen
+          wie GPBoost (--scales gpboost), OHNE lambda_l1 (--l1 off), T = 135, 20 Seeds, 5 Folds, num_leaves,
+          Kategorien nativ                                                               -> Results_gpb_alle/
+          Gerechnet wird nur, was es noch nicht gibt (Wiederverwendung, pruefe_wiederverwendung()):
+            59 alte Aufgaben: nur BOHB, DEHB, HEBO (Skalen gpboost; der Lauf extra hatte Skalen paper).
+                TPE, GP-BO, SMAC, Hyperband kommen aus Results_gpb, Default und beide Gitter aus Results_paper
+                (gleiche Seeds, T = 135, ohne lambda_l1; Gitter haengen nicht von der Skala ab).
+            286 neue Aufgaben: alle 10 Methoden. Default, Gitter, Zufallsgitter mit den Flags von paper
+                ("--no_lambda_l1 --paper_grid": 135er Gitter wie Results_paper), die anderen "--l1 off --scales gpboost".
+  59 x 20 x 3 + 286 x (1 + 20 x 9) = 3540 + 51766 = 55306 Jobs. Sekunden je Versuch der neuen Aufgaben aus der
+  Stichprobe + Hochrechnung (measure_new_tasks.py), Speicher aus jobs_paper/speicher_neu_mac.tsv (measure_memory.py
+  --tasks jobs_paper/aufgaben_neu.tsv). Kosten mit GPB_ALLE_COST_FACTOR (gpb, BOHB/DEHB/HEBO gemessen, s. dort).
+  Reihenfolge laengste Jobs zuerst (wie gpb_l1). sbatch-Skript jobs_paper/run_gpb_alle_job.sbatch: .venv fuer die
+  sieben alten Methoden, .venv_extra fuer BOHB, DEHB, HEBO. Probe: GPB_ALLE_PROBE (Seed 27225), abschicken mit
+  bash jobs_paper/submit_gpb_alle.sh probe. Daten der neuen Aufgaben auf Euler: bash euler_setup.sh.
+  Aufruf: python make_paper_jobs.py --run gpb_alle
+  Ausgabe: jobs_paper/gpb_alle/{jobs.tsv, kosten.tsv, kosten_wellen.tsv, zusammenfassung.txt, arrays/probe.idx},
+           jobs_paper/aufgaben_alle.tsv, jobs_paper/run_gpb_alle_job.sbatch, jobs_paper/submit_gpb_alle.sh
+
 Aufruf:  python make_paper_jobs.py [--out jobs_paper]
 Ausgabe: <out>/<lauf>/jobs.tsv (eine Zeile je Job, ohne Kopfzeile, fuer das sbatch-Skript)
          <out>/<lauf>/kosten.tsv (mit Kopfzeile: Schaetzung, Partition, Zeitlimit, Speicher, Welle, Reihenfolge,
@@ -110,7 +131,25 @@ GPB_L1_METHODS = ("random_search", "tpe", "gp_bo", "SMAC")
 GPB_L1_COST_FACTOR = {**GPB_COST_FACTOR, "random_search": 1.0}
 GPB_L1_RUN = dict(folder="Results_gpb_l1", trials=270, flags="--l1 on --scales gpboost", methods=GPB_L1_METHODS,
                   cost_factor=GPB_L1_COST_FACTOR, longest_first=True)
-ALL_RUNS = {**RUNS, "extra": EXTRA_RUN, "gpb": GPB_RUN, "gpb_l1": GPB_L1_RUN}
+NEW_SUITES = (1001, 1002)
+GPB_ALLE_METHODS = METHODS + EXTRA_METHODS
+GPB_ALLE_OLD_METHODS = EXTRA_METHODS            # alte Aufgaben: der Rest kommt aus Results_gpb / Results_paper
+PAPER_FLAGS = RUNS["paper"]["flags"]            # Default (ohne Flags), Gitter und Zufallsgitter: wie Results_paper
+GPB_ALLE_FLAGS = {m: (PAPER_FLAGS if m in ("grid_search", "random_search") else GPB_RUN["flags"])
+                  for m in GPB_ALLE_METHODS}
+# Mac, 4 Aufgaben (analcatdata_supreme, heloc, wine_quality, eye_movements), Fold 0, --l1 off, Wanduhr, gpboost /
+# paper (23.11.2026, .venv_extra, BOHB/DEHB R = 200, HEBO 40 Versuche, Wanduhr inkl. Prozessstart), Mittel / Maximum:
+# BOHB 1.50 / 2.40, DEHB 1.92 / 3.77 (eye_movements), HEBO 1.01 / 1.21 (Modellzeit unabhaengig von der Skala).
+# Mit Reserve aufgerundet wie bei gpb (Mittel -> Faktor).
+GPB_ALLE_EXTRA_FACTOR = {"bohb": 2.0, "dehb": 2.5, "hebo": 1.3}
+GPB_ALLE_COST_FACTOR = {"default": 1.0, "grid_search": 1.0, "random_search": 1.0, **GPB_COST_FACTOR,
+                        **GPB_ALLE_EXTRA_FACTOR}
+GPB_ALLE_RUN = dict(folder="Results_gpb_alle", trials=135, flags=GPB_RUN["flags"], methods=GPB_ALLE_METHODS,
+                    flags_by_method=GPB_ALLE_FLAGS, cost_factor=GPB_ALLE_COST_FACTOR, longest_first=True)
+# Probe: kleine neue Aufgaben (Regression, Klassifikation) mit allen 10 Methoden, dazu BOHB/DEHB/HEBO auf
+# analcatdata_supreme (alte Aufgabe); Seed 27225 (Default: Seed 0)
+GPB_ALLE_PROBE = ((1001, 920074), (1002, 930017), (335, 361093))
+ALL_RUNS = {**RUNS, "extra": EXTRA_RUN, "gpb": GPB_RUN, "gpb_l1": GPB_L1_RUN, "gpb_alle": GPB_ALLE_RUN}
 ALL_METHODS = METHODS + EXTRA_METHODS
 # Probe des Laufs extra: die zwei schnellsten Aufgaben laut zeitmessung_mac.tsv (Regression, Klassifikation)
 EXTRA_PROBE = ((335, 361093), (337, 361278))   # analcatdata_supreme (Regression), heloc (Klassifikation); Seed 27225
@@ -151,9 +190,9 @@ MAX_SUBMIT = 17000   # QOS MaxSubmit ls_math: hoechstens so viele abgeschickte (
 MEM_STEPS = speicher.MEM_STEPS     # Speicherstufen je Kern in GB (Regel in speicher.py)
 
 
-def tasks():
+def tasks(suites=SUITES):
     rows = []
-    for suite in SUITES:
+    for suite in suites:
         ids = np.load(f"task_indices/{suite}_task_indices.npy")
         with open(f"task_indices/{suite}_task_names.json") as handle:
             names = json.load(handle)
@@ -195,19 +234,23 @@ def wave(seed):
     return 1 if seed not in SEEDS else SEEDS.index(seed) // WAVE_SIZE + 1
 
 
-def build(run, sec, task_list, memory=None):
+def build(run, sec, task_list, memory=None, methods=None):
+    """methods: Methoden fuer diese Aufgabenliste (Standard: die des Laufs; gpb_alle: alte Aufgaben nur BOHB/DEHB/HEBO).
+    flags_by_method (gpb_alle): Flags je Methode statt einer Zeile fuer alle."""
     settings = ALL_RUNS[run]
     memory = memory or speicher.Plan(mac={}, euler=pd.DataFrame(columns=speicher.EULER_COLUMNS))
+    flags = settings.get("flags_by_method", {})
     rows = []
     for t in task_list.itertuples():
-        for method in settings.get("methods", METHODS):
+        for method in methods or settings.get("methods", METHODS):
             for seed in ([0] if method == "default" else SEEDS):
                 hours = kosten(method, settings["trials"], sec[(t.suite, t.task)])
-                if "cost_factor" in settings:         # nur gpb, gpb_l1; paper, l1_270, extra unveraendert
+                if "cost_factor" in settings:         # nur gpb, gpb_l1, gpb_alle; paper, l1_270, extra unveraendert
                     hours *= settings["cost_factor"][method]
                 name, limit = partition(hours)
                 rows.append(dict(method=method, seed=seed, suite=t.suite, task=t.task, trials=settings["trials"],
-                                 flags=settings["flags"] if method != "default" else "", folder=settings["folder"],
+                                 flags=flags.get(method, settings["flags"]) if method != "default" else "",
+                                 folder=settings["folder"],
                                  name=t.name, kernstunden=round(hours, 3), partition=name, stunden=limit,
                                  mem_gb=memory(t.suite, t.task, method), welle=wave(seed),
                                  sek_versuch=sec[(t.suite, t.task)]))
@@ -533,6 +576,230 @@ def main_gpb(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_pape
     return jobs
 
 
+SBATCH_GPB_ALLE = """#!/bin/bash
+#SBATCH --job-name=hpo-gpb_alle
+#SBATCH --cpus-per-task=1
+#SBATCH --output=jobs_paper/logs/%x_%A_%a.out
+#SBATCH --error=jobs_paper/logs/%x_%A_%a.err
+#SBATCH --export=ALL
+# Ein Teiljob des Laufs gpb_alle (python make_paper_jobs.py --run gpb_alle). Nicht direkt abschicken, sondern ueber
+#   python refill.py --run gpb_alle   (Probe: bash jobs_paper/submit_gpb_alle.sh probe)
+# venv je Methode: bohb, dehb, hebo mit .venv_extra (wie run_extra_job.sbatch, Zwischendateien in $TMPDIR/$SCRATCH),
+# alle anderen mit .venv (wie run_paper_job.sbatch). Wiederholbar wie dort (--resume, Default: fertige Datei bleibt).
+
+set -eo pipefail     # -u erst nach "module load" und "activate"
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export PYTHONHASHSEED=0
+module load stack/2024-06 gcc/12.2.0 python/3.9.18
+cd "$HOME/HPOTreeBoosting"
+
+RUN=$1
+IDX_FILE=$2
+LINE_NO=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$IDX_FILE")
+JOB_LINE=$(sed -n "${LINE_NO}p" "jobs_paper/$RUN/jobs.tsv")
+IFS=$'\\t' read -r METHOD SEED SUITE_ID TASK_ID TRIALS FOLDER FLAGS <<< "$JOB_LINE"
+
+case "$METHOD" in
+    bohb|dehb|hebo) VENV=.venv_extra
+                    export TMPDIR="${TMPDIR:-${SCRATCH:-/cluster/scratch/$USER}}"
+                    export MPLCONFIGDIR="$TMPDIR/matplotlib_${SLURM_JOB_ID:-0}" ;;
+    *)              VENV=.venv ;;
+esac
+if [ ! -x "$VENV/bin/python" ]; then
+    echo "ABBRUCH: $VENV fehlt (.venv_extra: bash euler_install_extra.sh)" >&2
+    exit 2
+fi
+source "$VENV/bin/activate"
+set -u
+echo "Lauf $RUN Zeile $LINE_NO: $METHOD seed=$SEED ${SUITE_ID}_${TASK_ID} trials=$TRIALS $FLAGS -> $FOLDER ($VENV)"
+echo "Start $(date '+%F %T') auf $(hostname), Slurm-Job ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+# CPU-Modell fuer die Laufzeitauswertung (runtime-Spalte haengt vom Knotentyp ab)
+echo "CPU: $(lscpu 2>/dev/null | sed -n 's/^Model name: *//p' | head -1)"
+
+DATA_X="data/${SUITE_ID}_${TASK_ID}/${SUITE_ID}_${TASK_ID}_X.csv"
+if [ ! -s "$DATA_X" ]; then
+    echo "ABBRUCH: $DATA_X fehlt oder ist leer. Neue Aufgaben: bash euler_setup.sh; alte: bash euler_prepare_repro_data.sh jobs_paper/aufgaben.tsv" >&2
+    exit 2
+fi
+
+if [ "$METHOD" = "default" ]; then
+    OUT="$FOLDER/default/gpboost/${SUITE_ID}_${TASK_ID}.csv"
+    if [ -s "$OUT" ]; then
+        echo "SCHON FERTIG: $OUT"
+    else
+        python run_default.py --suite_id "$SUITE_ID" --task_id "$TASK_ID" --result_folder "$FOLDER/default"
+    fi
+else
+    python run_ablation.py --method "$METHOD" --seed "$SEED" --suite_id "$SUITE_ID" --task_id "$TASK_ID" \\
+        --trials "$TRIALS" --result_folder "$FOLDER" --resume $FLAGS
+fi
+echo "Ende $(date '+%F %T')"
+"""
+
+
+def seconds_all(pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv"):
+    """Mac-Sekunden je Versuch fuer alle 345 Aufgaben (measure_new_tasks.py: alt gemessen, neu gemessen oder
+    hochgerechnet mit Reserve) und die Quelle je Aufgabe."""
+    frame = pd.read_csv(pred, sep="\t")
+    sec = {(int(r.suite), int(r.task)): float(r.sek_versuch) for r in frame.itertuples()}
+    return sec, {(int(r.suite), int(r.task)): r.quelle for r in frame.itertuples()}
+
+
+REUSE = (("gpb", ("tpe", "gp_bo", "SMAC", "hyperband")), ("paper", ("default", "grid_search", "random_search")))
+
+
+def pruefe_wiederverwendung(out, results=True):
+    """Prueft, dass die wiederverwendeten Ergebnisse der 59 alten Aufgaben dieselben Einstellungen haben wie
+    gpb_alle: Seeds, T, Flags (lambda_l1 aus, Skala) aus jobs_paper/<lauf>/jobs.tsv, und (results=True, falls die
+    Ordner da sind) die Dateien: vollstaendig (check_results.check_file), lambda_l1 ueberall 0, Skala an der
+    learning_rate erkennbar: Anteil < 0.01 bei log-uniform auf [0.001, 1] ~ 1/3, linear ~ 0.9 %. TPE, GP-BO, SMAC:
+    in den zufaelligen Startversuchen (iter < 10) muss er ueber 20 % liegen; Hyperband (nur 11 ausgewaehlte Zeilen
+    je Fold): ueber 3 % und mehr als das Dreifache derselben Methode mit linearen Skalen in Results_paper.
+    Gibt (ok, Zeilen fuer zusammenfassung.txt) zurueck."""
+    import check_results
+    out = Path(out)
+    lines, ok = ["Pruefung der wiederverwendeten Ergebnisse (59 alte Aufgaben):"], True
+    old = {(t.suite, t.task) for t in tasks().itertuples()}
+    for run, methods in REUSE:
+        jobs = pd.read_csv(out / run / "jobs.tsv", sep="\t", header=None, keep_default_na=False,
+                           names=["method", "seed", "suite", "task", "trials", "folder", "flags"])
+        for method in methods:
+            sub = jobs[jobs["method"] == method]
+            want = "" if method == "default" else GPB_ALLE_FLAGS[method]
+            seeds = sorted(set(sub["seed"])) == sorted([0] if method == "default" else SEEDS)
+            budget = set(sub["trials"]) == {135}
+            flags = set(sub["flags"]) == {want}
+            cover = {(int(s), int(t)) for s, t in zip(sub["suite"], sub["task"])} == old
+            good = seeds and budget and flags and cover
+            text = (f"  {method:13s} aus {sub['folder'].iloc[0]}: {len(sub)} Jobs, Seeds {'gleich' if seeds else 'ANDERS'}, "
+                    f"T = {sorted(set(sub['trials']))}, Flags '{sub['flags'].iloc[0]}' "
+                    f"({'gleich' if flags else 'ANDERS als ' + repr(want)}), Aufgaben {'alle 59' if cover else 'NICHT alle 59'}")
+            if results and Path(sub["folder"].iloc[0]).exists():
+                states, l1, low, low_paper = [], [], [], []
+                for job in sub.itertuples():
+                    path, kind, n_rows = check_results.result_path(job)
+                    state = check_results.check_file(path, kind, n_rows)[0] if path.exists() else "fehlt"
+                    states.append(state)
+                    if state == "ok" and kind == "hpo":
+                        frame = pd.read_csv(path, usecols=lambda c: c in ("lambda_l1", "learning_rate", "iter"))
+                        if "lambda_l1" in frame:
+                            l1.append(bool((frame["lambda_l1"].fillna(0) == 0).all()))
+                        if method in ("tpe", "gp_bo", "SMAC", "hyperband"):
+                            rows = frame if method == "hyperband" else frame[frame["iter"] < 10]
+                            low.append(float((rows["learning_rate"] < 0.01).mean()))
+                            if method == "hyperband":
+                                ref = Path("Results_paper") / path.relative_to(job.folder)
+                                if ref.exists():
+                                    low_paper.append(float((pd.read_csv(ref, usecols=["learning_rate"])
+                                                            ["learning_rate"] < 0.01).mean()))
+                n_ok = states.count("ok")
+                good = good and n_ok == len(sub) and all(l1)
+                text += f"; Dateien {n_ok}/{len(sub)} vollstaendig, lambda_l1 = 0 in {sum(l1)}/{len(l1)}"
+                if low:
+                    share = float(np.mean(low))
+                    if method == "hyperband":
+                        paper = float(np.mean(low_paper)) if low_paper else float("nan")
+                        log_scale = share > 0.03 and not share <= 3 * paper
+                        text += (f", learning_rate < 0.01 in {share:.1%} der Zeilen (Results_paper, linear: {paper:.1%}; "
+                                 f"{'Log-Skala' if log_scale else 'NICHT log'})")
+                    else:
+                        log_scale = share > 0.2
+                        text += (f", learning_rate < 0.01 in {share:.1%} der Startversuche (log ~33 %, linear ~1 %; "
+                                 f"{'Log-Skala' if log_scale else 'NICHT log'})")
+                    good = good and log_scale
+            else:
+                text += "; Dateien nicht geprueft (Ordner nicht da)"
+            ok = ok and good
+            lines.append(text + (" -> ok" if good else " -> PROBLEM"))
+    lines.append("  Ergebnis: " + ("alle Einstellungen gleich, Wiederverwendung ok" if ok else
+                                   "UNTERSCHIEDE, vor dem Zusammenfuehren klaeren"))
+    return ok, lines
+
+
+SUBMIT_GPB_ALLE = SUBMIT_GPB.replace("jobs_paper/run_paper_job.sbatch", "jobs_paper/run_gpb_alle_job.sbatch")
+
+
+def main_gpb_alle(out, pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv", memory="jobs_paper/speicher_mac.tsv",
+                  memory_new="jobs_paper/speicher_neu_mac.tsv", euler="jobs_paper/speicher_euler.tsv", check=True):
+    """Lauf gpb_alle: schreibt nur jobs_paper/gpb_alle/, aufgaben_alle.tsv, run_gpb_alle_job.sbatch, submit_gpb_alle.sh."""
+    run, settings = "gpb_alle", GPB_ALLE_RUN
+    out = Path(out)
+    folder = out / run
+    (folder / "arrays").mkdir(parents=True, exist_ok=True)
+    sec, source = seconds_all(pred)
+    peaks = speicher.Plan(mac={**speicher.mac_peaks(memory_new), **speicher.mac_peaks(memory)},
+                          euler=speicher.euler_measurements(euler))
+    old, new = tasks(), tasks(NEW_SUITES)
+    every = pd.concat([old, new], ignore_index=True)
+    every.assign(classification=[is_classification(s) for s in every["suite"]]).to_csv(
+        out / "aufgaben_alle.tsv", sep="\t", index=False, columns=["suite", "task", "name", "classification"])
+    jobs = pd.concat([build(run, sec, old, peaks, methods=GPB_ALLE_OLD_METHODS), build(run, sec, new, peaks)],
+                     ignore_index=True)
+    jobs = plan(jobs, longest_first=True)
+    jobs[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
+        folder / "jobs.tsv", sep="\t", index=False, header=False)
+    probe = jobs[np.array([(s, t) in GPB_ALLE_PROBE for s, t in zip(jobs["suite"], jobs["task"])])
+                 & jobs["seed"].isin([PROBE[2], 0])]
+    probe_lines = [i + 1 for i in probe.index]
+    if not (folder / "arrays" / "probe.idx").exists():
+        (folder / "arrays" / "probe.idx").write_text("\n".join(map(str, probe_lines)) + "\n")
+    jobs["quelle_zeit"] = [source[(s, t)] for s, t in zip(jobs["suite"], jobs["task"])]
+    jobs["array"] = ""
+    jobs.drop(columns="sek_versuch").to_csv(folder / "kosten.tsv", sep="\t", index=False)
+    costs = wave_costs(run, jobs)
+    costs.to_csv(folder / "kosten_wellen.tsv", sep="\t", index=False)
+    is_new = jobs["suite"].isin(NEW_SUITES)
+    by_method = jobs.groupby("method")["kernstunden"].sum().round(0).astype(int).to_dict()
+    by_source = jobs.groupby("quelle_zeit")["kernstunden"].sum().round(0).astype(int).to_dict()
+    summary = [f"Lauf {run} -> {settings['folder']}/: {len(jobs):,} Jobs, GPBoost, Skalen gpboost, ohne lambda_l1, "
+               f"T = 135, 20 Seeds, 5 Folds, num_leaves; geschaetzt {jobs['kernstunden'].sum():,.0f} Kernstunden "
+               f"(Zeitlimits zusammen {jobs['stunden'].sum():,} h)",
+               f"  59 alte Aufgaben: {(~is_new).sum():,} Jobs (bohb, dehb, hebo x 20 Seeds), "
+               f"{jobs.loc[~is_new, 'kernstunden'].sum():,.0f} Kernstunden",
+               f"  {new.shape[0]} neue Aufgaben: {is_new.sum():,} Jobs (Default + 9 Methoden x 20 Seeds), "
+               f"{jobs.loc[is_new, 'kernstunden'].sum():,.0f} Kernstunden",
+               "  Flags: Default keine; " + "; ".join(
+                   f"{', '.join(m for m in GPB_ALLE_METHODS if m != 'default' and settings['flags_by_method'][m] == f)}"
+                   f" '{f}'" for f in dict.fromkeys(settings['flags_by_method'][m] for m in GPB_ALLE_METHODS
+                                                    if m != 'default')),
+               f"  Faktoren gegenueber paper: {settings['cost_factor']}",
+               f"  je Methode: {by_method}",
+               f"  Kernstunden nach Quelle der Sekunden je Versuch: {by_source} (hochgerechnet = mit Reserve)",
+               "  teuerste Jobs: " + ", ".join(
+                   f"{r.name} {r.method} {r.kernstunden:.1f} h" for r in
+                   jobs.sort_values("kernstunden", ascending=False).drop_duplicates(["task", "method"])
+                   .head(5).itertuples()),
+               "  Partitionen: " + ", ".join(f"{p} {n}" for p, n in jobs["partition"].value_counts().items()),
+               "  Speicher je Job: " + ", ".join(f"{speicher.fmt(m)} GB {n}" for m, n in
+                                                jobs["mem_gb"].value_counts().sort_index().items()),
+               f"  Probe: {len(probe)} Jobs (Zeilen {', '.join(map(str, probe_lines))}): "
+               + ", ".join(f"{r.name} {r.method} {r.kernstunden:.2f} h" for r in probe.itertuples()),
+               "  Reihenfolge: laengste Jobs zuerst (geschaetzte Kernstunden absteigend, ueber alle Wellen)"]
+    for c in costs.itertuples():
+        summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
+                       f"{' + Default' if c.welle == 1 else ''}): {c.jobs:,} Jobs, {c.kernstunden:,} Kernstunden, "
+                       + ", ".join(f"bei {k} Kernen ~{getattr(c, f'tage_{k}_kerne')} Tage" for k in CORES)
+                       + f" (laengster Job {c.laengster_job_h} h)")
+    summary += [f"Alle Wellen: {len(jobs):,} Jobs, {costs['kernstunden'].sum():,} Kernstunden. Abschicken: "
+                f"python refill.py --run {run}. Probe zuerst: bash jobs_paper/submit_{run}.sh probe",
+                "Neu gegenueber gpb: 286 neue Datensaetze (alle Methoden inkl. Default und Gitter), BOHB/DEHB/HEBO "
+                "mit Skalen gpboost (auch auf den 59 alten Aufgaben). Gleich: Skalen, ohne lambda_l1, T = 135, Seeds.",
+                "Vor dem Start auf Euler: neue Daten (bash euler_setup.sh), .venv_extra (bash euler_install_extra.sh).", ""]
+    if check:
+        summary += [*pruefe_wiederverwendung(out)[1], ""]
+    hours = int(probe["zeitlimit"].max())
+    part = next(name for name, longest in PARTITIONS if hours <= longest)
+    mem_gb = max(float(probe["mem_gb"].max()), 2.0)
+    (out / "run_gpb_alle_job.sbatch").write_text(SBATCH_GPB_ALLE)
+    (out / f"submit_{run}.sh").write_text(SUBMIT_GPB_ALLE.format(
+        run=run, methods=", ".join(GPB_ALLE_METHODS), n=len(probe), last=len(probe) - 1,
+        names=", ".join(probe["name"].unique()), seed=PROBE[2], part=part,
+        hours=hours, mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb)))
+    (folder / "zusammenfassung.txt").write_text("\n".join(summary))
+    print("\n".join(summary))
+    return jobs
+
+
 def main(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_paper/speicher_euler.tsv"):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -610,13 +877,16 @@ if __name__ == "__main__":
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
     parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
     parser.add_argument("--euler", default="jobs_paper/speicher_euler.tsv", help="aus watch_paper.py --speicher")
-    parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb", "gpb_l1"), default="paper+l1_270",
+    parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb", "gpb_l1", "gpb_alle"), default="paper+l1_270",
                         help="extra: nur den Lauf extra (BOHB, DEHB, HEBO) schreiben; gpb: nur den Lauf gpb (korrekte "
                              "Skalen ohne lambda_l1); gpb_l1: wie gpb mit lambda_l1 (log) und 270 Versuchen; "
+                             "gpb_alle: GPBoost, alle Methoden und Datensaetze, Skalen gpboost, ohne lambda_l1; "
                              "Standard: paper und l1_270")
     args = parser.parse_args()
     if args.run == "extra":
         main_extra(args.out, args.timing, args.memory, args.euler)
+    elif args.run == "gpb_alle":
+        main_gpb_alle(args.out, memory=args.memory, euler=args.euler)
     elif args.run in ("gpb", "gpb_l1"):
         main_gpb(args.out, args.timing, args.memory, args.euler, run=args.run)
     else:

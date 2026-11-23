@@ -11,6 +11,8 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
                                           # sobald jobs_paper/gpb/jobs.tsv existiert (make_paper_jobs.py --run gpb)
     python watch_paper.py --run gpb_l1    # nur gpb_l1 (wie gpb mit lambda_l1 log, 270 Versuche); ohne --run dabei,
                                           # sobald jobs_paper/gpb_l1/jobs.tsv existiert
+    python watch_paper.py --run gpb_alle  # nur gpb_alle (alle Methoden und Datensaetze); ohne --run dabei,
+                                          # sobald jobs_paper/gpb_alle/jobs.tsv existiert
     python watch_paper.py --run paper     # nur einer
     python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
     python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
@@ -47,7 +49,7 @@ import speicher
 from run_ablation import expected_rows
 
 JOBS = Path("jobs_paper")
-RUN_ORDER = ["paper", "l1_270", "extra", "gpb", "gpb_l1"]      # Reihenfolge wie refill.py
+RUN_ORDER = ["paper", "l1_270", "extra", "gpb", "gpb_l1", "gpb_alle"]      # Reihenfolge wie refill.py
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
@@ -529,7 +531,7 @@ def pending_mismatch(run, jobs, tries):
 
 
 # ---------------------------------------------------------------- Prognose
-JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra", "hpo-gpb", "hpo-gpb_l1")
+JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra", "hpo-gpb", "hpo-gpb_l1", "hpo-gpb_alle")
 MIN_CALIBRATION_JOBS = 20     # so viele fertige Jobs braucht der Faktor tatsaechlich / Schaetzung
 
 
@@ -698,7 +700,7 @@ if __name__ == "__main__":
     parser.add_argument("--speicher", action="store_true", help="MaxRSS je Aufgabe, schreibt speicher_euler.tsv")
     parser.add_argument("--max_versuche", type=int, default=3)
     args = parser.parse_args()
-    runs = args.run or ["paper", "l1_270", *[r for r in ("extra", "gpb", "gpb_l1") if (JOBS / r / "jobs.tsv").exists()]]
+    runs = args.run or ["paper", "l1_270", *[r for r in ("extra", "gpb", "gpb_l1", "gpb_alle") if (JOBS / r / "jobs.tsv").exists()]]
     if args.speicher:
         memory_report(runs)
     else:
