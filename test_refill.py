@@ -271,6 +271,31 @@ class RefillTests(unittest.TestCase):
         with mock.patch("watch_paper.file_state", return_value="fertig"):
             self.assertEqual(self.run_refill("--limit", "100"), refill.NOTHING_LEFT)
 
+    def test_only_wave_1(self):
+        # --wellen 1: Welle 2 (Zeile 5) wird nie abgeschickt; ist Welle 1 durch, meldet refill "nichts mehr zu tun"
+        self.assertEqual(self.run_refill("--limit", "100", "--wellen", "1"), 0)
+        sent = sorted(x for c in self.slurm.sbatches() for x in self.lines_of(c))
+        self.assertEqual(sent, [2, 3, 4, 6])
+        for key in list(self.slurm.sacct):
+            self.slurm.sacct[key] = "COMPLETED"
+        self.slurm.queue = []
+        with mock.patch("watch_paper.file_state", return_value="fertig"):
+            self.assertEqual(self.run_refill("--limit", "100", "--wellen", "1"), refill.NOTHING_LEFT)
+        self.assertNotIn(5, [x for c in self.slurm.sbatches() for x in self.lines_of(c)])
+        self.assertEqual(refill.parse_waves("1-2,4"), [1, 2, 4])
+        for bad in ("0", "5", "2-1", "x"):
+            with self.assertRaises(Exception):
+                refill.parse_waves(bad)
+
+    def test_daemon_passes_waves(self):
+        self.assertEqual(refill.main(["--daemon", "--run", "paper", "--wellen", "1"]), 0)
+        call = self.slurm.sbatches()[-1]
+        self.assertEqual(call[call.index("--wellen") + 1], "1")
+        self.assertEqual(refill.main(["--run", "paper", "--stop"]), 0)
+        self.slurm.queue = []
+        self.assertEqual(refill.main(["--daemon", "--run", "paper"]), 0)
+        self.assertNotIn("--wellen", self.slurm.sbatches()[-1])
+
     def test_daemon_refuses_second_instance(self):
         for queue in (["900|hpo-refill|normal.24h|RUNNING"], ["901|hpo-refill|normal.4h|PENDING"]):
             self.slurm.queue = queue

@@ -61,6 +61,7 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide --daemon        # selbstfortsetzender Slurm-Job: alle 10 min nachfuellen,
                                                  # Standard normal.4h mit 4:00:00, reiht sich selbst neu ein
     python refill.py --run beide --daemon --daemon-partition normal.24h --daemon-zeit 24:00:00
+    python refill.py --run gpb_alle --wellen 1 --daemon   # Daemon nur fuer Welle 1 (endet, wenn sie fertig ist)
     python refill.py --stop                      # alle hpo-refill-Jobs beenden (laufend und wartend, jede
                                                  # Partition), prueft danach, dass keiner mehr da ist
 Speicherplatz (quota.py): vor jeder Einreichung lquota (sonst df). Home ueber 80 % der Soft Quota (Platz oder Dateien)
@@ -213,7 +214,21 @@ def disk_ok(dry):
     return ok
 
 
-def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
+def parse_waves(text):
+    """--wellen: '1', '1-2', '1,3' -> sortierte Liste der Wellen (1 bis 4)."""
+    waves = set()
+    for part in str(text).split(","):
+        match = re.fullmatch(r"\s*([1-4])\s*(?:-\s*([1-4])\s*)?", part)
+        if not match:
+            raise argparse.ArgumentTypeError(f"{text!r}: erwartet z. B. 1, 1-2 oder 1,3 (Wellen 1 bis 4)")
+        low, high = int(match.group(1)), int(match.group(2) or match.group(1))
+        if high < low:
+            raise argparse.ArgumentTypeError(f"{text!r}: Bereich absteigend")
+        waves.update(range(low, high + 1))
+    return sorted(waves)
+
+
+def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT, waves=None):
     if not disk_ok(dry):
         return QUOTA_FULL
     q = wp.queue()                       # vor sacct: ein Job, der dazwischen endet, gilt nicht als verschwunden
@@ -229,6 +244,9 @@ def refill(runs, limit, reserve, max_tries, dry, account=wp.ACCOUNT):
               "koennten Jobs doppelt laufen. Pruefen mit: squeue --me")
         return 1
     jobs = candidates(runs, max_tries, None if no_squeue else wp.queued_tasks(q))
+    if waves:                            # --wellen: andere Wellen weder abschicken noch mitzaehlen
+        jobs = jobs[jobs["welle"].isin(waves)]
+        print(f"Nur Welle {', '.join(map(str, waves))}: {len(jobs)} Jobs")
     queued_per_partition = q["partition"].value_counts().to_dict()
     free = limit - len(q)
     chosen = select(jobs, free, queued_per_partition, reserve)
@@ -287,6 +305,8 @@ def daemon_command(args):
         raise ValueError(f"Zeitlimit {args.daemon_zeit} zu kurz (Daemon endet {DAEMON_MARGIN_S // 60} min vorher)")
     passed = ["--run", args.run, "--limit", str(args.limit), "--reserve", str(args.reserve),
               "--max_versuche", str(args.max_versuche), "--account", args.account]
+    if args.wellen:
+        passed += ["--wellen", ",".join(map(str, args.wellen))]
     env = (f"ALL,DAEMON_PARTITION={args.daemon_partition},DAEMON_TIME={args.daemon_zeit},DAEMON_SECONDS={seconds},"
            f"DAEMON_ACCOUNT={args.account}")
     return ["sbatch", "--parsable", f"--account={args.account}", f"--partition={args.daemon_partition}",
@@ -379,6 +399,9 @@ def main(argv=None):
     parser.add_argument("--daemon-zeit", dest="daemon_zeit", default=DAEMON_TIME,
                         help=f"Zeitlimit des Daemons, H:MM:SS (Standard {DAEMON_TIME}); er endet 20 min vorher, "
                              "der Nachfolger uebernimmt")
+    parser.add_argument("--wellen", type=parse_waves, default=None,
+                        help="nur diese Wellen abschicken, z. B. 1, 1-2 oder 1,3 (Standard: alle); geht an den "
+                             "Daemon und seine Nachfolger; sind sie fertig, endet der Daemon (Exit-Code 3)")
     parser.add_argument("--stop", action="store_true", help="Daemon beenden (laufend und wartend)")
     args = parser.parse_args(argv)
     try:
@@ -390,7 +413,8 @@ def main(argv=None):
     if args.daemon:
         return start_daemon(args)
     if args.dry:
-        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=True, account=args.account)
+        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=True, account=args.account,
+                      waves=args.wellen)
     wp.JOBS.mkdir(exist_ok=True)
     with open(wp.JOBS / ".refill.lock", "w") as lock:
         try:
@@ -398,7 +422,8 @@ def main(argv=None):
         except OSError:
             print("Ein anderer refill.py laeuft gerade (Sperre jobs_paper/.refill.lock) -> nichts getan")
             return 0
-        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=False, account=args.account)
+        return refill(runs, args.limit, args.reserve, args.max_versuche, dry=False, account=args.account,
+                      waves=args.wellen)
 
 
 if __name__ == "__main__":
