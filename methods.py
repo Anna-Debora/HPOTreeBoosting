@@ -42,7 +42,16 @@ CATBOOST_MAX_BORDER_COUNT = 1024
 #            lambda_l1/lambda_l2 durch 1e-8 ersetzt, bei min_data_in_leaf durch 1. n_iter bleibt linear.
 #            Gilt fuer TPE, GP-BO, SMAC, Hyperband, BOHB, DEHB, HEBO; Zufallsgitter und deterministisches Gitter
 #            (feste Wertelisten) und Default bleiben unveraendert.
+#   Bibliotheken mit gpboost (SUCHRAEUME_XGB_CAT.md, freigegeben 24.11.2026):
+#     XGBoost   gleicher Raum wie GPBoost, uebersetzt (max_leaves, min_child_weight x0.25 bei Klassifikation,
+#               reg_lambda, subsample, colsample_bytree; lossguide, max_depth 0); keine Aenderung noetig.
+#     CatBoost  depth (= max_depth, int [1, 10], linear) statt num_leaves, ohne min_data_in_leaf (wirkt bei
+#               symmetrischen Baeumen nicht), border_count bis 1024, bootstrap_type Bernoulli, sobald subsample
+#               gesetzt ist. Gitter siehe catboost_grid().
+#   Mit scales="paper" bleiben XGBoost und CatBoost wie bisher (bitgleich).
 SCALES = ("paper", "gpboost")
+CATBOOST_DEPTHS = [1, 2, 3, 5, 10]          # Blattzahl 2^depth = num_leaves-Gitter {2, 4, 8, 32, 1024}
+CATBOOST_GRID_SUBSAMPLE = [0.5, 0.75, 1]    # fuellt das deterministische Gitter auf 3 x 3 x 5 x 3 = 135 auf
 GPBOOST_LOG_PARAMS = ("learning_rate", "lambda_l1", "lambda_l2", "num_leaves", "min_data_in_leaf", "max_bin")
 GPBOOST_LOG_ZERO_FLOAT = 1e-8      # Ersatz fuer die untere Grenze 0 (lambda_l1, lambda_l2)
 GPBOOST_LOG_ZERO_INT = 1           # Ersatz fuer die untere Grenze 0 (min_data_in_leaf)
@@ -61,6 +70,8 @@ class ParameterOptimization:
             # Paper-Skalen ohne lambda_l1 laufen wie bisher ueber run_ablation.apply_settings (bitgleich zu Results_paper)
             raise ValueError("lambda_l1=False only with scales='gpboost' (paper: run_ablation.py --l1 off)")
         self.scales = scales
+        # CatBoost mit scales gpboost und Strategie num_leaves tunt depth (= max_depth) statt num_leaves
+        self._depth_tuned = library == "catboost" and scales == "gpboost" and try_num_leaves
         self.lambda_l1 = lambda_l1
         self.seed = seed
         self.fixed_seeds = self._generate_local_seeds()
@@ -312,6 +323,8 @@ class ParameterOptimization:
                 else "reg:squarederror"
             )
             translated_params["tree_method"] = "hist"
+            if self.scales == "gpboost":
+                translated_params["nthread"] = 1      # 1 Kern je Job wie auf Euler (faire Laufzeit)
             if self.try_num_leaves or self.joint_tuning_depth_leaves:
                 translated_params["grow_policy"] = "lossguide"
             if "metric" in params:
@@ -336,6 +349,8 @@ class ParameterOptimization:
             bst = xgb.train(**xgb_train_options)
             y_pred = bst.predict(xgb.DMatrix(X_predict, enable_categorical=True))
             best_iter = getattr(bst, "best_iteration", bst.num_boosted_rounds() - 1)
+            if self.scales == "gpboost":
+                best_iter += 1    # XGBoost zaehlt ab 0, GPBoost (und die Refits: num_boost_round) ab 1
             return y_pred, best_iter
 
         if library == "catboost":
@@ -377,6 +392,17 @@ class ParameterOptimization:
                 if translated_name == "depth" and value <= 0:
                     continue
                 catboost_params[translated_name] = value
+            if self.scales == "gpboost" and params.get("metric") == "binary_error":
+                # Early Stopping auf derselben Metrik wie GPBoost/XGBoost (Fehlerrate), nicht auf Logloss
+                catboost_params["eval_metric"] = "Accuracy"
+            if self.scales == "gpboost" and "subsample" in catboost_params:
+                catboost_params["bootstrap_type"] = "Bernoulli"     # sonst wirkt subsample je nach Version nicht
+            if self.scales == "gpboost":
+                catboost_params["thread_count"] = 1   # Standard: alle Kerne; 1 Kern je Job wie auf Euler
+            if "depth" in catboost_params:
+                catboost_params["depth"] = int(catboost_params["depth"])
+            if "border_count" in catboost_params:
+                catboost_params["border_count"] = int(catboost_params["border_count"])
 
             model = catboost.CatBoost(params=catboost_params)
             fit_options = {"verbose": False}
@@ -396,6 +422,8 @@ class ParameterOptimization:
             best_iter = model.get_best_iteration()
             if best_iter is None or best_iter < 0:
                 best_iter = model.tree_count_ - 1
+            if self.scales == "gpboost":
+                best_iter += 1    # CatBoost zaehlt ab 0; sonst Refit mit einem Baum zu wenig bzw. 0 Iterationen
             return y_pred, best_iter
 
         else:
@@ -531,6 +559,8 @@ class ParameterOptimization:
                     self.min_score = score
                     self.best_iter = best_iter
         elif self.library in ("xgboost", "catboost"):
+            if self.scales == "gpboost":
+                param_grid = self._library_grid(param_grid, deterministic=num_try_random is None)
             grid_size, param_grid = modify(param_grid)
             if num_try_random is None:
                 combination_indices = range(grid_size)
@@ -962,7 +992,8 @@ class ParameterOptimization:
         df_trials['try_num_iter'] = self.try_num_iter
         #reorder the columns
         #print('Here are the columns:',df_trials.columns)
-        df_trials = df_trials[['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
+        # reindex: CatBoost (scales gpboost) hat kein min_data_in_leaf/num_leaves -> NaN; sonst wie [[...]]
+        df_trials = df_trials.reindex(columns=['param_ind','learning_rate','min_data_in_leaf','max_depth','lambda_l2','lambda_l1','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter'])
         return df_trials
 
     # ------------------------------------------------------------ BOHB, DEHB, HEBO (Lauf "extra")
@@ -995,6 +1026,27 @@ class ParameterOptimization:
         final_results.rename(columns={"index": "iter"}, inplace=True)
         return final_results
 
+    def _library_grid(self, param_grid, deterministic):
+        """Gitter fuer XGBoost und CatBoost mit scales="gpboost" (der GPBoost-Pfad bekommt das ueber run_ablation
+        .apply_settings, das hier nicht greift):
+          ohne lambda_l1 (self.lambda_l1 False): lambda_l1 nicht im Zufallsgitter (fest 0)
+          self.paper_grid: deterministisches Gitter ohne bagging_fraction (135 Punkte wie das Paper)
+          CatBoost: depth statt num_leaves (CATBOOST_DEPTHS), ohne min_data_in_leaf; das deterministische Gitter
+                    wird mit subsample CATBOOST_GRID_SUBSAMPLE auf 135 Punkte aufgefuellt (statt 45)."""
+        grid = dict(param_grid)
+        if not self.lambda_l1:
+            grid.pop('lambda_l1', None)
+        if deterministic and getattr(self, 'paper_grid', False):
+            grid.pop('bagging_fraction', None)
+        if self.library == "catboost":
+            grid.pop('min_data_in_leaf', None)
+            if self.try_num_leaves:
+                grid.pop('num_leaves', None)
+                grid['max_depth'] = list(CATBOOST_DEPTHS)
+            if deterministic:
+                grid['bagging_fraction'] = list(CATBOOST_GRID_SUBSAMPLE)
+        return grid
+
     def _extra_space(self, lambda_l1=None):
         """(Suchraum, feste Werte): Liste von dict(name, kind = float/int/cat, low, high, choices, log).
         Bereiche wie tpe_method/run_smac. Skala nach self.scales:
@@ -1016,8 +1068,11 @@ class ParameterOptimization:
                 low = GPBOOST_LOG_ZERO_FLOAT if kind == 'float' else GPBOOST_LOG_ZERO_INT
             return dict(name=name, kind=kind, low=low, high=high, choices=None, log=log)
 
+        catboost_space = gpboost and self.library == "catboost"
         space = [num('learning_rate', 'float', 0.001, 1.0), num('min_data_in_leaf', 'int', 1, 1000),
                  num('lambda_l2', 'float', 0.0, 100.0)]
+        if catboost_space:      # min_data_in_leaf wirkt bei symmetrischen Baeumen nicht
+            space = [p for p in space if p['name'] != 'min_data_in_leaf']
         fixed = {}
         if lambda_l1:
             space.append(num('lambda_l1', 'float', 0.0, 100.0))
@@ -1025,7 +1080,9 @@ class ParameterOptimization:
             fixed['lambda_l1'] = 0.0
         space += [num('max_bin', 'int', 255, int(self.max_bin_val)), num('bagging_fraction', 'float', 0.5, 1.0),
                   num('feature_fraction', 'float', 0.5, 1.0)]
-        if self.try_num_leaves or self.joint_tuning_depth_leaves:
+        if catboost_space and self.try_num_leaves:
+            space.append(num('max_depth', 'int', 1, 10))          # depth statt num_leaves (linear wie max_depth)
+        elif self.try_num_leaves or self.joint_tuning_depth_leaves:
             space.append(num('num_leaves', 'int', 2, 1024))
         if self.joint_tuning_depth_leaves:
             space.append(dict(name='max_depth', kind='cat', low=None, high=None, choices=[-1, *range(1, 11)],
@@ -1131,7 +1188,7 @@ class ParameterOptimization:
         df_trials['try_num_leaves'] = self.try_num_leaves
         df_trials['joint_tuning_depth_leaves'] = self.joint_tuning_depth_leaves
         df_trials['try_num_iter'] = self.try_num_iter
-        return df_trials[HB_COLUMNS]
+        return df_trials.reindex(columns=HB_COLUMNS)     # CatBoost: fehlende Spalten NaN
 
     @staticmethod
     def _bracket_frame(param_config, scores, last_end):
@@ -1345,7 +1402,9 @@ class ParameterOptimization:
         self.other_params = {'verbose': -1}
 
         # Adjust the 'other_params' dictionary based on the task
-        if self.try_num_leaves:
+        if self.try_num_leaves and self.library == "catboost" and self.scales == "gpboost":
+            pass                                    # CatBoost: depth wird getunt (statt num_leaves), nicht ueberschreiben
+        elif self.try_num_leaves:
             self.other_params['max_depth'] = -1     #{'verbose': -1, 'max_depth': -1}
         elif not self.joint_tuning_depth_leaves:
             self.other_params['num_leaves'] = 2**10     #{'verbose': -1, 'num_leaves': 2**10}
@@ -1523,6 +1582,12 @@ class ParameterOptimization:
         return df
 
 
+    def _fill_max_depth(self, df):
+        """Strategie num_leaves: max_depth = -1 (ohne Grenze) eintragen, ausser CatBoost tunt depth selbst
+        (dann steht die getunte Tiefe schon in df und wird fuer die Test-Refits gebraucht)."""
+        if not self._depth_tuned:
+            df['max_depth'] = -1
+
     def _convert_dict_to_df(self, dict_params):
         """This function converts the dictionary outputted by the 'modified_grid_search_tune_parameters' function into a DataFrame."""
         # Normalize the dictionary to ensure all parameters are present in each element
@@ -1531,7 +1596,7 @@ class ParameterOptimization:
         # Format the DataFrame
         df = pd.DataFrame(normalized_data)
         if self.try_num_leaves:
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif not self.joint_tuning_depth_leaves:
             df['num_leaves'] = 2**10
         return df
@@ -1543,7 +1608,7 @@ class ParameterOptimization:
         # Format the DataFrame
         df = pd.DataFrame(normalized_data)
         if self.try_num_leaves:
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif not self.joint_tuning_depth_leaves:
             df['num_leaves'] = 2**10
         return df
@@ -1555,7 +1620,7 @@ class ParameterOptimization:
         df['duration'] = df['duration'].dt.total_seconds()
         if self.try_num_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'num_leaves']
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf', 'num_leaves']
         elif self.try_max_depth and not(self.try_num_iter):
@@ -1566,7 +1631,7 @@ class ParameterOptimization:
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'min_data_in_leaf', 'n_iter', 'num_leaves']
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif self.try_num_iter and self.joint_tuning_depth_leaves:
             df.columns = ['val_score', 'runtime', 'bagging_fraction', 'feature_fraction', 'lambda_l1', 'lambda_l2', 'learning_rate', 'max_bin', 'max_depth', 'min_data_in_leaf', 'n_iter', 'num_leaves']
         return df
@@ -1577,7 +1642,7 @@ class ParameterOptimization:
 
         if self.try_num_leaves and not(self.try_num_iter):
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves'])
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif self.joint_tuning_depth_leaves and not(self.try_num_iter):
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'max_depth', 'num_leaves'])
         elif self.try_max_depth and not(self.try_num_iter):
@@ -1588,7 +1653,7 @@ class ParameterOptimization:
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'num_leaves', 'n_iter'])
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif self.joint_tuning_depth_leaves and self.try_num_iter:
             df = pd.DataFrame(x_iters, columns=['learning_rate', 'min_data_in_leaf', 'lambda_l2', 'lambda_l1', 'max_bin', 'bagging_fraction', 'feature_fraction', 'max_depth', 'num_leaves', 'n_iter'])
         # Convert the 'score' array into a column for the DataFrame
@@ -1624,13 +1689,13 @@ class ParameterOptimization:
     
     def _modify_df_for_hyperband(self,df):
         if self.try_num_leaves and not(self.try_num_iter):
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
         elif self.try_max_depth and not(self.try_num_iter):
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_max_depth:
             df['num_leaves'] = 2**10
         elif self.try_num_iter and self.try_num_leaves:
-            df['max_depth'] = -1
+            self._fill_max_depth(df)
             
         return df
 

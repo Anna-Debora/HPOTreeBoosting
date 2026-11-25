@@ -166,5 +166,6 @@ class ParameterOptimizationSMAC(ParameterOptimization):
         df_trials['try_num_iter'] = self.try_num_iter
         #reoder order of columns
         #print('Here are the columns', df)
-        df_trials = df_trials[['learning_rate','min_data_in_leaf','max_depth','lambda_l1','lambda_l2','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter']]
+        # reindex: CatBoost (scales gpboost) hat kein min_data_in_leaf/num_leaves -> NaN; sonst wie [[...]]
+        df_trials = df_trials.reindex(columns=['learning_rate','min_data_in_leaf','max_depth','lambda_l1','lambda_l2','num_leaves','max_bin',	'bagging_fraction','feature_fraction','val_score','runtime','test_score','test_log_loss','test_f1_score','test_rmse',	'current_best_test_score','current_best_test_log_loss',	'current_best_test_f1_score','current_best_test_rmse','try_num_leaves',	'joint_tuning_depth_leaves','try_num_iter'])
         return df_trials

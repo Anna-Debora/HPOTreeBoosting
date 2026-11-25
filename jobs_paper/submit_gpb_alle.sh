@@ -10,7 +10,7 @@ DIR=jobs_paper/gpb_alle
 mkdir -p jobs_paper/logs
 case "$WHAT" in
     probe) cmd=(sbatch --parsable --account=ls_math --array=0-22 --partition=normal.4h --time=4:00:00
-                --mem-per-cpu=2G --job-name=hpo-gpb_alle jobs_paper/run_gpb_alle_job.sbatch gpb_alle "$DIR/arrays/probe.idx")
+                --mem-per-cpu=2G --job-name=hpo-gpb_alle jobs_paper/run_alle_job.sbatch gpb_alle "$DIR/arrays/probe.idx")
            if [ -n "${DRY:-}" ]; then echo "${cmd[*]}"; exit 0; fi
            id=$("${cmd[@]}")
            printf '%s\t%s\t%s\t%s\tnormal.4h\t4\t2\n' "$id" "$DIR/arrays/probe.idx" 23 "$(date '+%F %T')" \

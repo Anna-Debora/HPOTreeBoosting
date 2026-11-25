@@ -17,7 +17,14 @@ log(Spalten), Anteil kategorialer Spalten und Klassifikation, angepasst auf die 
 gemessenen neuen Aufgaben (x Abgleichfaktor); gemessene Aufgaben behalten ihren Messwert. Reserve: Vorhersage x
 exp(RESERVE_SD x Residuen-Standardabweichung).
 
+Bibliotheken (--library xgboost|catboost, Laeufe xgb_alle, cat_alle): dieselbe Stichprobe (30 Aufgaben), nur
+Zufallsgitter, 15 Versuche, mit den Einstellungen des Laufs (--l1 off --scales gpboost, Suchraum nach
+SUCHRAEUME_XGB_CAT.md). Verhaeltnis je Aufgabe = Sekunden der Bibliothek / Sekunden von GPBoost (Zufallsgitter aus
+zeitmessung_neu_mac.tsv, gleiche Messart); fuer die uebrigen Aufgaben log-linear hochgerechnet wie oben, mit Reserve
+(verhaeltnisse()). Sekunden je Versuch der Bibliothek = GPBoost-Sekunden (hochrechnen()) x Verhaeltnis.
+
 Aufruf:  .venv/bin/python measure_new_tasks.py [--jobs 4]            # Stichprobe messen
+         .venv/bin/python measure_new_tasks.py --library catboost    # Bibliothek messen (nur Zufallsgitter)
          .venv/bin/python measure_new_tasks.py --hochrechnung        # nur Hochrechnung aus vorhandener Messung
 Ausgabe: jobs_paper/zeitmessung_neu_mac.tsv (gemessene Aufgaben, Spalten wie zeitmessung_mac.tsv + anker),
          jobs_paper/zeitmessung_neu_hochrechnung.tsv (alle 345 Aufgaben: Sekunden je Versuch, Quelle)
@@ -78,7 +85,7 @@ def auswahl(frame):
     return chosen + list(ANKER)
 
 
-def one(task, method):
+def one(task, method, library="gpboost"):
     import job_io
     import run_ablation
     from SMAC_method import ParameterOptimizationSMAC
@@ -86,27 +93,30 @@ def one(task, method):
     path = f"data/{suite}_{task_id}/{suite}_{task_id}"
     job_io.quiet_logging()
     run_ablation.quiet_methods()
+    scales = "paper" if library == "gpboost" else "gpboost"
     run_ablation.apply_settings(method, TRIALS, True, False,
-                                Path(os.environ.get("TMPDIR", "/tmp")) / "smac3_messung")
+                                Path(os.environ.get("TMPDIR", "/tmp")) / "smac3_messung", scales=scales)
     X, y = pd.read_csv(f"{path}_X.csv"), pd.read_csv(f"{path}_y.csv")
+    extra = {} if library == "gpboost" else dict(scales="gpboost", lambda_l1=False)
     obj = ParameterOptimizationSMAC(X=X, y=y, categorical_indicator=np.load(f"{path}_categorical_indicator.npy"),
-                                    suite_id=int(suite), seed=SEED, library="gpboost", **run_ablation.STRATEGY)
+                                    suite_id=int(suite), seed=SEED, library=library, **extra, **run_ablation.STRATEGY)
     train_index, test_index = next(iter(obj.splits))
     start = time.perf_counter()
     run_ablation.run_fold(obj, method, TRIALS, train_index, test_index, 2150, lambda_l1=False)
     return dict(task=task, method=method, sekunden=round(time.perf_counter() - start, 1))
 
 
-def child(task, method):
+def child(task, method, library="gpboost"):
     env = {**os.environ, "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1",
            "PYTHONHASHSEED": "0"}
-    result = subprocess.run([sys.executable, __file__, "--one", task, method], capture_output=True, text=True, env=env)
+    result = subprocess.run([sys.executable, __file__, "--one", task, method, library], capture_output=True, text=True,
+                            env=env)
     lines = [l for l in result.stdout.splitlines() if l.startswith("{")]
     if result.returncode != 0 or not lines:
         print(f"FEHLER {task} {method}: {result.stderr[-1500:]}", flush=True)
         return dict(task=task, method=method, sekunden=float("nan"), rc=result.returncode)
     row = json.loads(lines[-1])
-    print(f"  {task} {method}: {row['sekunden']} s", flush=True)
+    print(f"  {task} {method} {library}: {row['sekunden']} s", flush=True)
     return {**row, "rc": 0}
 
 
@@ -166,14 +176,99 @@ def hochrechnen(frame=None, old=OLD, new=OUT, verbose=True):
     return {(int(r.suite), int(r.task)): float(r.sek_versuch) for r in frame.itertuples()}, frame
 
 
+def lib_file(library):
+    return Path(f"jobs_paper/zeitmessung_{library}_mac.tsv")
+
+
+def measure_library(library, jobs):
+    tasks = auswahl(sizes())
+    print(f"Messung {library}: {len(tasks)} Aufgaben x random_search, {TRIALS} Versuche, Fold 0, {jobs} parallel",
+          flush=True)
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        rows = list(pool.map(lambda t: child(t, "random_search", library), tasks))
+    frame = pd.DataFrame(rows)
+    frame[["suite", "task"]] = frame["task"].str.split("_", expand=True).astype(int)
+    frame.rename(columns={"sekunden": "random_search_s"})[["suite", "task", "rc", "random_search_s"]].to_csv(
+        lib_file(library), sep="\t", index=False)
+    print(f"geschrieben: {lib_file(library)}")
+
+
+def nach_file(library):
+    return Path(f"jobs_paper/zeitmessung_{library}_nach_mac.tsv")
+
+
+def nachmessen(library, tasks, jobs):
+    """Zusaetzliche Aufgaben (z. B. die teuersten hochgerechneten): Bibliothek und GPBoost gleich gemessen.
+    Ergebnis an nach_file(library) angehaengt (Spalten wie lib_file plus random_search_s_gpb)."""
+    print(f"Nachmessung {library}: {len(tasks)} Aufgaben x random_search (Bibliothek und GPBoost), {TRIALS} Versuche, "
+          f"Fold 0, {jobs} parallel", flush=True)
+    pairs = [(t, lib) for t in tasks for lib in (library, "gpboost")]
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        rows = list(pool.map(lambda p: dict(child(*(p[0], "random_search", p[1])), library=p[1]), pairs))
+    frame = pd.DataFrame(rows)
+    frame["rc"] = frame.get("rc", 0)
+    frame["rc"] = frame["rc"].fillna(0).astype(int)
+    lib = frame[frame["library"] == library].set_index("task")
+    gpb = frame[frame["library"] == "gpboost"].set_index("task")
+    out = pd.DataFrame(dict(rc=lib["rc"] | gpb["rc"].reindex(lib.index), random_search_s=lib["sekunden"],
+                            random_search_s_gpb=gpb["sekunden"].reindex(lib.index))).reset_index()
+    out[["suite", "task"]] = out["task"].str.split("_", expand=True).astype(int)
+    out = out[["suite", "task", "rc", "random_search_s", "random_search_s_gpb"]]
+    if nach_file(library).exists():
+        old = pd.read_csv(nach_file(library), sep="\t")
+        out = pd.concat([old, out]).drop_duplicates(["suite", "task"], keep="last")
+    out.to_csv(nach_file(library), sep="\t", index=False)
+    print(f"geschrieben: {nach_file(library)}")
+
+
+def verhaeltnisse(library, frame=None, verbose=True):
+    """{(suite, task): Laufzeit Bibliothek / GPBoost} fuer alle Aufgaben (gemessen oder hochgerechnet mit Reserve)."""
+    frame = sizes() if frame is None else frame
+    gpb = pd.read_csv(OUT, sep="\t")[["suite", "task", "random_search_s"]]
+    lib = pd.read_csv(lib_file(library), sep="\t")
+    both = lib.merge(gpb, on=["suite", "task"], suffixes=("", "_gpb")).dropna()
+    both = both[(both["rc"] == 0) & (both["random_search_s_gpb"] > 0)]
+    if nach_file(library).exists():         # Nachmessung: GPBoost-Referenz in derselben Datei gemessen
+        nach = pd.read_csv(nach_file(library), sep="\t").dropna()
+        nach = nach[(nach["rc"] == 0) & (nach["random_search_s_gpb"] > 0)]
+        both = pd.concat([both[~both.set_index(["suite", "task"]).index.isin(nach.set_index(["suite", "task"]).index)],
+                          nach])
+    both["ratio"] = both["random_search_s"] / both["random_search_s_gpb"]
+    frame = frame.merge(both[["suite", "task", "ratio"]], on=["suite", "task"], how="left")
+    design = np.column_stack([np.ones(len(frame)), np.log(frame["zeilen"]), np.log(frame["spalten"]),
+                              frame["anteil_kat"], frame["klassifikation"]])
+    fit = frame["ratio"].notna().to_numpy()
+    target = np.log(frame.loc[fit, "ratio"])
+    coef, *_ = np.linalg.lstsq(design[fit], target, rcond=None)
+    sd = float(np.std(target - design[fit] @ coef, ddof=design.shape[1]))
+    frame["verhaeltnis"] = frame["ratio"].fillna(pd.Series(np.exp(design @ coef + RESERVE_SD * sd), index=frame.index))
+    if verbose:
+        print(f"{library}/gpboost: {fit.sum()} gemessen, Median {frame.loc[fit, 'ratio'].median():.2f} "
+              f"(min {frame.loc[fit, 'ratio'].min():.2f}, max {frame.loc[fit, 'ratio'].max():.2f}); "
+              f"Fit-Residuen-SD {sd:.2f}, hochgerechnet Median {frame.loc[~fit, 'verhaeltnis'].median():.2f}")
+    return {(int(r.suite), int(r.task)): float(r.verhaeltnis) for r in frame.itertuples()}, frame
+
+
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "--one":
-        print(json.dumps(one(sys.argv[2], sys.argv[3])), flush=True)
+    if len(sys.argv) in (4, 5) and sys.argv[1] == "--one":
+        print(json.dumps(one(*sys.argv[2:])), flush=True)
         sys.exit(0)
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--hochrechnung", action="store_true", help="nur aus der vorhandenen Messung hochrechnen")
+    parser.add_argument("--library", choices=("xgboost", "catboost"), help="Bibliothek gegen GPBoost messen")
+    parser.add_argument("--nachmessen", nargs="+", metavar="SUITE_TASK",
+                        help="mit --library: diese Aufgaben zusaetzlich messen (Bibliothek und GPBoost)")
     args = parser.parse_args()
+    if args.nachmessen:
+        nachmessen(args.library, args.nachmessen, args.jobs)
+        verhaeltnisse(args.library)
+        sys.exit(0)
+    if args.library:
+        if not args.hochrechnung:
+            measure_library(args.library, args.jobs)
+        verhaeltnisse(args.library)
+        sys.exit(0)
     if not args.hochrechnung:
         measure(args.jobs)
     hochrechnen()

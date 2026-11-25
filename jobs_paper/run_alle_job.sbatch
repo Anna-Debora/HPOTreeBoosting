@@ -1,11 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=hpo-gpb_alle
+#SBATCH --job-name=hpo-alle
 #SBATCH --cpus-per-task=1
 #SBATCH --output=jobs_paper/logs/%x_%A_%a.out
 #SBATCH --error=jobs_paper/logs/%x_%A_%a.err
 #SBATCH --export=ALL
-# Ein Teiljob des Laufs gpb_alle (python make_paper_jobs.py --run gpb_alle). Nicht direkt abschicken, sondern ueber
-#   python refill.py --run gpb_alle   (Probe: bash jobs_paper/submit_gpb_alle.sh probe)
+# Ein Teiljob der Laeufe gpb_alle, xgb_alle, cat_alle (python make_paper_jobs.py --run <lauf>). Nicht direkt
+# abschicken, sondern ueber  python refill.py --run <lauf>   (Probe: bash jobs_paper/submit_<lauf>.sh probe).
+# Bibliothek aus der Spalte flags (--library, sonst gpboost), auch fuer den Default (run_default.py --library).
 # venv je Methode: bohb, dehb, hebo mit .venv_extra (wie run_extra_job.sbatch, Zwischendateien in $TMPDIR/$SCRATCH),
 # alle anderen mit .venv (wie run_paper_job.sbatch). Wiederholbar wie dort (--resume, Default: fertige Datei bleibt).
 
@@ -20,6 +21,8 @@ IDX_FILE=$2
 LINE_NO=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$IDX_FILE")
 JOB_LINE=$(sed -n "${LINE_NO}p" "jobs_paper/$RUN/jobs.tsv")
 IFS=$'\t' read -r METHOD SEED SUITE_ID TASK_ID TRIALS FOLDER FLAGS <<< "$JOB_LINE"
+LIB=$(echo "$FLAGS" | sed -n 's/.*--library \([a-z]*\).*/\1/p')
+LIB=${LIB:-gpboost}
 
 case "$METHOD" in
     bohb|dehb|hebo) VENV=.venv_extra
@@ -45,11 +48,12 @@ if [ ! -s "$DATA_X" ]; then
 fi
 
 if [ "$METHOD" = "default" ]; then
-    OUT="$FOLDER/default/gpboost/${SUITE_ID}_${TASK_ID}.csv"
+    OUT="$FOLDER/default/$LIB/${SUITE_ID}_${TASK_ID}.csv"
     if [ -s "$OUT" ]; then
         echo "SCHON FERTIG: $OUT"
     else
-        python run_default.py --suite_id "$SUITE_ID" --task_id "$TASK_ID" --result_folder "$FOLDER/default"
+        python run_default.py --suite_id "$SUITE_ID" --task_id "$TASK_ID" --result_folder "$FOLDER/default" \
+            --library "$LIB"
     fi
 else
     python run_ablation.py --method "$METHOD" --seed "$SEED" --suite_id "$SUITE_ID" --task_id "$TASK_ID" \

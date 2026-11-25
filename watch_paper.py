@@ -12,7 +12,7 @@ Aufruf auf Euler (aus ~/HPOTreeBoosting, mit aktivierter .venv):
     python watch_paper.py --run gpb_l1    # nur gpb_l1 (wie gpb mit lambda_l1 log, 270 Versuche); ohne --run dabei,
                                           # sobald jobs_paper/gpb_l1/jobs.tsv existiert
     python watch_paper.py --run gpb_alle  # nur gpb_alle (alle Methoden und Datensaetze); ohne --run dabei,
-                                          # sobald jobs_paper/gpb_alle/jobs.tsv existiert
+                                          # sobald jobs_paper/gpb_alle/jobs.tsv existiert (ebenso xgb_alle, cat_alle)
     python watch_paper.py --run paper     # nur einer
     python watch_paper.py --aufgaben      # zusaetzlich je Aufgabe und Welle: fertige Jobs / alle, "ok" = vollstaendig
     python watch_paper.py --speicher      # MaxRSS je Aufgabe und Methode aus sacct, OOM-Faelle, neuer Speicherplan,
@@ -49,7 +49,10 @@ import speicher
 from run_ablation import expected_rows
 
 JOBS = Path("jobs_paper")
-RUN_ORDER = ["paper", "l1_270", "extra", "gpb", "gpb_l1", "gpb_alle"]      # Reihenfolge wie refill.py
+RUN_ORDER = ["paper", "l1_270", "extra", "gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle"]
+# XGBoost/CatBoost: Speicher aus kosten.tsv (Mac-Messung der Bibliothek), nicht aus speicher_euler.tsv (GPBoost);
+# nach OUT_OF_MEMORY eskaliert escalate() je Job wie sonst
+LIBRARY_RUNS = ("xgb_alle", "cat_alle")      # Reihenfolge wie refill.py
 COLUMNS = ["method", "seed", "suite", "task", "trials", "folder", "flags"]
 SUBMITTED = ["id", "idx", "n", "zeit", "partition", "stunden", "mem"]
 PARTITIONS = (("normal.4h", 4), ("normal.24h", 24), ("normal.120h", 120))
@@ -71,19 +74,31 @@ ENDED_BAD = ["FAILED", "TIMEOUT", "OUT_OF_MEMORY", "CANCELLED", "NODE_FAIL", "PR
 STATES = ["fertig", "laufend", "wartend", "unbekannt", "abgebrochen", "fehlgeschlagen", "fehlt"]
 
 
+def job_flags(job):
+    """Spalte flags eines Jobs (Zeile als Series oder namedtuple; Series.flags waere pandas' Flags-Objekt)."""
+    return str(job["flags"] if isinstance(job, pd.Series) else job.flags)
+
+
+def library_of(flags):
+    """Bibliothek eines Jobs aus der Spalte flags (--library xgboost|catboost), sonst gpboost."""
+    parts = str(flags).split()
+    return parts[parts.index("--library") + 1] if "--library" in parts[:-1] else "gpboost"
+
+
 def file_state(job):
     """'fertig', 'angefangen (k/5)' oder 'fehlt'."""
+    library = library_of(job_flags(job))
     if job.method == "default":
-        path = Path(job.folder) / "default" / "gpboost" / f"{job.suite}_{job.task}.csv"
+        path = Path(job.folder) / "default" / library / f"{job.suite}_{job.task}.csv"
         return "fertig" if path.exists() and path.stat().st_size > 0 else "fehlt"
-    path = Path(job.folder) / job.method / f"seed_{job.seed}" / "gpboost" / f"{job.suite}_{job.task}__num_leaves.csv"
+    path = Path(job.folder) / job.method / f"seed_{job.seed}" / library / f"{job.suite}_{job.task}__num_leaves.csv"
     if not path.exists():
         return "fehlt"
     try:
         sizes = pd.read_csv(path, usecols=["fold"])["fold"].value_counts()
     except Exception:
         return "angefangen (0/5)"
-    n_rows = expected_rows(job.method, int(job.trials), "--paper_grid" in str(job.flags))
+    n_rows = expected_rows(job.method, int(job.trials), "--paper_grid" in job_flags(job))
     done = sum(1 for n in sizes if n == (n_rows or sizes.max()))
     return "fertig" if done >= FOLDS else f"angefangen ({done}/5)"
 
@@ -278,7 +293,7 @@ def load_jobs(run, with_files=True):
     for column in ("partition", "mem_gb", "kernstunden", "name", "stunden", "welle", "zeitlimit", "reihenfolge"):
         jobs[column] = costs[column] if column in costs else (costs["stunden"] if column == "zeitlimit" else 0)
     jobs["mem_gb"] = jobs["mem_gb"].astype(float)
-    if speicher.EULER.exists():
+    if speicher.EULER.exists() and run not in LIBRARY_RUNS:   # Euler-Messungen stammen von GPBoost
         plan = speicher.Plan()
         jobs["mem_gb"] = [plan(s, t, m) for s, t, m in zip(jobs["suite"], jobs["task"], jobs["method"])]
     jobs["line"] = jobs.index + 1
@@ -435,6 +450,7 @@ def memory_report(runs, sacct_text=None, out=None):
     """MaxRSS je Aufgabe und Methode gegen angeforderten und neuen Speicher; schreibt speicher_euler.tsv (Grundlage
     fuer speicher.Plan und damit fuer refill.py) und prueft die Zeitlimits gegen die gemessenen Laufzeiten."""
     out = Path(out or speicher.EULER)
+    runs = [r for r in runs if r not in LIBRARY_RUNS]   # speicher_euler.tsv gilt nur fuer GPBoost (s. LIBRARY_RUNS)
     frame = measurements(runs, sacct_text)
     if frame is None:
         print("kein sacct")
@@ -531,7 +547,8 @@ def pending_mismatch(run, jobs, tries):
 
 
 # ---------------------------------------------------------------- Prognose
-JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra", "hpo-gpb", "hpo-gpb_l1", "hpo-gpb_alle")
+JOB_NAMES = ("hpo-paper", "hpo-l1_270", "hpo-extra", "hpo-gpb", "hpo-gpb_l1", "hpo-gpb_alle", "hpo-xgb_alle",
+             "hpo-cat_alle")
 MIN_CALIBRATION_JOBS = 20     # so viele fertige Jobs braucht der Faktor tatsaechlich / Schaetzung
 
 
@@ -700,7 +717,7 @@ if __name__ == "__main__":
     parser.add_argument("--speicher", action="store_true", help="MaxRSS je Aufgabe, schreibt speicher_euler.tsv")
     parser.add_argument("--max_versuche", type=int, default=3)
     args = parser.parse_args()
-    runs = args.run or ["paper", "l1_270", *[r for r in ("extra", "gpb", "gpb_l1", "gpb_alle") if (JOBS / r / "jobs.tsv").exists()]]
+    runs = args.run or ["paper", "l1_270", *[r for r in ("extra", "gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle") if (JOBS / r / "jobs.tsv").exists()]]
     if args.speicher:
         memory_report(runs)
     else:

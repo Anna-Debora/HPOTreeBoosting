@@ -57,9 +57,11 @@ Bestehende Ergebnisdateien werden nie ueberschrieben (Abbruch mit Exit-Code 3), 
 Aufruf:  python run_ablation.py --method {random_search,tpe,SMAC,gp_bo,hyperband,grid_search,bohb,dehb,hebo} \
              --seed 27225 \
              --result_folder Results_ablation/A [--trials 135] [--l1 on|off] [--no_lambda_l1] [--paper_grid] \
-             [--scales paper|gpboost] [--folds 5] \
+             [--scales paper|gpboost] [--library gpboost|xgboost|catboost] [--folds 5] \
              [--suite_id 336 --task_id 361076] [--hyperband_R 2150] [--resume]
-Ausgabe: <result_folder>/<method>/seed_<seed>/gpboost/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
+Bibliothek (--library, Standard gpboost): xgboost und catboost nur mit --scales gpboost, Suchraeume nach
+SUCHRAEUME_XGB_CAT.md (methods.py). --paper_grid gilt fuer deren Gitter in methods._library_grid.
+Ausgabe: <result_folder>/<method>/seed_<seed>/<library>/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
          nach jedem Fold angehaengt, damit ein Abbruch durch das Zeitlimit die fertigen Folds behaelt.
 """
 import argparse
@@ -79,7 +81,8 @@ from run_experiments import RESULT_COLUMNS
 from SMAC_method import ParameterOptimizationSMAC
 from task_types import is_classification
 
-LIBRARY = "gpboost"
+LIBRARY = "gpboost"                             # Standard; --library xgboost|catboost (Laeufe xgb_alle, cat_alle)
+LIBRARIES = ("gpboost", "xgboost", "catboost")
 EXTRA_METHODS = ("bohb", "dehb", "hebo")       # Lauf "extra", nur in .venv_extra
 STRATEGY = dict(try_max_depth=False, try_num_leaves=True, joint_tuning_depth_leaves=False, try_num_iter=False)
 
@@ -209,7 +212,7 @@ def main(args):
     data_x = os.path.join(path, f"{args.suite_id}_{args.task_id}_X.csv")
     if not os.path.isfile(data_x) or os.path.getsize(data_x) == 0:
         sys.exit(f"ABBRUCH: {data_x} fehlt oder ist leer")
-    folder = Path(args.result_folder) / args.method / f"seed_{args.seed}" / LIBRARY
+    folder = Path(args.result_folder) / args.method / f"seed_{args.seed}" / args.library
     output = folder / f"{args.suite_id}_{args.task_id}__num_leaves.csv"
     done = set()
     if output.exists():
@@ -232,9 +235,10 @@ def main(args):
     y = pd.read_csv(os.path.join(path, f"{args.suite_id}_{args.task_id}_y.csv"))
     categorical_indicator = np.load(os.path.join(path, f"{args.suite_id}_{args.task_id}_categorical_indicator.npy"))
     obj = ParameterOptimizationSMAC(X=X, y=y, categorical_indicator=categorical_indicator, suite_id=int(args.suite_id),
-                                    seed=int(args.seed), library=LIBRARY, scales=args.scales,
+                                    seed=int(args.seed), library=args.library, scales=args.scales,
                                     lambda_l1=args.scales == "paper" or not args.no_lambda_l1, **STRATEGY)
-    print(f"{args.method} seed={args.seed} trials={args.trials} lambda_l1={'aus' if args.no_lambda_l1 else 'an'} "
+    obj.paper_grid = args.paper_grid        # XGBoost/CatBoost-Gitter (methods._library_grid); GPBoost: apply_settings
+    print(f"{args.method} {args.library} seed={args.seed} trials={args.trials} lambda_l1={'aus' if args.no_lambda_l1 else 'an'} "
           f"Skalen={args.scales} "
           f"{'Paper-Gitter ' if args.paper_grid else ''}-> {output}", flush=True)
     for fold, (train_index, test_index) in enumerate(list(obj.splits)[:args.folds]):
@@ -248,12 +252,12 @@ def main(args):
         results.insert(0, "iter", results.index)
         if args.no_lambda_l1:
             results["lambda_l1"] = 0.0
-        if args.paper_grid:
+        if args.paper_grid and args.library != "catboost":   # CatBoost: subsample ist Achse des Gitters
             results["bagging_fraction"] = 1.0   # wie df_trials['bagging_fraction'] = 1 im Paper-Code
         results["fold"] = fold
         results["method"] = args.method
         results["task_id"] = int(args.task_id)
-        results["library"] = LIBRARY
+        results["library"] = args.library
         results["classification"] = 1 if is_classification(int(args.suite_id)) else 0
         results = results.reindex(columns=[*RESULT_COLUMNS, *[c for c in results.columns if c not in RESULT_COLUMNS]])
         job_io.write_csv_atomic(results, output, append=True)
@@ -278,6 +282,9 @@ def parse_args(argv=None):
                              "GPBoost fuer TPE, GP-BO, SMAC, Hyperband, BOHB, DEHB, HEBO (Gitter unveraendert)")
     parser.add_argument("--paper_grid", action="store_true",
                         help="deterministisches Gitter ohne bagging_fraction (135 Punkte wie im Paper-Code)")
+    parser.add_argument("--library", choices=LIBRARIES, default=LIBRARY,
+                        help="gpboost (Standard), xgboost oder catboost; xgboost/catboost nur mit --scales gpboost "
+                             "(Suchraeume nach SUCHRAEUME_XGB_CAT.md)")
     parser.add_argument("--folds", type=int, default=5, help="nur fuer lokale Proben kleiner als 5")
     parser.add_argument("--hyperband_R", type=int, default=2150, help="nur fuer lokale Proben kleiner als 2150")
     parser.add_argument("--resume", action="store_true",
@@ -288,6 +295,8 @@ def parse_args(argv=None):
     if args.l1 == "on" and args.no_lambda_l1:
         parser.error("--l1 on und --no_lambda_l1 widersprechen sich")
     args.no_lambda_l1 = args.no_lambda_l1 or args.l1 == "off"
+    if args.library != "gpboost" and args.scales != "gpboost":
+        parser.error("--library xgboost/catboost nur mit --scales gpboost (freigegebene Suchraeume)")
     return args
 
 

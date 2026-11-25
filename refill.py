@@ -45,7 +45,9 @@ weiter zuerst. In einer Liste mit anderen Laeufen kommen seine Jobs vor deren We
 
 Lauf gpb_alle (GPBoost, alle Methoden und 345 Datensaetze, Skalen gpboost, ohne lambda_l1, T = 135;
 make_paper_jobs.py --run gpb_alle): nur mit --run gpb_alle (oder in einer Liste mit Komma), Job-Name hpo-gpb_alle,
-jobs_paper/run_gpb_alle_job.sbatch (.venv bzw. .venv_extra fuer BOHB, DEHB, HEBO), laengste Jobs zuerst wie gpb_l1.
+jobs_paper/run_alle_job.sbatch (.venv bzw. .venv_extra fuer BOHB, DEHB, HEBO), laengste Jobs zuerst wie gpb_l1.
+Laeufe xgb_alle, cat_alle (XGBoost, CatBoost, alle 345 Aufgaben, alle Methoden): ebenso, Job-Namen hpo-xgb_alle,
+hpo-cat_alle; Speicher aus kosten.tsv (Mac-Messung der Bibliothek), OUT_OF_MEMORY eskaliert je Job.
 
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
@@ -53,6 +55,7 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run gpb                   # nur den Lauf gpb
     python refill.py --run gpb_l1                # nur den Lauf gpb_l1 (laengste Jobs zuerst)
     python refill.py --run gpb_alle              # nur den Lauf gpb_alle (laengste Jobs zuerst)
+    python refill.py --run gpb_alle,xgb_alle,cat_alle   # alle drei Bibliotheken
     python refill.py --run alle,gpb --daemon     # Daemon fuer paper, l1_270, extra und gpb
     python refill.py --run alle --daemon         # Daemon fuer alle drei Laeufe (vorher: python refill.py --stop)
     DRY=1 python refill.py --run beide           # nur anzeigen (auch: --dry)
@@ -89,10 +92,11 @@ import watch_paper as wp
 
 RUNS = ("paper", "l1_270")                 # --run beide
 ALL_RUNS = RUNS + ("extra",)               # --run alle
-KNOWN_RUNS = ALL_RUNS + ("gpb", "gpb_l1", "gpb_alle")  # mit jobs_paper/<lauf>/submitted.tsv (gpb* nur ausdruecklich)
-LONGEST_FIRST = ("gpb_l1", "gpb_alle")                # Abgabe nur nach Spalte reihenfolge (laengste zuerst), nicht nach Welle
+KNOWN_RUNS = ALL_RUNS + ("gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle")  # mit jobs_paper/<lauf>/submitted.tsv (gpb* nur ausdruecklich)
+LONGEST_FIRST = ("gpb_l1", "gpb_alle", "xgb_alle", "cat_alle")                # Abgabe nur nach Spalte reihenfolge (laengste zuerst), nicht nach Welle
 RUN_GROUPS = {"beide": RUNS, "alle": ALL_RUNS}
-SBATCH_SCRIPTS = {"extra": "jobs_paper/run_extra_job.sbatch", "gpb_alle": "jobs_paper/run_gpb_alle_job.sbatch"}      # sonst jobs_paper/run_paper_job.sbatch
+SBATCH_SCRIPTS = {"extra": "jobs_paper/run_extra_job.sbatch", **{r: "jobs_paper/run_alle_job.sbatch"
+                                                                   for r in ("gpb_alle", "xgb_alle", "cat_alle")}}      # sonst jobs_paper/run_paper_job.sbatch
 MAX_ARRAY = 1000
 HOURS = dict(wp.PARTITIONS)
 DAEMON = "hpo-refill"
@@ -383,7 +387,7 @@ def parse_runs(text):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", default="beide",
-                        help="paper, l1_270, extra, gpb, gpb_l1, gpb_alle, beide = paper + l1_270 (Standard), alle = paper + l1_270 + "
+                        help="paper, l1_270, extra, gpb, gpb_l1, gpb_alle, xgb_alle, cat_alle, beide = paper + l1_270 (Standard), alle = paper + l1_270 + "
                              "extra (ohne gpb); mehrere mit Komma, z. B. alle,gpb")
     parser.add_argument("--limit", type=queue_limit, default=wp.QUEUE_LIMIT,
                         help=f"hoechstens so viele eigene Jobs in der Schlange (Standard {wp.QUEUE_LIMIT}, "

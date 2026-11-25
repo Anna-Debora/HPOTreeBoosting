@@ -3,10 +3,10 @@
   Jobs        59 alte Aufgaben nur BOHB/DEHB/HEBO (Rest wiederverwendet), 286 neue alle 10 Methoden:
               3540 + 51766 = 55306 Jobs, T = 135, Ordner Results_gpb_alle, lambda_l1 nie getunt
   Flags       Default ohne, Gitter/Zufallsgitter wie paper (135er Gitter), sonst --l1 off --scales gpboost
-  Repo        jobs_paper/gpb_alle/jobs.tsv, probe.idx, submit_gpb_alle.sh, run_gpb_alle_job.sbatch = neu erzeugt;
+  Repo        jobs_paper/gpb_alle/jobs.tsv, probe.idx, submit_gpb_alle.sh, run_alle_job.sbatch = neu erzeugt;
               gpb, gpb_l1 byte-gleich
   Wiederverwendung  jobs.tsv von gpb/paper: gleiche Seeds, T, Flags
-  Infrastruktur  refill (run_gpb_alle_job.sbatch, laengste zuerst), watch_paper, check_results, speicher (neue Aufgaben)
+  Infrastruktur  refill (run_alle_job.sbatch, laengste zuerst), watch_paper, check_results, speicher (neue Aufgaben)
 Aufruf: .venv/bin/python -m unittest test_gpb_alle -v
 """
 import tempfile
@@ -64,7 +64,7 @@ class JobsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as out:
             mpj.main_gpb_alle(out, check=False)
             for name in ("gpb_alle/jobs.tsv", "gpb_alle/arrays/probe.idx", "submit_gpb_alle.sh",
-                         "run_gpb_alle_job.sbatch", "aufgaben_alle.tsv"):
+                         "run_alle_job.sbatch", "aufgaben_alle.tsv"):
                 self.assertEqual(Path(out, name).read_text(), Path("jobs_paper", name).read_text(), name)
             for run in ("gpb", "gpb_l1"):
                 mpj.main_gpb(out, "jobs_paper/zeitmessung_mac.tsv", run=run)
@@ -78,10 +78,10 @@ class JobsTests(unittest.TestCase):
         self.assertEqual(len(rows), 2 * 10 + 3)
         script = Path("jobs_paper/submit_gpb_alle.sh").read_text()
         self.assertIn(f"--array=0-{len(rows) - 1}", script)
-        self.assertIn("--job-name=hpo-gpb_alle jobs_paper/run_gpb_alle_job.sbatch gpb_alle", script)
+        self.assertIn("--job-name=hpo-gpb_alle jobs_paper/run_alle_job.sbatch gpb_alle", script)
 
     def test_sbatch_venv_per_method(self):
-        text = Path("jobs_paper/run_gpb_alle_job.sbatch").read_text()
+        text = Path("jobs_paper/run_alle_job.sbatch").read_text()
         self.assertIn("bohb|dehb|hebo) VENV=.venv_extra", text)
         self.assertIn("*)              VENV=.venv", text)
         self.assertIn("run_default.py", text)
@@ -120,7 +120,7 @@ class InfrastructureTests(unittest.TestCase):
         self.assertNotIn(RUN, refill.parse_runs("alle"))
         self.assertIn(RUN, refill.LONGEST_FIRST)
         cmd = refill.sbatch_command(RUN, "normal.24h", 24, 2, "x.idx", 5)
-        self.assertIn("jobs_paper/run_gpb_alle_job.sbatch", cmd)
+        self.assertIn("jobs_paper/run_alle_job.sbatch", cmd)
         self.assertIn("--job-name=hpo-gpb_alle", cmd)
 
     def test_watch_and_check(self):

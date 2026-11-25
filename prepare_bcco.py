@@ -12,6 +12,8 @@ Datensaetze, deren Name schon in den alten Suiten oder in new_tasks.csv vorkommt
 
 Aufruf:  python prepare_bcco.py            (alle)
          python prepare_bcco.py --limit 3  (nur die ersten 3 je Repo zum Testen)
+         python prepare_bcco.py --nur-fehlende   (nur Aufgaben ohne fertigen Datenordner; die IDs bleiben gleich,
+                                                   weil die Nummerierung weiter ueber alle Namen des Repos laeuft)
 """
 import argparse
 import json
@@ -59,8 +61,17 @@ def excluded_names():
     return {(int(s), norm(n)) for s, n in zip(excluded["suite_id"], excluded["name"])}
 
 
-def main(limit=None, balance=True):
-    from huggingface_hub import hf_hub_download, list_repo_files
+def complete(suite, task_id):
+    path = f"data/{suite}_{task_id}/{suite}_{task_id}"
+    return all(os.path.exists(path + end) for end in ("_X.csv", "_y.csv", "_categorical_indicator.npy"))
+
+
+def main(limit=None, balance=True, only_missing=False):
+    try:
+        from huggingface_hub import hf_hub_download, list_repo_files
+    except ImportError:
+        raise SystemExit("FEHLER: huggingface_hub fehlt in dieser Umgebung -> pip install 'huggingface_hub==1.8.0' "
+                         "(oder bash euler_setup.sh --nur-daten, Schritt 2 installiert es)")
     skip = known_names()
     excluded = excluded_names()
     report, registered = [], {1001: [], 1002: []}
@@ -74,7 +85,9 @@ def main(limit=None, balance=True):
             print(f"[{suite}_{task_id}] {name} ...", flush=True)
             info = {"suite_id": suite, "task_id": task_id, "name": name, "source": repo}
             try:
-                if norm(name) in skip:
+                if only_missing and complete(suite, task_id):
+                    info["status"] = "vorhanden (--nur-fehlende)"
+                elif norm(name) in skip:
                     info["status"] = "UEBERSPRUNGEN: Name schon vorhanden (Duplikat)"
                 elif (suite, norm(name)) in excluded:
                     info["status"] = "UEBERSPRUNGEN: in excluded_duplicates.csv ausgeschlossen"
@@ -121,5 +134,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--no-balance", action="store_true")
+    parser.add_argument("--nur-fehlende", action="store_true", help="vorhandene Datenordner nicht neu erzeugen")
     args = parser.parse_args()
-    main(args.limit, balance=not args.no_balance)
+    main(args.limit, balance=not args.no_balance, only_missing=args.nur_fehlende)

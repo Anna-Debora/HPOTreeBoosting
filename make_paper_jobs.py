@@ -85,12 +85,12 @@ Lauf "gpb_alle" (eigener Aufruf, aendert nichts an den anderen Laeufen und an de
   59 x 20 x 3 + 286 x (1 + 20 x 9) = 3540 + 51766 = 55306 Jobs. Sekunden je Versuch der neuen Aufgaben aus der
   Stichprobe + Hochrechnung (measure_new_tasks.py), Speicher aus jobs_paper/speicher_neu_mac.tsv (measure_memory.py
   --tasks jobs_paper/aufgaben_neu.tsv). Kosten mit GPB_ALLE_COST_FACTOR (gpb, BOHB/DEHB/HEBO gemessen, s. dort).
-  Reihenfolge laengste Jobs zuerst (wie gpb_l1). sbatch-Skript jobs_paper/run_gpb_alle_job.sbatch: .venv fuer die
+  Reihenfolge laengste Jobs zuerst (wie gpb_l1). sbatch-Skript jobs_paper/run_alle_job.sbatch: .venv fuer die
   sieben alten Methoden, .venv_extra fuer BOHB, DEHB, HEBO. Probe: GPB_ALLE_PROBE (Seed 27225), abschicken mit
   bash jobs_paper/submit_gpb_alle.sh probe. Daten der neuen Aufgaben auf Euler: bash euler_setup.sh.
   Aufruf: python make_paper_jobs.py --run gpb_alle
   Ausgabe: jobs_paper/gpb_alle/{jobs.tsv, kosten.tsv, kosten_wellen.tsv, zusammenfassung.txt, arrays/probe.idx},
-           jobs_paper/aufgaben_alle.tsv, jobs_paper/run_gpb_alle_job.sbatch, jobs_paper/submit_gpb_alle.sh
+           jobs_paper/aufgaben_alle.tsv, jobs_paper/run_alle_job.sbatch, jobs_paper/submit_gpb_alle.sh
 
 Aufruf:  python make_paper_jobs.py [--out jobs_paper]
 Ausgabe: <out>/<lauf>/jobs.tsv (eine Zeile je Job, ohne Kopfzeile, fuer das sbatch-Skript)
@@ -149,7 +149,26 @@ GPB_ALLE_RUN = dict(folder="Results_gpb_alle", trials=135, flags=GPB_RUN["flags"
 # Probe: kleine neue Aufgaben (Regression, Klassifikation) mit allen 10 Methoden, dazu BOHB/DEHB/HEBO auf
 # analcatdata_supreme (alte Aufgabe); Seed 27225 (Default: Seed 0)
 GPB_ALLE_PROBE = ((1001, 920074), (1002, 930017), (335, 361093))
-ALL_RUNS = {**RUNS, "extra": EXTRA_RUN, "gpb": GPB_RUN, "gpb_l1": GPB_L1_RUN, "gpb_alle": GPB_ALLE_RUN}
+
+
+def library_run(library, folder):
+    """Lauf xgb_alle / cat_alle: alle 345 Aufgaben, alle 10 Methoden, komplett neu (keine Wiederverwendung),
+    --library <library> --l1 off --scales gpboost (Suchraeume SUCHRAEUME_XGB_CAT.md), Gitter zusaetzlich
+    --paper_grid (135 Punkte), Default --library <library> (Bibliotheks-Default). Kosten = GPBoost-Kosten des Jobs
+    (gleiche Faktoren wie gpb_alle) x Laufzeitverhaeltnis Bibliothek / GPBoost je Aufgabe (measure_new_tasks.py
+    --library), Speicher aus jobs_paper/speicher_<library>_mac.tsv (measure_memory.py --library)."""
+    base = f"--library {library} --l1 off --scales gpboost"
+    flags = {m: base + (" --paper_grid" if m == "grid_search" else "") for m in GPB_ALLE_METHODS}
+    return dict(folder=folder, trials=135, flags=base, methods=GPB_ALLE_METHODS, flags_by_method=flags,
+                default_flags=f"--library {library}", cost_factor=GPB_ALLE_COST_FACTOR, longest_first=True,
+                library=library)
+
+
+XGB_ALLE_RUN = library_run("xgboost", "Results_xgb_alle")
+CAT_ALLE_RUN = library_run("catboost", "Results_cat_alle")
+ALLE_RUNS = {"gpb_alle": GPB_ALLE_RUN, "xgb_alle": XGB_ALLE_RUN, "cat_alle": CAT_ALLE_RUN}
+LIBRARY_RUNS = ("xgb_alle", "cat_alle")
+ALL_RUNS = {**RUNS, "extra": EXTRA_RUN, "gpb": GPB_RUN, "gpb_l1": GPB_L1_RUN, **ALLE_RUNS}
 ALL_METHODS = METHODS + EXTRA_METHODS
 # Probe des Laufs extra: die zwei schnellsten Aufgaben laut zeitmessung_mac.tsv (Regression, Klassifikation)
 EXTRA_PROBE = ((335, 361093), (337, 361278))   # analcatdata_supreme (Regression), heloc (Klassifikation); Seed 27225
@@ -249,7 +268,8 @@ def build(run, sec, task_list, memory=None, methods=None):
                     hours *= settings["cost_factor"][method]
                 name, limit = partition(hours)
                 rows.append(dict(method=method, seed=seed, suite=t.suite, task=t.task, trials=settings["trials"],
-                                 flags=flags.get(method, settings["flags"]) if method != "default" else "",
+                                 flags=(flags.get(method, settings["flags"]) if method != "default"
+                                        else settings.get("default_flags", "")),
                                  folder=settings["folder"],
                                  name=t.name, kernstunden=round(hours, 3), partition=name, stunden=limit,
                                  mem_gb=memory(t.suite, t.task, method), welle=wave(seed),
@@ -576,14 +596,15 @@ def main_gpb(out, timing, memory="jobs_paper/speicher_mac.tsv", euler="jobs_pape
     return jobs
 
 
-SBATCH_GPB_ALLE = """#!/bin/bash
-#SBATCH --job-name=hpo-gpb_alle
+SBATCH_ALLE = """#!/bin/bash
+#SBATCH --job-name=hpo-alle
 #SBATCH --cpus-per-task=1
 #SBATCH --output=jobs_paper/logs/%x_%A_%a.out
 #SBATCH --error=jobs_paper/logs/%x_%A_%a.err
 #SBATCH --export=ALL
-# Ein Teiljob des Laufs gpb_alle (python make_paper_jobs.py --run gpb_alle). Nicht direkt abschicken, sondern ueber
-#   python refill.py --run gpb_alle   (Probe: bash jobs_paper/submit_gpb_alle.sh probe)
+# Ein Teiljob der Laeufe gpb_alle, xgb_alle, cat_alle (python make_paper_jobs.py --run <lauf>). Nicht direkt
+# abschicken, sondern ueber  python refill.py --run <lauf>   (Probe: bash jobs_paper/submit_<lauf>.sh probe).
+# Bibliothek aus der Spalte flags (--library, sonst gpboost), auch fuer den Default (run_default.py --library).
 # venv je Methode: bohb, dehb, hebo mit .venv_extra (wie run_extra_job.sbatch, Zwischendateien in $TMPDIR/$SCRATCH),
 # alle anderen mit .venv (wie run_paper_job.sbatch). Wiederholbar wie dort (--resume, Default: fertige Datei bleibt).
 
@@ -598,6 +619,8 @@ IDX_FILE=$2
 LINE_NO=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$IDX_FILE")
 JOB_LINE=$(sed -n "${LINE_NO}p" "jobs_paper/$RUN/jobs.tsv")
 IFS=$'\\t' read -r METHOD SEED SUITE_ID TASK_ID TRIALS FOLDER FLAGS <<< "$JOB_LINE"
+LIB=$(echo "$FLAGS" | sed -n 's/.*--library \\([a-z]*\\).*/\\1/p')
+LIB=${LIB:-gpboost}
 
 case "$METHOD" in
     bohb|dehb|hebo) VENV=.venv_extra
@@ -623,11 +646,12 @@ if [ ! -s "$DATA_X" ]; then
 fi
 
 if [ "$METHOD" = "default" ]; then
-    OUT="$FOLDER/default/gpboost/${SUITE_ID}_${TASK_ID}.csv"
+    OUT="$FOLDER/default/$LIB/${SUITE_ID}_${TASK_ID}.csv"
     if [ -s "$OUT" ]; then
         echo "SCHON FERTIG: $OUT"
     else
-        python run_default.py --suite_id "$SUITE_ID" --task_id "$TASK_ID" --result_folder "$FOLDER/default"
+        python run_default.py --suite_id "$SUITE_ID" --task_id "$TASK_ID" --result_folder "$FOLDER/default" \\
+            --library "$LIB"
     fi
 else
     python run_ablation.py --method "$METHOD" --seed "$SEED" --suite_id "$SUITE_ID" --task_id "$TASK_ID" \\
@@ -716,24 +740,57 @@ def pruefe_wiederverwendung(out, results=True):
     return ok, lines
 
 
-SUBMIT_GPB_ALLE = SUBMIT_GPB.replace("jobs_paper/run_paper_job.sbatch", "jobs_paper/run_gpb_alle_job.sbatch")
+SUBMIT_ALLE = SUBMIT_GPB.replace("jobs_paper/run_paper_job.sbatch", "jobs_paper/run_alle_job.sbatch")
+NEW_VS_GPB = {
+    "gpb_alle": ["Neu gegenueber gpb: 286 neue Datensaetze (alle Methoden inkl. Default und Gitter), BOHB/DEHB/HEBO mit "
+                 "Skalen gpboost (auch auf den 59 alten Aufgaben). Gleich: Skalen, ohne lambda_l1, T = 135, Seeds."],
+    "xgb_alle": ["Neu gegenueber gpb: Bibliothek XGBoost (Suchraum SUCHRAEUME_XGB_CAT.md: max_leaves, min_child_weight = "
+                 "min_data_in_leaf x0.25 bei Klassifikation, reg_lambda, subsample, colsample_bytree, max_bin; lossguide, "
+                 "max_depth 0), alle 345 Datensaetze, alle 10 Methoden inkl. Default und Gitter, komplett neu gerechnet "
+                 "(Gitter: XGBoost-Pfad, ohne lambda_l1, 135 Punkte). Gleich: Skalen wie GPBoost, ohne lambda_l1, T = 135, "
+                 "Seeds, Folds, num_leaves."],
+    "cat_alle": ["Neu gegenueber gpb: Bibliothek CatBoost (Suchraum SUCHRAEUME_XGB_CAT.md: depth [1, 10] linear statt "
+                 "num_leaves, ohne min_data_in_leaf, l2_leaf_reg, border_count bis 1024, subsample mit bootstrap_type "
+                 "Bernoulli, rsm), alle 345 Datensaetze, alle 10 Methoden inkl. Default und Gitter, komplett neu "
+                 "gerechnet. Deterministisches Gitter: learning_rate {0.01, 0.1, 1} x lambda_l2 {0, 1, 10} x depth "
+                 "{1, 2, 3, 5, 10} x subsample {0.5, 0.75, 1} = 135 (subsample ersetzt das wegfallende "
+                 "min_data_in_leaf). Gleich: Skalen wie GPBoost, ohne lambda_l1, T = 135, Seeds, Folds."],
+}
+LIBRARY_NAMES = {"gpb_alle": "GPBoost", "xgb_alle": "XGBoost", "cat_alle": "CatBoost"}
 
 
-def main_gpb_alle(out, pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv", memory="jobs_paper/speicher_mac.tsv",
-                  memory_new="jobs_paper/speicher_neu_mac.tsv", euler="jobs_paper/speicher_euler.tsv", check=True):
-    """Lauf gpb_alle: schreibt nur jobs_paper/gpb_alle/, aufgaben_alle.tsv, run_gpb_alle_job.sbatch, submit_gpb_alle.sh."""
-    run, settings = "gpb_alle", GPB_ALLE_RUN
+def main_gpb_alle(out, check=True, **kw):
+    return main_alle(out, "gpb_alle", check=check, **kw)
+
+
+def main_alle(out, run="gpb_alle", pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv",
+              memory="jobs_paper/speicher_mac.tsv", memory_new="jobs_paper/speicher_neu_mac.tsv",
+              euler="jobs_paper/speicher_euler.tsv", check=True):
+    """Laeufe gpb_alle, xgb_alle, cat_alle: schreibt jobs_paper/<run>/, aufgaben_alle.tsv, run_alle_job.sbatch und
+    submit_<run>.sh. gpb_alle: alte Aufgaben nur BOHB/DEHB/HEBO (Rest wiederverwendet, pruefe_wiederverwendung);
+    xgb_alle, cat_alle: alles neu, Sekunden je Versuch x Verhaeltnis Bibliothek / GPBoost, Speicher der Bibliothek."""
+    settings = ALL_RUNS[run]
+    library = settings.get("library", "gpboost")
     out = Path(out)
     folder = out / run
     (folder / "arrays").mkdir(parents=True, exist_ok=True)
     sec, source = seconds_all(pred)
-    peaks = speicher.Plan(mac={**speicher.mac_peaks(memory_new), **speicher.mac_peaks(memory)},
-                          euler=speicher.euler_measurements(euler))
+    if library == "gpboost":
+        peaks = speicher.Plan(mac={**speicher.mac_peaks(memory_new), **speicher.mac_peaks(memory)},
+                              euler=speicher.euler_measurements(euler))
+    else:
+        import measure_new_tasks
+        ratio, _ = measure_new_tasks.verhaeltnisse(library, verbose=False)
+        sec = {k: v * ratio[k] for k, v in sec.items()}
+        # nur die Mac-Messung der Bibliothek (Euler-Messungen in speicher_euler.tsv stammen von GPBoost)
+        peaks = speicher.Plan(mac=speicher.mac_peaks(out / f"speicher_{library}_mac.tsv"),
+                              euler=pd.DataFrame(columns=speicher.EULER_COLUMNS))
     old, new = tasks(), tasks(NEW_SUITES)
     every = pd.concat([old, new], ignore_index=True)
     every.assign(classification=[is_classification(s) for s in every["suite"]]).to_csv(
         out / "aufgaben_alle.tsv", sep="\t", index=False, columns=["suite", "task", "name", "classification"])
-    jobs = pd.concat([build(run, sec, old, peaks, methods=GPB_ALLE_OLD_METHODS), build(run, sec, new, peaks)],
+    old_methods = GPB_ALLE_OLD_METHODS if run == "gpb_alle" else None
+    jobs = pd.concat([build(run, sec, old, peaks, methods=old_methods), build(run, sec, new, peaks)],
                      ignore_index=True)
     jobs = plan(jobs, longest_first=True)
     jobs[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
@@ -751,20 +808,23 @@ def main_gpb_alle(out, pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv", memor
     is_new = jobs["suite"].isin(NEW_SUITES)
     by_method = jobs.groupby("method")["kernstunden"].sum().round(0).astype(int).to_dict()
     by_source = jobs.groupby("quelle_zeit")["kernstunden"].sum().round(0).astype(int).to_dict()
-    summary = [f"Lauf {run} -> {settings['folder']}/: {len(jobs):,} Jobs, GPBoost, Skalen gpboost, ohne lambda_l1, "
+    summary = [f"Lauf {run} -> {settings['folder']}/: {len(jobs):,} Jobs, {LIBRARY_NAMES[run]}, Skalen gpboost, ohne lambda_l1, "
                f"T = 135, 20 Seeds, 5 Folds, num_leaves; geschaetzt {jobs['kernstunden'].sum():,.0f} Kernstunden "
                f"(Zeitlimits zusammen {jobs['stunden'].sum():,} h)",
-               f"  59 alte Aufgaben: {(~is_new).sum():,} Jobs (bohb, dehb, hebo x 20 Seeds), "
+               f"  59 alte Aufgaben: {(~is_new).sum():,} Jobs ("
+               f"{'bohb, dehb, hebo x 20 Seeds' if run == 'gpb_alle' else 'Default + 9 Methoden x 20 Seeds'}), "
                f"{jobs.loc[~is_new, 'kernstunden'].sum():,.0f} Kernstunden",
                f"  {new.shape[0]} neue Aufgaben: {is_new.sum():,} Jobs (Default + 9 Methoden x 20 Seeds), "
                f"{jobs.loc[is_new, 'kernstunden'].sum():,.0f} Kernstunden",
-               "  Flags: Default keine; " + "; ".join(
+               f"  Flags: Default '{settings.get('default_flags', '')}'; " + "; ".join(
                    f"{', '.join(m for m in GPB_ALLE_METHODS if m != 'default' and settings['flags_by_method'][m] == f)}"
                    f" '{f}'" for f in dict.fromkeys(settings['flags_by_method'][m] for m in GPB_ALLE_METHODS
                                                     if m != 'default')),
                f"  Faktoren gegenueber paper: {settings['cost_factor']}",
                f"  je Methode: {by_method}",
-               f"  Kernstunden nach Quelle der Sekunden je Versuch: {by_source} (hochgerechnet = mit Reserve)",
+               f"  Kernstunden nach Quelle der Sekunden je Versuch: {by_source} (hochgerechnet = mit Reserve)"
+               + ("" if library == "gpboost" else f"; Sekunden = GPBoost x Verhaeltnis {library}/GPBoost je Aufgabe "
+                  "(measure_new_tasks.py --library, Stichprobe 30 Aufgaben, sonst hochgerechnet mit Reserve)"),
                "  teuerste Jobs: " + ", ".join(
                    f"{r.name} {r.method} {r.kernstunden:.1f} h" for r in
                    jobs.sort_values("kernstunden", ascending=False).drop_duplicates(["task", "method"])
@@ -782,16 +842,15 @@ def main_gpb_alle(out, pred="jobs_paper/zeitmessung_neu_hochrechnung.tsv", memor
                        + f" (laengster Job {c.laengster_job_h} h)")
     summary += [f"Alle Wellen: {len(jobs):,} Jobs, {costs['kernstunden'].sum():,} Kernstunden. Abschicken: "
                 f"python refill.py --run {run}. Probe zuerst: bash jobs_paper/submit_{run}.sh probe",
-                "Neu gegenueber gpb: 286 neue Datensaetze (alle Methoden inkl. Default und Gitter), BOHB/DEHB/HEBO "
-                "mit Skalen gpboost (auch auf den 59 alten Aufgaben). Gleich: Skalen, ohne lambda_l1, T = 135, Seeds.",
+                *NEW_VS_GPB[run],
                 "Vor dem Start auf Euler: neue Daten (bash euler_setup.sh), .venv_extra (bash euler_install_extra.sh).", ""]
-    if check:
+    if check and run == "gpb_alle":
         summary += [*pruefe_wiederverwendung(out)[1], ""]
     hours = int(probe["zeitlimit"].max())
     part = next(name for name, longest in PARTITIONS if hours <= longest)
     mem_gb = max(float(probe["mem_gb"].max()), 2.0)
-    (out / "run_gpb_alle_job.sbatch").write_text(SBATCH_GPB_ALLE)
-    (out / f"submit_{run}.sh").write_text(SUBMIT_GPB_ALLE.format(
+    (out / "run_alle_job.sbatch").write_text(SBATCH_ALLE)
+    (out / f"submit_{run}.sh").write_text(SUBMIT_ALLE.format(
         run=run, methods=", ".join(GPB_ALLE_METHODS), n=len(probe), last=len(probe) - 1,
         names=", ".join(probe["name"].unique()), seed=PROBE[2], part=part,
         hours=hours, mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb)))
@@ -877,7 +936,7 @@ if __name__ == "__main__":
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
     parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
     parser.add_argument("--euler", default="jobs_paper/speicher_euler.tsv", help="aus watch_paper.py --speicher")
-    parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb", "gpb_l1", "gpb_alle"), default="paper+l1_270",
+    parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle"), default="paper+l1_270",
                         help="extra: nur den Lauf extra (BOHB, DEHB, HEBO) schreiben; gpb: nur den Lauf gpb (korrekte "
                              "Skalen ohne lambda_l1); gpb_l1: wie gpb mit lambda_l1 (log) und 270 Versuchen; "
                              "gpb_alle: GPBoost, alle Methoden und Datensaetze, Skalen gpboost, ohne lambda_l1; "
@@ -885,8 +944,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.run == "extra":
         main_extra(args.out, args.timing, args.memory, args.euler)
-    elif args.run == "gpb_alle":
-        main_gpb_alle(args.out, memory=args.memory, euler=args.euler)
+    elif args.run in ALLE_RUNS:
+        main_alle(args.out, args.run, memory=args.memory, euler=args.euler)
     elif args.run in ("gpb", "gpb_l1"):
         main_gpb(args.out, args.timing, args.memory, args.euler, run=args.run)
     else:

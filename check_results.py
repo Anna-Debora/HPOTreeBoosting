@@ -21,6 +21,7 @@ Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python check_results.py --run gpb          # Lauf gpb (korrekte Skalen ohne lambda_l1, Results_gpb)
     python check_results.py --run gpb_l1       # Lauf gpb_l1 (mit lambda_l1 log, 270 Versuche, Results_gpb_l1)
     python check_results.py --run gpb_alle     # Lauf gpb_alle (alle Methoden und Datensaetze, Results_gpb_alle)
+    python check_results.py --run xgb_alle     # ebenso XGBoost (Results_xgb_alle) und --run cat_alle (CatBoost)
     python check_results.py --loeschen         # defekte Dateien und .tmp-Reste loeschen; refill.py rechnet sie neu
 Exit-Code 0: nichts defekt (oder alles geloescht); 1: defekte Dateien gefunden und nicht geloescht;
 2: --loeschen ohne squeue (Abbruch: laufende Jobs nicht erkennbar).
@@ -45,10 +46,11 @@ DEFAULT_COLUMNS = ("iter", "fold", "method", "task_id")
 
 def result_path(job):
     """(Pfad, Art 'default'/'hpo', Zeilen je Fold oder None) eines Jobs (Zeile von jobs.tsv)."""
+    library = wp.library_of(wp.job_flags(job))
     if job.method == "default":
-        return Path(job.folder) / "default" / "gpboost" / f"{job.suite}_{job.task}.csv", "default", DEFAULT_ROWS
-    path = Path(job.folder) / job.method / f"seed_{job.seed}" / "gpboost" / f"{job.suite}_{job.task}__num_leaves.csv"
-    return path, "hpo", expected_rows(job.method, int(job.trials), "--paper_grid" in str(job.flags))
+        return Path(job.folder) / "default" / library / f"{job.suite}_{job.task}.csv", "default", DEFAULT_ROWS
+    path = Path(job.folder) / job.method / f"seed_{job.seed}" / library / f"{job.suite}_{job.task}__num_leaves.csv"
+    return path, "hpo", expected_rows(job.method, int(job.trials), "--paper_grid" in wp.job_flags(job))
 
 
 def check_file(path, kind="hpo", n_rows=None):
@@ -148,7 +150,7 @@ def scan(runs, queued):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", choices=(*RUNS, "extra", "gpb", "gpb_l1", "gpb_alle", "beide", "alle"), default="beide",
+    parser.add_argument("--run", choices=(*RUNS, "extra", "gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle", "beide", "alle"), default="beide",
                         help="beide = paper + l1_270 (Standard), alle = dazu extra (ohne gpb, gpb_l1, gpb_alle)")
     parser.add_argument("--loeschen", action="store_true",
                         help="defekte Dateien und .tmp-Reste loeschen (smac3_output nie)")

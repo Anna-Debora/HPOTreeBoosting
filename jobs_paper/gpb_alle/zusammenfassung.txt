@@ -1,7 +1,7 @@
 Lauf gpb_alle -> Results_gpb_alle/: 55,306 Jobs, GPBoost, Skalen gpboost, ohne lambda_l1, T = 135, 20 Seeds, 5 Folds, num_leaves; geschaetzt 161,578 Kernstunden (Zeitlimits zusammen 349,226 h)
   59 alte Aufgaben: 3,540 Jobs (bohb, dehb, hebo x 20 Seeds), 24,038 Kernstunden
   286 neue Aufgaben: 51,766 Jobs (Default + 9 Methoden x 20 Seeds), 137,540 Kernstunden
-  Flags: Default keine; grid_search, random_search '--no_lambda_l1 --paper_grid'; tpe, gp_bo, hyperband, SMAC, bohb, dehb, hebo '--l1 off --scales gpboost'
+  Flags: Default ''; grid_search, random_search '--no_lambda_l1 --paper_grid'; tpe, gp_bo, hyperband, SMAC, bohb, dehb, hebo '--l1 off --scales gpboost'
   Faktoren gegenueber paper: {'default': 1.0, 'grid_search': 1.0, 'random_search': 1.0, 'tpe': 7.5, 'gp_bo': 3.0, 'SMAC': 3.5, 'hyperband': 2.0, 'bohb': 2.0, 'dehb': 2.5, 'hebo': 1.3}
   je Methode: {'SMAC': 21603, 'bohb': 25203, 'default': 29, 'dehb': 19989, 'gp_bo': 20770, 'grid_search': 3124, 'hebo': 20351, 'hyperband': 6249, 'random_search': 5207, 'tpe': 39053}
   Kernstunden nach Quelle der Sekunden je Versuch: {'alt gemessen': 24038, 'hochgerechnet': 116707, 'neu gemessen': 20833} (hochgerechnet = mit Reserve)

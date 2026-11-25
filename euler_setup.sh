@@ -2,26 +2,34 @@
 # euler_setup.sh -- einmal auf Euler ausfuehren, bereitet alles fuer die Laeufe vor. Startet KEINE Jobs,
 # committet und pusht nichts.
 #
-# Aufruf auf Euler (nach dem Einloggen mit ssh andubach@euler.ethz.ch), eine Zeile:
-#     cd ~/HPOTreeBoosting && git fetch origin && git show origin/xgboost-catboost:euler_setup.sh > ~/euler_setup.sh && bash ~/euler_setup.sh 2>&1 | tee ~/euler_setup.log
-# (Die Kopie nach ~/euler_setup.sh ist Absicht: das Skript macht selbst git pull und wuerde sich sonst
-#  waehrend des Laufens ueberschreiben.)
+# Aufruf auf Euler (nach dem Einloggen mit ssh andubach@euler.ethz.ch), auf dem Branch, auf dem du arbeitest:
+#     cd ~/HPOTreeBoosting && git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD)"
+#     bash euler_setup.sh --nur-daten 2>&1 | tee ~/euler_setup.log     # nur Pakete + Daten der Suiten 1001/1002
+#     bash euler_setup.sh 2>&1 | tee ~/euler_setup.log                 # dazu Reproduktions-Testlauf (Schritte 4, 6)
+# Das Skript wechselt den Branch NIE und macht kein git pull (seit 24.11.2026; frueher checkte es xgboost-catboost
+# aus und brach bei lokalen Aenderungen ab). Lokale Aenderungen (z. B. auf Euler neu erzeugte kosten.tsv) bleiben
+# unangetastet; nur die Dateien in GENERATED setzt es am Ende auf den Git-Stand zurueck.
 #
 # Was das Skript macht:
-#   1. Module laden, virtuelle Umgebung aktivieren, Branch xgboost-catboost holen (git pull)
+#   1. Module laden, virtuelle Umgebung aktivieren (aktueller Branch, kein Wechsel, kein pull)
 #   2. fehlende Pakete nachinstallieren (huggingface_hub, xgboost, catboost in den lokalen Versionen)
 #   3. Daten der neuen Suiten 1001/1002 neu erzeugen (data/ ist nicht im Git):
 #        prepare_new_datasets.py (OpenML), prepare_bcco.py (Hugging Face), prepare_talent.py (TALENT, Google Drive)
 #      Sie lesen new_tasks.csv, excluded_duplicates.csv usw. aus dem Git.
 #   4. Daten der Aufgaben fuer den Reproduktions-Testlauf (alte Suiten) holen (euler_prepare_repro_data.sh;
-#      fuer den Testlauf allein reicht dieses Skript, das ganze Setup ist dafuer nicht noetig)
+#      fuer den Testlauf allein reicht dieses Skript, das ganze Setup ist dafuer nicht noetig); nicht mit --nur-daten
 #   5. pruefen: Task-Listen identisch mit dem Git-Stand, zu jeder Aufgabe ein Datenordner
-#   6. Job-Dateien fuer den Reproduktions-Testlauf erzeugen (jobs_repro/), aber nicht abschicken
+#   6. Job-Dateien fuer den Reproduktions-Testlauf erzeugen (jobs_repro/), aber nicht abschicken; nicht mit --nur-daten
 # Dauer: grob 30-90 Minuten (vor allem Downloads). Wenn die Verbindung abbrechen koennte, vorher `tmux` starten.
 
 set -eo pipefail     # -u erst nach "module load" und "activate", die vertragen es oft nicht
 
-BRANCH=xgboost-catboost
+NUR_DATEN=0
+case "${1:-}" in
+    --nur-daten) NUR_DATEN=1 ;;
+    "") ;;
+    *) echo "Aufruf: bash euler_setup.sh [--nur-daten]"; exit 1 ;;
+esac
 TALENT_ZIP_URL="https://drive.usercontent.google.com/download?id=1Rr2uZsZzabshoa0KX0uCne-qMWFpbyAo&export=download&confirm=t"
 TALENT_ZIP_SHA256=4c8481107153593eb98ef5bb677b00dedfa04cd4c31441babf696a8d100f207c
 TALENT_ZIP="$HOME/talent_download/dataset-250115.zip"
@@ -39,26 +47,24 @@ cd "$HOME/HPOTreeBoosting"
 source .venv/bin/activate
 set -u
 mkdir -p "$SETUP_LOGS"
-if [ "$(git rev-parse --abbrev-ref HEAD)" != "$BRANCH" ]; then
-    git fetch origin "$BRANCH"
-    git checkout "$BRANCH"
-fi
-# erzeugte Dateien eines frueheren Laufs zuruecksetzen, damit git pull nicht blockiert
+# erzeugte Dateien eines frueheren Laufs zuruecksetzen (nur diese; andere lokale Aenderungen bleiben)
 restore_generated() { for f in "${GENERATED[@]}"; do git checkout -- "$f" 2>/dev/null || true; done; }
 restore_generated
+echo "Branch $(git rev-parse --abbrev-ref HEAD), $(git log --oneline -1)"
+for f in prepare_new_datasets.py prepare_bcco.py prepare_talent.py new_tasks.csv; do
+    [ -f "$f" ] || { echo "FEHLER: $f fehlt auf diesem Branch"; exit 1; }
+done
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    echo "FEHLER: Es gibt geaenderte Dateien auf Euler (git status zeigt sie). Bitte zuerst klaeren, nichts wurde veraendert."
+    echo "Hinweis: lokale Aenderungen (bleiben unveraendert):"
     git status --short --untracked-files=no
-    exit 1
 fi
-git pull --ff-only origin "$BRANCH"
-git log --oneline -1
 
 step "2. Pakete"
 need_install() { python -c "import $1" 2>/dev/null && return 1 || return 0; }
 if need_install huggingface_hub; then pip install "huggingface_hub==1.8.0"; fi
 if need_install xgboost; then pip install "xgboost==2.1.4"; fi
 if need_install catboost; then pip install "catboost==1.2.10"; fi
+python -c "import huggingface_hub, xgboost, catboost; print('huggingface_hub', huggingface_hub.__version__, '| xgboost', xgboost.__version__, '| catboost', catboost.__version__)"
 pip show gpboost | grep -E "^(Name|Version)"
 python -c "import gpboost, sys; v = gpboost.__version__; print('gpboost', v); sys.exit(0 if v == '1.7.4' else 'gpboost muss 1.7.4 sein')"
 
@@ -79,9 +85,11 @@ echo "$TALENT_ZIP_SHA256  $TALENT_ZIP" | sha256sum -c -
 python prepare_talent.py --zip "$TALENT_ZIP" > "$SETUP_LOGS/prepare_talent.log" 2>&1
 tail -1 "$SETUP_LOGS/prepare_talent.log"
 
-step "4. Daten fuer den Reproduktions-Testlauf (alte Suiten)"
-python make_repro_jobs.py --out jobs_repro > /dev/null
-bash euler_prepare_repro_data.sh
+if [ "$NUR_DATEN" = 0 ]; then
+    step "4. Daten fuer den Reproduktions-Testlauf (alte Suiten)"
+    python make_repro_jobs.py --out jobs_repro > /dev/null
+    bash euler_prepare_repro_data.sh
+fi
 
 step "5. Kontrolle"
 for f in preprocessing_report.csv preprocessing_report_bcco.csv preprocessing_report_talent.csv; do
@@ -115,6 +123,9 @@ print("OK: zu jeder neuen Aufgabe gibt es einen Datenordner" if not missing else
 EOF
 git status --short --untracked-files=no
 
+if [ "$NUR_DATEN" = 1 ]; then
+    echo; echo "Fertig (--nur-daten)."; exit 0
+fi
 step "6. Reproduktions-Testlauf vorbereitet (NICHT gestartet)"
 mkdir -p jobs_repro/logs
 python make_repro_jobs.py --out jobs_repro
