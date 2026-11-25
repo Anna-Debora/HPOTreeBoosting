@@ -1362,7 +1362,16 @@ class ParameterOptimization:
     def _preprocess_features(self):
         """This function prepares the categorical features for native handling by the library (no one-hot encoding)."""
         # Extract the categorical columns in the DataFrame
-        categorical_columns = self.X.columns[np.asarray(self.categorical_indicator, dtype=bool)]
+        indicator = np.asarray(self.categorical_indicator, dtype=bool).copy()
+        # Textspalten sind immer kategorial, auch wenn categorical_indicator sie nicht markiert (5 TabArena-
+        # Aufgaben, z. B. 1002_363681 "coupon"); sonst bricht GPBoost/XGBoost mit "DataFrame.dtypes ... must be
+        # int, float or bool" ab. Numerische Spalten bleiben unveraendert (bisherige Laeufe bitgleich).
+        for k, column in enumerate(self.X.columns):
+            if not indicator[k] and not pd.api.types.is_numeric_dtype(self.X[column]) \
+                    and not pd.api.types.is_bool_dtype(self.X[column]):
+                indicator[k] = True
+        self.categorical_indicator = indicator
+        categorical_columns = self.X.columns[indicator]
         self.cat_feature_names = list(categorical_columns)
         self.X.reset_index(drop=True, inplace=True)
 

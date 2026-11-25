@@ -13,6 +13,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 import make_paper_jobs as mpj
 import refill
 import run_ablation
@@ -87,6 +90,28 @@ class JobsTests(unittest.TestCase):
     def test_reuse_settings(self):
         ok, lines = mpj.pruefe_wiederverwendung("jobs_paper", results=False)
         self.assertTrue(ok, "\n".join(lines))
+
+
+class TextColumnTests(unittest.TestCase):
+    def test_text_columns_become_categorical(self):
+        # Textspalten, die categorical_indicator nicht markiert (5 TabArena-Aufgaben, z. B. 1002_363681 "coupon"),
+        # werden category; Euler: Welle 1 brach dort mit "DataFrame.dtypes ... must be int, float or bool" ab
+        import run_ablation
+        from SMAC_method import ParameterOptimizationSMAC
+        for task, columns in (((1002, 363681), ["coupon"]), ((1002, 363684), ["Dt_Customer"]),
+                              ((1002, 363624), ["avgAge", "contributionPrivateThirdPartyInsurance"]),
+                              ((1002, 363679), ["experience"]), ((1002, 363700), ["ghazard"])):
+            path = f"data/{task[0]}_{task[1]}/{task[0]}_{task[1]}"
+            raw = pd.read_csv(f"{path}_X.csv")
+            marked = np.load(f"{path}_categorical_indicator.npy").astype(bool)
+            obj = ParameterOptimizationSMAC(X=raw.copy(), y=pd.read_csv(f"{path}_y.csv"), categorical_indicator=marked,
+                                            suite_id=task[0], seed=3, **run_ablation.STRATEGY)
+            for column in columns:
+                self.assertFalse(marked[list(raw.columns).index(column)], column)
+                self.assertEqual(str(obj.X[column].dtype), "category", (task, column))
+            for k, column in enumerate(raw.columns):
+                if not marked[k] and pd.api.types.is_numeric_dtype(raw[column]):
+                    self.assertTrue(raw[column].equals(obj.X[column]), (task, column))   # Zahlen unveraendert
 
 
 class InfrastructureTests(unittest.TestCase):
