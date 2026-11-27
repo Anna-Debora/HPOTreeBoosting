@@ -10,6 +10,10 @@ Freigegeben am 24.11.2026 mit diesen Entscheidungen:
 5. Nachträglich, noch zu bestätigen: CatBoost-Early-Stopping bei Klassifikation auf Accuracy wie GPBoost/XGBoost
    (Fehlerrate) statt Logloss, siehe Hinweise.
 
+**26.11.2026 (Meeting mit Fabio): CatBoost entfaellt.** Gerechnet werden nur gpb_alle und xgb_alle, nur Welle 1
+(5 Seeds), T = 135. cat_alle bleibt als Dokumentation im Repo und wird nie abgeschickt. xgb_alle: Jobs mit geschaetzt
+mehr als 4 h je Fold laufen als 5 Fold-Jobs (`run_ablation.py --fold K`, gleiche Ergebnisdatei).
+
 Umgesetzt in `methods.py` (nur mit `--scales gpboost`; mit `--scales paper` bleibt alles bitgleich) und
 `run_ablation.py --library xgboost|catboost`. Die Läufe heißen `xgb_alle` und `cat_alle` (`make_paper_jobs.py`).
 

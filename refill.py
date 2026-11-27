@@ -48,6 +48,13 @@ make_paper_jobs.py --run gpb_alle): nur mit --run gpb_alle (oder in einer Liste 
 jobs_paper/run_alle_job.sbatch (.venv bzw. .venv_extra fuer BOHB, DEHB, HEBO), laengste Jobs zuerst wie gpb_l1.
 Laeufe xgb_alle, cat_alle (XGBoost, CatBoost, alle 345 Aufgaben, alle Methoden): ebenso, Job-Namen hpo-xgb_alle,
 hpo-cat_alle; Speicher aus kosten.tsv (Mac-Messung der Bibliothek), OUT_OF_MEMORY eskaliert je Job.
+xgb_alle: lange Jobs (geschaetzt > 4 h je Fold) stehen als 5 Fold-Jobs in jobs.tsv (flags ... --fold K), kurze
+sind zu Buendeln von etwa 60-120 min zusammengefasst (jobs_paper/xgb_alle/buendel.tsv, run_buendel_job.sbatch). Die
+Einheit ist das Buendel: die idx-Dateien nennen Buendelnummern, Wiederholung, Eskalation (OOM, TIMEOUT) und
+aufgegeben gelten je Buendel, fertig ist es, wenn alle seine Zeilen fertig sind; fertige Zeilen und Folds
+ueberspringt die Wiederholung (--resume, SCHON FERTIG).
+Nur ein Daemon fuer alle Laeufe (die Schlange ist gemeinsam): python refill.py --run gpb_alle,xgb_alle --wellen 1
+--limit 8000 --daemon (gpb_alle kommt vor xgb_alle). cat_alle nicht abschicken (26.11.2026: CatBoost entfaellt).
 
 Aufruf (Euler, ~/HPOTreeBoosting, .venv aktiv):
     python refill.py --run beide                 # einmal nachfuellen (taeglich 1-2x von Hand)
@@ -96,7 +103,8 @@ KNOWN_RUNS = ALL_RUNS + ("gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle")  #
 LONGEST_FIRST = ("gpb_l1", "gpb_alle", "xgb_alle", "cat_alle")                # Abgabe nur nach Spalte reihenfolge (laengste zuerst), nicht nach Welle
 RUN_GROUPS = {"beide": RUNS, "alle": ALL_RUNS}
 SBATCH_SCRIPTS = {"extra": "jobs_paper/run_extra_job.sbatch", **{r: "jobs_paper/run_alle_job.sbatch"
-                                                                   for r in ("gpb_alle", "xgb_alle", "cat_alle")}}      # sonst jobs_paper/run_paper_job.sbatch
+                                                                   for r in ("gpb_alle", "cat_alle")},
+                  "xgb_alle": "jobs_paper/run_buendel_job.sbatch"}      # sonst jobs_paper/run_paper_job.sbatch
 MAX_ARRAY = 1000
 HOURS = dict(wp.PARTITIONS)
 DAEMON = "hpo-refill"

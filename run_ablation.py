@@ -63,8 +63,16 @@ Bibliothek (--library, Standard gpboost): xgboost und catboost nur mit --scales 
 SUCHRAEUME_XGB_CAT.md (methods.py). --paper_grid gilt fuer deren Gitter in methods._library_grid.
 Ausgabe: <result_folder>/<method>/seed_<seed>/<library>/<suite>_<task>__num_leaves.csv (Spalten wie run_experiments.py),
          nach jedem Fold angehaengt, damit ein Abbruch durch das Zeitlimit die fertigen Folds behaelt.
+--fold K (Lauf xgb_alle, lange Jobs je Fold aufgeteilt): nur Fold K rechnen, in dieselbe Datei. Unter einer Sperre
+  (fcntl.lockf auf <Ordner>/.fold.lock, wie refill.py auf $HOME) wird der Block von Fold K eingefuegt und die Bloecke
+  als Textzeilen nach Fold sortiert (nicht mit pandas neu formatiert): mit allen 5 Folds ist die Datei bis auf die
+  Spalte runtime dieselbe wie bei einem Job mit 5 Folds. Fold K schon vollstaendig -> nichts tun, Exit-Code 0.
+  Ohne --fold aendert sich nichts.
 """
 import argparse
+import csv
+import fcntl
+import io
 import logging
 import os
 import sys
@@ -207,6 +215,53 @@ def finished_folds(output, n_rows):
     return done
 
 
+def fold_done(output, fold, n_rows):
+    """--fold: steht Fold `fold` vollstaendig in output? Folds werden ganz und atomar geschrieben (write_fold),
+    deshalb reicht bei Hyperband/SMAC (n_rows None) das Vorhandensein."""
+    if not output.exists():
+        return False
+    sizes = pd.read_csv(output, usecols=["fold"])["fold"].value_counts()
+    return int(sizes.get(fold, 0)) == (n_rows or int(sizes.get(fold, 0)) or -1)
+
+
+def merge_fold_text(old_text, block_text, fold):
+    """Datei-Text mit dem Block von Fold `fold` (block_text: Kopfzeile + Zeilen), Bloecke nach Fold sortiert.
+    Zeilen werden nur umgestellt, nicht neu formatiert; ein alter Block desselben Folds wird ersetzt."""
+    header, *new_rows = block_text.splitlines(keepends=True)
+    if not old_text:
+        return block_text
+    old_header, *old_rows = old_text.splitlines(keepends=True)
+    if old_header != header:
+        raise ValueError("Kopfzeile der Ergebnisdatei passt nicht zum neuen Fold")
+    position = next(csv.reader([header])).index("fold")
+    keyed = [(int(float(next(csv.reader([row]))[position])), row) for row in old_rows]
+    keyed = [(f, row) for f, row in keyed if f != fold] + [(fold, row) for row in new_rows]
+    keyed.sort(key=lambda item: item[0])          # stabil: Reihenfolge innerhalb eines Folds bleibt
+    return header + "".join(row for _, row in keyed)
+
+
+def write_fold(results, output, fold):
+    """--fold: Block von Fold `fold` unter Sperre in output einfuegen (gleichzeitige Folds derselben Datei)."""
+    block = io.StringIO()
+    results.to_csv(block, index=False)
+    with open(output.parent / ".fold.lock", "a") as lock:
+        fcntl.lockf(lock, fcntl.LOCK_EX)
+        try:
+            old = output.read_text() if output.exists() else ""
+            tmp = job_io.tmp_path(output)
+            try:
+                with open(tmp, "w", newline="") as handle:
+                    handle.write(merge_fold_text(old, block.getvalue(), fold))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp, output)
+            except BaseException:
+                tmp.unlink(missing_ok=True)
+                raise
+        finally:
+            fcntl.lockf(lock, fcntl.LOCK_UN)
+
+
 def main(args):
     path = f"data/{args.suite_id}_{args.task_id}"
     data_x = os.path.join(path, f"{args.suite_id}_{args.task_id}_X.csv")
@@ -215,11 +270,17 @@ def main(args):
     folder = Path(args.result_folder) / args.method / f"seed_{args.seed}" / args.library
     output = folder / f"{args.suite_id}_{args.task_id}__num_leaves.csv"
     done = set()
-    if output.exists():
+    n_rows = expected_rows(args.method, args.trials, args.paper_grid, args.hyperband_R)
+    if args.fold is not None:
+        if fold_done(output, args.fold, n_rows):
+            print(f"SCHON FERTIG: {output} (Fold {args.fold})", flush=True)
+            return
+        done = set(range(args.folds)) - {args.fold}      # nur Fold K rechnen; fertige Folds bleiben (write_fold)
+    elif output.exists():
         if not args.resume:
             print(f"ABBRUCH: {output} existiert schon und wird nicht ueberschrieben", file=sys.stderr)
             sys.exit(3)
-        done = finished_folds(output, expected_rows(args.method, args.trials, args.paper_grid, args.hyperband_R))
+        done = finished_folds(output, n_rows)
         if len(done) >= args.folds:
             print(f"SCHON FERTIG: {output} ({len(done)} Folds)", flush=True)
             return
@@ -260,6 +321,10 @@ def main(args):
         results["library"] = args.library
         results["classification"] = 1 if is_classification(int(args.suite_id)) else 0
         results = results.reindex(columns=[*RESULT_COLUMNS, *[c for c in results.columns if c not in RESULT_COLUMNS]])
+        if args.fold is not None:
+            write_fold(results, output, fold)
+            print(f"Fold {fold} fertig -> {output}", flush=True)
+            return
         job_io.write_csv_atomic(results, output, append=True)
         done.add(fold)
     print(f"Folds fertig: {sorted(done)} -> {output}", flush=True)
@@ -286,6 +351,8 @@ def parse_args(argv=None):
                         help="gpboost (Standard), xgboost oder catboost; xgboost/catboost nur mit --scales gpboost "
                              "(Suchraeume nach SUCHRAEUME_XGB_CAT.md)")
     parser.add_argument("--folds", type=int, default=5, help="nur fuer lokale Proben kleiner als 5")
+    parser.add_argument("--fold", type=int, choices=range(5), default=None,
+                        help="nur diesen Fold (0-4) rechnen und in die gemeinsame Datei einfuegen (xgb_alle)")
     parser.add_argument("--hyperband_R", type=int, default=2150, help="nur fuer lokale Proben kleiner als 2150")
     parser.add_argument("--resume", action="store_true",
                         help="fertige Datei ueberspringen, angefangene ab dem ersten fehlenden Fold fortsetzen")

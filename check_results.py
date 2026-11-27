@@ -100,9 +100,12 @@ def check_file(path, kind="hpo", n_rows=None):
 def busy_lines(run, queued):
     """Zeilen von jobs.tsv, deren letzte Abgabe in squeue steht."""
     last = {}
+    table = wp.bundles(run)            # xgb_alle: idx-Dateien nennen Buendel, nicht Zeilen
+    members = {} if table is None else dict(zip(table["buendel"], table["zeilen"]))
     for sub in wp.submissions(run):
         for i, line in enumerate(sub["lines"][:int(sub["n"] or len(sub["lines"]))]):
-            last[line] = (sub["id"], i)
+            for member in members.get(line, [line]):
+                last[member] = (sub["id"], i)
     return {line for line, key in last.items() if key in queued}
 
 
@@ -134,6 +137,10 @@ def scan(runs, queued):
                 state, reason = "fehlt", ""
             else:
                 state, reason = check_file(path, kind, n_rows)
+                fold = wp.job_fold(job)
+                if fold is not None and state == "angefangen":   # Fold-Job: nur sein Fold zaehlt
+                    done = wp.file_state(job) == "fertig"
+                    state, reason = ("ok", f"Fold {fold} fertig ({reason})") if done else ("fehlt", f"Fold {fold} fehlt ({reason})")
             records.append(dict(lauf=run, zeile=line, pfad=str(path), zustand=state, grund=reason))
             tmp = path.with_name(path.name + ".tmp")
             if tmp.exists():
@@ -145,6 +152,12 @@ def scan(runs, queued):
                 state, reason = check_file(path)
                 records.append(dict(lauf="", zeile=0, pfad=str(path), zustand="fremd",
                                     grund=f"nicht in jobs.tsv ({state}{': ' + reason if reason else ''})"))
+    # Fold-Jobs (--fold) teilen eine Datei: ihr .tmp-Rest gehoert einem laufenden Job, wenn irgendein Job derselben
+    # Datei in squeue steht (nie loeschen)
+    running = {r["pfad"] for r in records if r["zustand"] == "laeuft"}
+    for r in records:
+        if r["zustand"] == "tmp" and r["pfad"][:-len(".tmp")] in running:
+            r["zustand"] = "laeuft"
     return pd.DataFrame(records, columns=["lauf", "zeile", "pfad", "zustand", "grund"]), sorted(roots)
 
 

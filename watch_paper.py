@@ -85,8 +85,29 @@ def library_of(flags):
     return parts[parts.index("--library") + 1] if "--library" in parts[:-1] else "gpboost"
 
 
-def file_state(job):
-    """'fertig', 'angefangen (k/5)' oder 'fehlt'."""
+def job_fold(job):
+    """Fold eines Fold-Jobs (Spalte flags mit --fold K, Lauf xgb_alle) oder None (Job mit allen 5 Folds)."""
+    parts = job_flags(job).split()
+    return int(parts[parts.index("--fold") + 1]) if "--fold" in parts[:-1] else None
+
+
+def fold_sizes(path, cache=None):
+    """Zeilen je Fold einer Ergebnisdatei (Series) oder None (unlesbar); cache: {Pfad: Series} fuer die bis zu
+    5 Fold-Jobs, die dieselbe Datei teilen."""
+    if cache is not None and path in cache:
+        return cache[path]
+    try:
+        sizes = pd.read_csv(path, usecols=["fold"])["fold"].value_counts()
+    except Exception:
+        sizes = None
+    if cache is not None:
+        cache[path] = sizes
+    return sizes
+
+
+def file_state(job, cache=None):
+    """'fertig', 'angefangen (k/5)' oder 'fehlt'. Fold-Job (--fold K): 'fertig', wenn Fold K vollstaendig in der
+    gemeinsamen Datei steht, sonst 'fehlt'. cache: siehe fold_sizes (nur fuer Fold-Jobs benutzt)."""
     library = library_of(job_flags(job))
     if job.method == "default":
         path = Path(job.folder) / "default" / library / f"{job.suite}_{job.task}.csv"
@@ -94,11 +115,16 @@ def file_state(job):
     path = Path(job.folder) / job.method / f"seed_{job.seed}" / library / f"{job.suite}_{job.task}__num_leaves.csv"
     if not path.exists():
         return "fehlt"
+    n_rows = expected_rows(job.method, int(job.trials), "--paper_grid" in job_flags(job))
+    fold = job_fold(job)
+    if fold is not None:
+        sizes = fold_sizes(path, cache)
+        n = 0 if sizes is None else int(sizes.get(fold, 0))
+        return "fertig" if n and n == (n_rows or n) else "fehlt"
     try:
         sizes = pd.read_csv(path, usecols=["fold"])["fold"].value_counts()
     except Exception:
         return "angefangen (0/5)"
-    n_rows = expected_rows(job.method, int(job.trials), "--paper_grid" in job_flags(job))
     done = sum(1 for n in sizes if n == (n_rows or sizes.max()))
     return "fertig" if done >= FOLDS else f"angefangen ({done}/5)"
 
@@ -284,10 +310,43 @@ def queued_tasks(q):
     return out
 
 
-def load_jobs(run, with_files=True):
+BUNDLE_COLUMNS = ["buendel", "zeilen", "welle", "kernstunden", "minuten_echt", "partition", "stunden", "zeitlimit",
+                  "mem_gb", "reihenfolge"]
+
+
+def bundles(run):
+    """jobs_paper/<run>/buendel.tsv (Lauf xgb_alle) als DataFrame mit Spalte zeilen als Liste, oder None. Ein Buendel
+    ist ein Slurm-Job, der mehrere Zeilen von jobs.tsv nacheinander rechnet (run_buendel_job.sbatch)."""
+    path = JOBS / run / "buendel.tsv"
+    if not path.exists():
+        return None
+    table = pd.read_csv(path, sep="\t", keep_default_na=False)
+    table["zeilen"] = [[int(x) for x in str(z).split(",")] for z in table["zeilen"]]
+    return table
+
+
+def bundle_jobs(jobs, table):
+    """Je Buendel eine Zeile (Spalte line = Buendelnummer, wie sie in den idx-Dateien steht): Angaben der ersten
+    Zeile (method, seed, suite, task, name, ...), Plan aus buendel.tsv, datei 'fertig', wenn alle Zeilen fertig
+    sind, sonst 'angefangen (k/n)' oder 'fehlt'; Spalte zeilen = Zeilen von jobs.tsv."""
+    first = jobs.set_index("line").loc[[z[0] for z in table["zeilen"]]].reset_index(drop=True)
+    out = first[COLUMNS + ["name"]].copy()
+    for column in ("welle", "kernstunden", "partition", "stunden", "zeitlimit", "mem_gb", "reihenfolge", "zeilen"):
+        out[column] = table[column].values
+    out["mem_gb"] = out["mem_gb"].astype(float)
+    out["line"] = table["buendel"].values
+    state = jobs.set_index("line")["datei"]
+    done = [sum(state[z] == "fertig" for z in zeilen) for zeilen in table["zeilen"]]
+    out["datei"] = ["fertig" if d == len(z) else (f"angefangen ({d}/{len(z)})" if d else "fehlt")
+                    for d, z in zip(done, table["zeilen"])]
+    return out
+
+
+def load_jobs(run, with_files=True, lines=False):
     """jobs.tsv mit Plan aus kosten.tsv (welle, partition, zeitlimit, mem_gb, reihenfolge) und Dateistand.
     mem_gb: aus kosten.tsv; gibt es jobs_paper/speicher_euler.tsv (Euler-Messung), neu nach speicher.Plan
-    (Euler-Messung je Aufgabe und Methode, sonst Mac)."""
+    (Euler-Messung je Aufgabe und Methode, sonst Mac). Hat der Lauf eine buendel.tsv (xgb_alle), kommt je Buendel
+    eine Zeile (bundle_jobs; refill.py schickt Buendel ab), ausser mit lines=True (je Zeile von jobs.tsv)."""
     jobs = pd.read_csv(JOBS / run / "jobs.tsv", sep="\t", header=None, names=COLUMNS, keep_default_na=False)
     costs = pd.read_csv(JOBS / run / "kosten.tsv", sep="\t", keep_default_na=False)
     for column in ("partition", "mem_gb", "kernstunden", "name", "stunden", "welle", "zeitlimit", "reihenfolge"):
@@ -297,8 +356,10 @@ def load_jobs(run, with_files=True):
         plan = speicher.Plan()
         jobs["mem_gb"] = [plan(s, t, m) for s, t, m in zip(jobs["suite"], jobs["task"], jobs["method"])]
     jobs["line"] = jobs.index + 1
-    jobs["datei"] = [file_state(j) for j in jobs.itertuples()] if with_files else "fehlt"
-    return jobs
+    cache = {}
+    jobs["datei"] = [file_state(j, cache) for j in jobs.itertuples()] if with_files else "fehlt"
+    table = None if lines else bundles(run)
+    return jobs if table is None else bundle_jobs(jobs, table)
 
 
 # ---------------------------------------------------------------- Uebersichten

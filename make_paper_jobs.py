@@ -103,6 +103,7 @@ Ausgabe: <out>/<lauf>/jobs.tsv (eine Zeile je Job, ohne Kopfzeile, fuer das sbat
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -164,7 +165,19 @@ def library_run(library, folder):
                 library=library)
 
 
-XGB_ALLE_RUN = library_run("xgboost", "Results_xgb_alle")
+XGB_ALLE_RUN = {**library_run("xgboost", "Results_xgb_alle"), "fold_split_minutes": 240, "bundle_minutes": (60, 120)}
+# xgb_alle (Euler-Support 26.11.2026: keine Jobs unter 5-10 min). Alle Minuten sind "echte" Minuten = Schaetzung
+# (kernstunden) x Faktor echt/geschaetzt je Methode aus gpb_alle Welle 1 (jobs_paper/faktor_echt_gpb_alle.tsv,
+# python make_paper_jobs.py --faktor laufzeiten_gpb_alle.tsv):
+#   Jobs mit mehr als 240 min je Fold -> 5 Fold-Jobs (--fold 0..4 in der Spalte flags, run_ablation.py --fold);
+#   Jobs unter 60 min -> Buendel von 60-120 min (erst je Welle und Aufgabe, Reste aufgabenuebergreifend), alle
+#   anderen je ein Buendel; jobs_paper/xgb_alle/buendel.tsv, run_buendel_job.sbatch, refill.py schickt Buendel ab.
+#   Zeitlimit je Buendel: Summe Schaetzung x Faktor q90 x SAFETY; Speicher: Maximum der Zeilen.
+#   Probe: Seed 27225 der Probe-Aufgaben als Fold-Jobs, je Methode ein Buendel mit den 5 Folds (Default dazu).
+# Vergleich mit dem alten Format (ein Job, 5 Folds): XGB_VERGLEICH, bash jobs_paper/submit_xgb_alle.sh vergleich
+FAKTOR_ECHT = "jobs_paper/faktor_echt_gpb_alle.tsv"
+XGB_VERGLEICH = ((1001, 920074), (1002, 930017))     # housing_price_prediction (Regression), Customer_Personality (Kl.)
+WELLE1_CORES = (60, 500, 600, 800, 1000, 2000)
 CAT_ALLE_RUN = library_run("catboost", "Results_cat_alle")
 ALLE_RUNS = {"gpb_alle": GPB_ALLE_RUN, "xgb_alle": XGB_ALLE_RUN, "cat_alle": CAT_ALLE_RUN}
 LIBRARY_RUNS = ("xgb_alle", "cat_alle")
@@ -759,6 +772,145 @@ NEW_VS_GPB = {
 LIBRARY_NAMES = {"gpb_alle": "GPBoost", "xgb_alle": "XGBoost", "cat_alle": "CatBoost"}
 
 
+def echt_faktoren(laufzeiten, out=FAKTOR_ECHT):
+    """Faktor echte / geschaetzte Laufzeit je Methode aus gpb_alle (laufzeiten_gpb_alle.tsv von Euler: je Versuch
+    line, state, sekunden, method, kernstunden). Gezaehlt werden Zeilen mit genau einem Versuch, COMPLETED (ohne
+    Wiederholungen, OOM, TIMEOUT). Schreibt method, jobs, faktor (Median), faktor_q90, sekunden_median."""
+    t = pd.read_csv(laufzeiten, sep="\t")
+    one = t.groupby("line").filter(lambda g: len(g) == 1)
+    one = one[(one["state"] == "COMPLETED") & (one["sekunden"] > 0) & (one["kernstunden"] > 0)]
+    one = one.assign(r=one["sekunden"] / (one["kernstunden"] * 3600))
+    table = one.groupby("method").agg(jobs=("r", "size"), faktor=("r", "median"),
+                                      faktor_q90=("r", lambda r: r.quantile(0.9)),
+                                      sekunden_median=("sekunden", "median")).reset_index()
+    table.round(4).to_csv(out, sep="\t", index=False)
+    return table
+
+
+def faktoren(path=FAKTOR_ECHT):
+    """{Methode: (Median, q90)} echt/geschaetzt; ohne Datei 1.0 (Schaetzung unveraendert)."""
+    if not Path(path).exists():
+        return {}
+    return {r.method: (float(r.faktor), float(r.faktor_q90)) for r in pd.read_csv(path, sep="\t").itertuples()}
+
+
+def split_folds(jobs, threshold, force):
+    """Jobs (ausser Default) mit mehr als `threshold` echten Minuten je Fold (Spalte minuten_echt), und die Jobs mit
+    force True, als 5 Fold-Jobs: flags + ' --fold k', Kernstunden und Minuten / 5, Partition und Zeitlimit je Fold."""
+    rows = []
+    for row, forced in zip(jobs.to_dict("records"), force):
+        if row["method"] == "default" or not (row["minuten_echt"] / FOLDS > threshold or forced):
+            rows.append(row)
+            continue
+        hours = row["kernstunden"] / FOLDS
+        name, limit = partition(hours)
+        rows += [{**row, "flags": f"{row['flags']} --fold {k}", "kernstunden": round(hours, 3),
+                  "minuten_echt": round(row["minuten_echt"] / FOLDS, 2), "partition": name, "stunden": limit}
+                 for k in range(FOLDS)]
+    return pd.DataFrame(rows, columns=jobs.columns)
+
+
+def make_bundles(jobs, low, high, factor, probe):
+    """buendel.tsv (siehe XGB_ALLE_RUN): jobs mit Spalte minuten_echt, Zeile = Index + 1; probe: Maske der
+    Probe-Zeilen (Seed 27225 als Fold-Jobs und Default der Probe-Aufgaben). Gibt (Tabelle, Probe-Buendel) zurueck."""
+    groups, probe_groups = [], []
+    lines = jobs.assign(line=jobs.index + 1, _probe=list(probe))
+    for (suite, task), g in lines[lines["_probe"]].groupby(["suite", "task"], sort=False):
+        default = list(g.loc[g["method"] == "default", "line"])
+        for k, (method, m) in enumerate(g[g["method"] != "default"].groupby("method", sort=False)):
+            probe_groups.append((default if k == 0 else []) + list(m["line"]))
+    rest = lines[~lines["_probe"]]
+    for welle, w in rest.groupby("welle"):
+        short = w[w["minuten_echt"] < low]
+        groups += [[l] for l in w.loc[w["minuten_echt"] >= low, "line"]]
+        leftovers = []
+        for _, g in short.groupby(["suite", "task"], sort=False):
+            current, total = [], 0.0
+            for r in g.sort_values("minuten_echt", ascending=False, kind="stable").itertuples():
+                if current and total + r.minuten_echt > high:
+                    (groups if total >= low else leftovers).append(current)
+                    current, total = [], 0.0
+                current.append(r.line)
+                total += r.minuten_echt
+                if total >= low:
+                    groups.append(current)
+                    current, total = [], 0.0
+            if current:
+                leftovers.append(current)
+        minutes = lines.set_index("line")["minuten_echt"]
+        current, total = [], 0.0
+        for part in leftovers:
+            size = float(minutes[part].sum())
+            if current and total + size > high:
+                groups.append(current)
+                current, total = [], 0.0
+            current += part
+            total += size
+            if total >= low:
+                groups.append(current)
+                current, total = [], 0.0
+        if current:
+            groups.append(current)
+    by_line = lines.set_index("line")
+    rows = []
+    for zeilen in probe_groups + groups:
+        sub = by_line.loc[zeilen]
+        q90 = sum(h * factor.get(m, (1.0, 1.0))[1] for h, m in zip(sub["kernstunden"], sub["method"]))
+        name, limit = partition(q90)
+        rows.append(dict(zeilen=",".join(map(str, zeilen)), welle=int(sub["welle"].max()),
+                         kernstunden=round(float(sub["kernstunden"].sum()), 3),
+                         minuten_echt=round(float(sub["minuten_echt"].sum()), 1), partition=name, stunden=limit,
+                         zeitlimit=hour_step(limit), mem_gb=float(sub["mem_gb"].max())))
+    table = pd.DataFrame(rows)
+    table.insert(0, "buendel", np.arange(1, len(table) + 1))
+    order = table.assign(_neg=-table["minuten_echt"]).sort_values(["_neg", "welle"], kind="stable").index
+    table.loc[order, "reihenfolge"] = np.arange(1, len(table) + 1)
+    table["reihenfolge"] = table["reihenfolge"].astype(int)
+    return table, list(range(1, len(probe_groups) + 1))
+
+
+def welle1_tage(hours, cores=WELLE1_CORES):
+    """Tage fuer Welle 1 bei so vielen gleichzeitigen Kernen (Jobs): laengste Jobs zuerst auf den naechsten
+    freien Kern (wie refill.py, LONGEST_FIRST), Ende des letzten Jobs."""
+    import heapq
+    out = {}
+    for c in cores:
+        free = [0.0] * c
+        for h in sorted(hours, reverse=True):
+            heapq.heappush(free, heapq.heappop(free) + h)
+        out[c] = round(max(free) / 24, 1)
+    return out
+
+
+SUBMIT_VERGLEICH = """    vergleich) # Vergleich mit dem alten Format: {n} Jobs (ein Job, 5 Folds) nach Results_xgb_alle_vergleich
+           cmd=(sbatch --parsable --account=ls_math --array=0-{last} --partition={part} --time={hours}:00:00
+                --mem-per-cpu={mem} --job-name=hpo-xgb_alle_vergleich jobs_paper/run_alle_job.sbatch xgb_alle_vergleich
+                jobs_paper/xgb_alle_vergleich/alle.idx)
+           if [ -n "${{DRY:-}}" ]; then echo "${{cmd[*]}}"; exit 0; fi
+           id=$("${{cmd[@]}}")
+           printf '%s\\t%s\\t%s\\t%s\\t{part}\\t{hours}\\t{mem_gb}\\n' "$id" jobs_paper/xgb_alle_vergleich/alle.idx {n} \\
+               "$(date '+%F %T')" >> jobs_paper/xgb_alle_vergleich/submitted.tsv
+           echo "abgeschickt: Job $id (Vergleich altes Format, {n} Teiljobs); danach: python vergleiche_folds.py" ;;
+"""
+
+
+def vergleich_jobs(out, whole):
+    """Lauf xgb_alle_vergleich: XGB_VERGLEICH x 9 Methoden, Seed 27225, wie xgb_alle, aber ein Job mit 5 Folds
+    (altes Format) nach Results_xgb_alle_vergleich; schreibt jobs.tsv und alle.idx, gibt den submit-Fall zurueck."""
+    rows = whole[np.array([(s, t) in XGB_VERGLEICH for s, t in zip(whole["suite"], whole["task"])])
+                 & (whole["seed"] == PROBE[2])].assign(folder="Results_xgb_alle_vergleich")
+    folder = Path(out) / "xgb_alle_vergleich"
+    folder.mkdir(parents=True, exist_ok=True)
+    rows[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
+        folder / "jobs.tsv", sep="\t", index=False, header=False)
+    (folder / "alle.idx").write_text("\n".join(map(str, range(1, len(rows) + 1))) + "\n")
+    hours = hour_step(max(int(rows["stunden"].max()), 1))
+    part = next(name for name, longest in PARTITIONS if hours <= longest)
+    mem_gb = max(float(rows["mem_gb"].max()), 2.0)
+    return SUBMIT_VERGLEICH.format(n=len(rows), last=len(rows) - 1, part=part, hours=hours,
+                                   mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb))
+
+
 def main_gpb_alle(out, check=True, **kw):
     return main_alle(out, "gpb_alle", check=check, **kw)
 
@@ -792,12 +944,26 @@ def main_alle(out, run="gpb_alle", pred="jobs_paper/zeitmessung_neu_hochrechnung
     old_methods = GPB_ALLE_OLD_METHODS if run == "gpb_alle" else None
     jobs = pd.concat([build(run, sec, old, peaks, methods=old_methods), build(run, sec, new, peaks)],
                      ignore_index=True)
+    whole = jobs
+    bundled = "bundle_minutes" in settings
+    if bundled:
+        factor = faktoren()
+        jobs = jobs.assign(minuten_echt=[round(h * 60 * factor.get(m, (1.0, 1.0))[0], 2)
+                                         for h, m in zip(jobs["kernstunden"], jobs["method"])])
+        whole = jobs
+        in_probe = np.array([(s, t) in GPB_ALLE_PROBE for s, t in zip(jobs["suite"], jobs["task"])])
+        jobs = split_folds(jobs, settings["fold_split_minutes"], in_probe & (jobs["seed"] == PROBE[2]).values)
     jobs = plan(jobs, longest_first=True)
     jobs[["method", "seed", "suite", "task", "trials", "folder", "flags"]].to_csv(
         folder / "jobs.tsv", sep="\t", index=False, header=False)
     probe = jobs[np.array([(s, t) in GPB_ALLE_PROBE for s, t in zip(jobs["suite"], jobs["task"])])
                  & jobs["seed"].isin([PROBE[2], 0])]
     probe_lines = [i + 1 for i in probe.index]
+    if bundled:
+        table, probe_lines = make_bundles(jobs, *settings["bundle_minutes"], factor,
+                                          jobs.index.isin(probe.index))
+        table.to_csv(folder / "buendel.tsv", sep="\t", index=False)
+        probe_bundles = table.iloc[[b - 1 for b in probe_lines]]
     if not (folder / "arrays" / "probe.idx").exists():
         (folder / "arrays" / "probe.idx").write_text("\n".join(map(str, probe_lines)) + "\n")
     jobs["quelle_zeit"] = [source[(s, t)] for s, t in zip(jobs["suite"], jobs["task"])]
@@ -835,11 +1001,34 @@ def main_alle(out, run="gpb_alle", pred="jobs_paper/zeitmessung_neu_hochrechnung
                f"  Probe: {len(probe)} Jobs (Zeilen {', '.join(map(str, probe_lines))}): "
                + ", ".join(f"{r.name} {r.method} {r.kernstunden:.2f} h" for r in probe.itertuples()),
                "  Reihenfolge: laengste Jobs zuerst (geschaetzte Kernstunden absteigend, ueber alle Wellen)"]
+    if bundled:
+        split = jobs["flags"].str.contains("--fold")
+        w1, b1 = jobs[jobs["welle"] == 1], table[table["welle"] == 1]
+        hours = b1["minuten_echt"] / 60
+        longest = b1.loc[b1["minuten_echt"].idxmax()]
+        summary += [f"  Faktor echt/geschaetzt je Methode (gpb_alle Welle 1, {FAKTOR_ECHT}): "
+                    + (", ".join(f"{m} {f[0]:.2f} (q90 {f[1]:.2f})" for m, f in factor.items()) or "keine Datei, 1.0"),
+                    f"  Fold-Jobs: {int(split.sum()) // FOLDS:,} Jobs mit mehr als {settings['fold_split_minutes']} "
+                    f"echten min je Fold (und Seed {PROBE[2]} der Probe-Aufgaben) in je 5 Fold-Jobs geteilt "
+                    f"(--fold 0-4, gleiche Ergebnisdatei): {len(jobs):,} Zeilen in jobs.tsv",
+                    f"  Buendel (buendel.tsv, Slurm-Jobs): {len(table):,}; Zeilen unter {settings['bundle_minutes'][0]} "
+                    f"echten min zu {settings['bundle_minutes'][0]}-{settings['bundle_minutes'][1]} min gebuendelt",
+                    f"  Welle 1 allein (gerechnet wird nur Welle 1: refill.py --wellen 1): {len(b1):,} Slurm-Jobs "
+                    f"({len(w1):,} Zeilen), echte Dauer je Job Median {hours.median() * 60:.0f} min, Minimum "
+                    f"{hours.min() * 60:.1f} min, unter 10 min {int((hours < 1 / 6).sum())} (davon Probe "
+                    f"{int(((hours < 1 / 6) & b1['buendel'].isin(probe_lines)).sum())}), unter 30 min "
+                    f"{int((hours < 0.5).sum())}; laengster Job {longest['minuten_echt'] / 60:.1f} h echt "
+                    f"(Zeitlimit {int(longest['zeitlimit'])} h, {longest['partition']}), groesstes Zeitlimit "
+                    f"{int(b1['zeitlimit'].max())} h; {hours.sum():,.0f} echte Kernstunden",
+                    "  Welle 1 Dauer (laengste zuerst, gleichzeitige Jobs -> Tage): " + ", ".join(
+                        f"{c} -> {d}" for c, d in welle1_tage(hours).items())]
     for c in costs.itertuples():
         summary.append(f"  Welle {c.welle} (Seeds {(c.welle - 1) * WAVE_SIZE + 1}-{c.welle * WAVE_SIZE}"
                        f"{' + Default' if c.welle == 1 else ''}): {c.jobs:,} Jobs, {c.kernstunden:,} Kernstunden, "
                        + ", ".join(f"bei {k} Kernen ~{getattr(c, f'tage_{k}_kerne')} Tage" for k in CORES)
-                       + f" (laengster Job {c.laengster_job_h} h)")
+                       + f" (laengster Job {c.laengster_job_h} h)"
+                       + (" [Zeilen von jobs.tsv, Schaetzung ohne Faktor echt/geschaetzt; echte Werte oben]"
+                          if bundled else ""))
     summary += [f"Alle Wellen: {len(jobs):,} Jobs, {costs['kernstunden'].sum():,} Kernstunden. Abschicken: "
                 f"python refill.py --run {run}. Probe zuerst: bash jobs_paper/submit_{run}.sh probe",
                 *NEW_VS_GPB[run],
@@ -847,13 +1036,25 @@ def main_alle(out, run="gpb_alle", pred="jobs_paper/zeitmessung_neu_hochrechnung
     if check and run == "gpb_alle":
         summary += [*pruefe_wiederverwendung(out)[1], ""]
     hours = int(probe["zeitlimit"].max())
-    part = next(name for name, longest in PARTITIONS if hours <= longest)
     mem_gb = max(float(probe["mem_gb"].max()), 2.0)
+    if bundled:                             # Probe-Buendel; Zeitlimit mindestens 4 h wie bisher
+        hours = max(int(probe_bundles["zeitlimit"].max()), 4)
+        mem_gb = max(float(probe_bundles["mem_gb"].max()), 2.0)
+    part = next(name for name, longest in PARTITIONS if hours <= longest)
     (out / "run_alle_job.sbatch").write_text(SBATCH_ALLE)
-    (out / f"submit_{run}.sh").write_text(SUBMIT_ALLE.format(
+    submit = SUBMIT_ALLE.format(
         run=run, methods=", ".join(GPB_ALLE_METHODS), n=len(probe), last=len(probe) - 1,
         names=", ".join(probe["name"].unique()), seed=PROBE[2], part=part,
-        hours=hours, mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb)))
+        hours=hours, mem=speicher.sbatch_mem(mem_gb), mem_gb=speicher.fmt(mem_gb))
+    if bundled:
+        n = len(probe_lines)
+        submit = submit.replace(f"--array=0-{len(probe) - 1} ", f"--array=0-{n - 1} ", 1) \
+            .replace(f"jobs_paper/run_alle_job.sbatch {run}", f"jobs_paper/run_buendel_job.sbatch {run}", 1) \
+            .replace(f"probe.idx\" {len(probe)} ", f"probe.idx\" {n} ", 1) \
+            .replace(f"{len(probe)} Teiljobs", f"{n} Buendel", 1) \
+            .replace(f"Probe des Laufs {run}: {len(probe)} Jobs", f"Probe des Laufs {run}: {n} Buendel mit {len(probe)} Zeilen", 1)
+        submit = submit.replace("    *)     echo", vergleich_jobs(out, whole) + "    *)     echo", 1)
+    (out / f"submit_{run}.sh").write_text(submit)
     (folder / "zusammenfassung.txt").write_text("\n".join(summary))
     print("\n".join(summary))
     return jobs
@@ -936,12 +1137,16 @@ if __name__ == "__main__":
     parser.add_argument("--timing", default="jobs_paper/zeitmessung_mac.tsv")
     parser.add_argument("--memory", default="jobs_paper/speicher_mac.tsv", help="aus measure_memory.py")
     parser.add_argument("--euler", default="jobs_paper/speicher_euler.tsv", help="aus watch_paper.py --speicher")
+    parser.add_argument("--faktor", help="laufzeiten_gpb_alle.tsv (Euler) -> " + FAKTOR_ECHT + ", dann Ende")
     parser.add_argument("--run", choices=("paper+l1_270", "extra", "gpb", "gpb_l1", "gpb_alle", "xgb_alle", "cat_alle"), default="paper+l1_270",
                         help="extra: nur den Lauf extra (BOHB, DEHB, HEBO) schreiben; gpb: nur den Lauf gpb (korrekte "
                              "Skalen ohne lambda_l1); gpb_l1: wie gpb mit lambda_l1 (log) und 270 Versuchen; "
                              "gpb_alle: GPBoost, alle Methoden und Datensaetze, Skalen gpboost, ohne lambda_l1; "
                              "Standard: paper und l1_270")
     args = parser.parse_args()
+    if args.faktor:
+        print(echt_faktoren(args.faktor).round(3).to_string(index=False))
+        sys.exit(0)
     if args.run == "extra":
         main_extra(args.out, args.timing, args.memory, args.euler)
     elif args.run in ALLE_RUNS:

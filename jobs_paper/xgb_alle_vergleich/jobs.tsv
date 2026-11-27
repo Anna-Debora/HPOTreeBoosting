@@ -1,0 +1,18 @@
+grid_search	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost --paper_grid
+random_search	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+tpe	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+gp_bo	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+hyperband	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+SMAC	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+bohb	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+dehb	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+hebo	27225	1001	920074	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+grid_search	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost --paper_grid
+random_search	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+tpe	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+gp_bo	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+hyperband	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+SMAC	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+bohb	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+dehb	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost
+hebo	27225	1002	930017	135	Results_xgb_alle_vergleich	--library xgboost --l1 off --scales gpboost

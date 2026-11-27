@@ -1,6 +1,6 @@
 """test_lib_alle.py -- Laeufe xgb_alle und cat_alle (XGBoost, CatBoost; SUCHRAEUME_XGB_CAT.md).
 
-  Jobs        je Lauf 345 x (1 + 20 x 9) = 62445 Jobs, alle Methoden auf allen Aufgaben, T = 135, ohne lambda_l1,
+  Jobs        je Lauf 345 x (1 + 20 x 9) = 62445 Jobs (xgb_alle: lange als 5 Fold-Jobs, test_folds.py), alle Methoden auf allen Aufgaben, T = 135, ohne lambda_l1,
               Flags --library <lib> --l1 off --scales gpboost (Gitter + --paper_grid, Default --library <lib>)
   Repo        jobs.tsv, probe.idx, submit_<lauf>.sh = neu erzeugt
   Suchraum    CatBoost: depth [1, 10] linear statt num_leaves, ohne min_data_in_leaf, border_count <= 1024,
@@ -55,8 +55,17 @@ def restore_settings(test):
 class JobsTests(unittest.TestCase):
     def test_jobs(self):
         for run, library in (("xgb_alle", "xgboost"), ("cat_alle", "catboost")):
-            jobs = wp.load_jobs(run, with_files=False)
-            self.assertEqual(len(jobs), 345 * (1 + 20 * 9), run)
+            jobs = wp.load_jobs(run, with_files=False, lines=True)
+            folds = jobs["flags"].str.extract(r" --fold (\d)$")[0]
+            jobs = jobs.assign(flags=jobs["flags"].str.replace(r" --fold \d$", "", regex=True))
+            if run == "xgb_alle":        # lange Jobs als 5 Fold-Jobs (FoldTests); sonst ein Job je Zeile
+                self.assertTrue(folds.notna().any())
+            else:
+                self.assertTrue(folds.isna().all())
+            per_job = jobs.assign(fold=folds).groupby(["method", "seed", "suite", "task"])["fold"].apply(
+                lambda f: tuple(sorted(f.dropna())))
+            self.assertTrue(per_job.isin([(), ("0", "1", "2", "3", "4")]).all(), run)
+            self.assertEqual(len(per_job), 345 * (1 + 20 * 9), run)
             self.assertEqual(jobs["task"].nunique(), 345)
             self.assertEqual(set(jobs["method"]), set(mpj.GPB_ALLE_METHODS))
             self.assertEqual(set(jobs["trials"]), {135})
@@ -93,7 +102,8 @@ class JobsTests(unittest.TestCase):
     def test_infrastructure(self):
         for run in ("xgb_alle", "cat_alle"):
             self.assertIn(run, refill.LONGEST_FIRST)
-            self.assertIn("jobs_paper/run_alle_job.sbatch", refill.sbatch_command(run, "normal.4h", 4, 1, "x", 2))
+            script = "run_buendel_job" if run == "xgb_alle" else "run_alle_job"     # xgb_alle: Buendel
+            self.assertIn(f"jobs_paper/{script}.sbatch", refill.sbatch_command(run, "normal.4h", 4, 1, "x", 2))
             self.assertIn(run, wp.LIBRARY_RUNS)
             self.assertIn(f"hpo-{run}", wp.JOB_NAMES)
         self.assertIn("--library", Path("jobs_paper/run_alle_job.sbatch").read_text())
